@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Slider Hero</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0a0a0f;
+        color: #fff;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      #app { position: fixed; inset: 0; }
+      canvas { display: block; cursor: grab; touch-action: none; }
+      canvas:active { cursor: grabbing; }
+      /* Edge fog: a circular vignette that fades to the scene bg color at
+         the corners and sides of the viewport, leaving the center clear.
+         Sized so the clear region is a circle near the middle of the
+         viewport and the corners are fully bg-colored. */
+      .edge-fog {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(
+          circle at center,
+          rgba(252, 252, 250, 0) 30%,
+          rgba(252, 252, 250, 1) 85%
+        );
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div class="edge-fog"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
