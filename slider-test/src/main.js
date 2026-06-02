@@ -160,7 +160,10 @@ scene.add(sliderGroup);
 
 // Video sources for the slider. Swap these for Cloudinary URLs later — the
 // rest of the pipeline doesn't care where the URL points.
-const VIDEO_URLS = ['/video-1.mp4', '/video-2.mp4'];
+const VIDEO_URLS = [
+  `${import.meta.env.BASE_URL}video-1.mp4`,
+  `${import.meta.env.BASE_URL}video-2.mp4`,
+];
 
 // One <video> element + VideoTexture per source URL. All slides that share a
 // URL share the texture (so they're frame-synced and cheap).
@@ -560,7 +563,7 @@ const draco  = new DRACOLoader();
 draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(draco);
 
-loader.load('/test_2_updated.glb', (gltf) => {
+loader.load(`${import.meta.env.BASE_URL}test_2_updated.glb`, (gltf) => {
   gltf.scene.updateMatrixWorld(true);
 
   const meshInfos = [];
