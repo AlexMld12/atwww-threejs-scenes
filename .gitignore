@@ -3,3 +3,6 @@ node_modules/
 *.log
 .vite/
 dist/
+
+# Per-scene agent briefs — kept local, not published to the repo
+CLAUDE.md
