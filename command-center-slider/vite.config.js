@@ -23,5 +23,16 @@ export default defineConfig({
     target: 'es2020',
     sourcemap: false,
     assetsInlineLimit: 0,
+    // Stable, unhashed entry filename so the Webflow <script> can point at a
+    // fixed jsDelivr URL (…/assets/command-center.js) that doesn't change every
+    // build. Cache-busting on deploy is handled by pinning the jsDelivr URL to a
+    // git tag/commit instead of by the filename hash.
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/command-center.js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name][extname]',
+      },
+    },
   },
 });

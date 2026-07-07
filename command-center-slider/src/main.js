@@ -17,21 +17,62 @@ RectAreaLightUniformsLib.init();
 // render at 3× on phones.
 const IS_MOBILE = /Android|iPhone|iPad|iPod|webOS|BlackBerry|Mobile/i.test(navigator.userAgent);
 const PIXEL_RATIO_CAP    = IS_MOBILE ? 1   : 1.5;
-const MSAA_SAMPLES       = IS_MOBILE ? 0   : 2;
-const REFLECTOR_RT_SCALE = IS_MOBILE ? 0.4 : 0.5;
-const ENABLE_REFLECTORS  = !IS_MOBILE;
+// MSAA smooths geometry edges (screen borders, logo silhouette). Enabled on
+// mobile too (4×) now that the RT is 8-bit there — the low-bandwidth RT keeps
+// the MSAA affordable, and it kills the "stairs" on the video/logo edges.
+const MSAA_SAMPLES       = IS_MOBILE ? 4   : 2;
+// Reflectors render the whole scene into a texture — the biggest GPU cost. On
+// mobile keep ONLY the floor mirror (so the videos still read as reflected) at a
+// lower RT scale (it only needs to look "reflective", not crisp), and drop the
+// ceiling mirror (a second full-scene render is too expensive on phones).
+const REFLECTOR_RT_SCALE   = IS_MOBILE ? 0.3 : 0.5;
+const ENABLE_FLOOR_REFLECTOR = true;         // floor mirror on both (mobile at reduced RT)
+const ENABLE_ROOF_REFLECTOR  = !IS_MOBILE;   // ceiling mirror desktop-only
+// Blur kernel radius for the frosted hover mask: 5×5 (25 taps) on desktop, 3×3
+// (9 taps) on mobile — this shader runs on every video-plane fragment every
+// frame, so trimming taps directly helps the video phase where mobile lags.
+// Desktop 5×5 (25 taps). Mobile 1 tap (no blur): the mask never fades on mobile
+// (no hover), so its frosted blur is never visible there — but it costs texture
+// reads on every fragment of all 3 screens, exactly at the video phase where
+// mobile is slowest. Dropping to 1 tap is free visually and cuts that fill.
+const MASK_KERNEL_R    = IS_MOBILE ? 0 : 2;
+const MASK_KERNEL_TAPS = (2 * MASK_KERNEL_R + 1) * (2 * MASK_KERNEL_R + 1);
+
+// ─── Mount target + viewport sizing ─────────────────────────────────────────
+// Mount into the Webflow container (#cc-canvas, absolute-filling the sticky
+// section) when embedded, or the local #app scaffold for `npm run dev`. All
+// sizing is driven off this element's client size rather than window.innerHeight
+// (which shrinks/grows as the mobile URL bar shows/hides) so the canvas stays
+// locked to its container and scrolling never exposes a gap.
+const appEl = document.getElementById('cc-canvas') || document.getElementById('app');
+const viewportW = () => appEl.clientWidth  || window.innerWidth;
+const viewportH = () => appEl.clientHeight || window.innerHeight;
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
-renderer.setSize(window.innerWidth, window.innerHeight);
+// updateStyle=false: we only drive the drawing-buffer size and set the canvas
+// CSS to fill its container ourselves (below), so it works whether or not the
+// host page has a `#app canvas { width:100% }` rule.
+renderer.setSize(viewportW(), viewportH(), false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-document.getElementById('app').appendChild(renderer.domElement);
+renderer.domElement.style.display = 'block';
+renderer.domElement.style.width   = '100%';
+renderer.domElement.style.height  = '100%';
+appEl.appendChild(renderer.domElement);
 
 // ─── Loader overlay (plain black, hides the canvas until assets are ready) ──
 const loaderEl = document.createElement('div');
 loaderEl.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9999;transition:opacity 0.6s ease-out';
 document.body.appendChild(loaderEl);
+
+// ─── Floor "concrete" blackout ──────────────────────────────────────────────
+// As the camera passes DOWN through the (hollow) floor, fade the whole view to
+// black — like sinking into solid concrete — then fade back to reveal the logo
+// below. Opacity is driven per-frame from the camera height vs the floor.
+const blackoutEl = document.createElement('div');
+blackoutEl.style.cssText = 'position:fixed;inset:0;background:#000;z-index:2;pointer-events:none;opacity:0';
+document.body.appendChild(blackoutEl);
 
 const loadingState = {
   glb:    false,
@@ -67,7 +108,7 @@ setTimeout(() => {
 
 function startLogoAnimation() {
   if (!layout.ready) return;
-  logoAnim.phase      = 'intro';
+  logoAnim.phase      = 'run';
   logoAnim.phaseStart = performance.now() / 1000;
   logoAnim.currentY   = logoBase.y - params.logoAnimRise;
   logoGroup.position.y      = logoAnim.currentY;
@@ -81,7 +122,7 @@ function startLogoAnimation() {
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xFCFCFA);
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(55, viewportW() / viewportH(), 0.1, 100);
 // Layer 1 = "main view only" — used for the hover masks so the planar
 // reflectors (whose virtual camera defaults to layer 0) don't see the dark
 // red mask covering the videos. The reflection then shows the bare video
@@ -89,35 +130,45 @@ const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerH
 const LAYER_MAIN_ONLY = 1;
 camera.layers.enable(LAYER_MAIN_ONLY);
 
+// Effective camera distance — updated by updateFraming() from the viewport
+// aspect (pulled back on portrait so the ring fits). Used in animate().
+let camDistanceEff = 4;
+
 // ─── Postprocessing (EffectComposer) ────────────────────────────────────────
 // EffectComposer renders into an offscreen RT, which bypasses the renderer's
-// own MSAA. Give the composer its own RT with samples:4 so the OutlinePass'
-// thin neon edges don't ladder, and HalfFloatType so any future HDR pass
-// doesn't clip bright pixels.
+// own MSAA. Give the composer its own RT with MSAA (samples) so geometry edges
+// (screen borders, logo silhouette) and the OutlinePass' thin neon edges don't
+// ladder. Desktop uses HalfFloatType (headroom for any future HDR pass); mobile
+// uses UnsignedByteType (8-bit) — far lower bandwidth, a big win on weaker
+// Android GPUs that are slow with float render targets. No HDR pass is in the
+// chain, so 8-bit clips nothing visible.
 const composerRT = new THREE.WebGLRenderTarget(
-  window.innerWidth,
-  window.innerHeight,
-  { type: THREE.HalfFloatType, samples: MSAA_SAMPLES },
+  viewportW(),
+  viewportH(),
+  {
+    type:    IS_MOBILE ? THREE.UnsignedByteType : THREE.HalfFloatType,
+    samples: MSAA_SAMPLES,
+  },
 );
 const composer = new EffectComposer(renderer, composerRT);
 composer.addPass(new RenderPass(scene, camera));
 
 const outlinePass = new OutlinePass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  new THREE.Vector2(viewportW(), viewportH()),
   scene,
   camera,
 );
 outlinePass.edgeStrength    = 4.0;
 outlinePass.edgeGlow        = 0.8;
 outlinePass.edgeThickness   = 1.0;
-outlinePass.downSampleRatio = 1;  // edge buffers at full res — kills outline stairs
+outlinePass.downSampleRatio = 1;  // full-res edge buffers everywhere — kills the neon-outline stairs on the logo (mobile included)
 outlinePass.visibleEdgeColor.set('#f95921');
 outlinePass.hiddenEdgeColor.set('#f95921');
 composer.addPass(outlinePass);
 // SMAA smooths the outline's post-process edges (which MSAA can't touch
 // since they're drawn after the resolved render pass).
 const pr = renderer.getPixelRatio();
-composer.addPass(new SMAAPass(window.innerWidth * pr, window.innerHeight * pr));
+composer.addPass(new SMAAPass(viewportW() * pr, viewportH() * pr));
 composer.addPass(new OutputPass());
 
 // Only the ring spotlight and the per-screen RectAreaLights illuminate the
@@ -126,14 +177,14 @@ composer.addPass(new OutputPass());
 // ─── Tunable params ──────────────────────────────────────────────────────────
 const params = {
   // Background / colors
-  bg:             '#000000',
+  bg:             '#010101',
   gradientTop:    '#FFC34B',
   gradientBottom: '#F95921',
 
   floorColor1: '#a00d00',
-  floorColor2: '#000000',
-  floorColor3: '#000000',
-  floorColor4: '#000000',
+  floorColor2: '#010101',
+  floorColor3: '#010101',
+  floorColor4: '#010101',
   // Reflectivity / emission
   floorMetalness: 0.6,
   floorRoughness: 0.25,
@@ -141,19 +192,19 @@ const params = {
 
   // Floor planar reflector (gives a real, curved mirror reflection of the
   // screens — ring shape so the inner well around the logo isn't covered).
-  reflectorEnabled:    ENABLE_REFLECTORS,
+  reflectorEnabled:    ENABLE_FLOOR_REFLECTOR,
   reflectorInnerRadius: 2.0,
   reflectorTint:       '#850f0f',
   reflectorLift:       0.001,
-  reflectorBlur:       0.0035,        // crisp mirror by default
+  reflectorBlur:       0.0055,        // crisp mirror by default
 
   // Roof planar reflector — same idea but flipped, with a touch of blur so
   // the ceiling reads as a softer mirror.
-  roofReflectorEnabled:    ENABLE_REFLECTORS,
+  roofReflectorEnabled:    ENABLE_ROOF_REFLECTOR,
   roofReflectorInnerRadius: 0,
   roofReflectorTint:       '#230505',
   roofReflectorLift:       0.008,  // offset DOWN from the ceiling underside
-  roofReflectorBlur:       0.0035,
+  roofReflectorBlur:       0.0075,
 
   // Logo glass/ice (MeshPhysicalMaterial transmission)
   logoGlassColor:        '#850f0f',  // base color of the glass
@@ -164,11 +215,33 @@ const params = {
   logoGlassThickness:    0,        // volume thickness for refraction depth
   logoGlassTransmission: 1.0,        // 0 = opaque, 1 = fully see-through
 
+  // Logo exit gradient (emissive) — the logo swaps to this while leaving, so it
+  // stays visible diving into the unlit well below the ring. Vertical gradient.
+  logoGradientTop:       '#6e0d0d',  // color at the top of the logo (darker)
+  logoGradientBottom:    '#ff7a1f',  // color at the bottom (bright)
+  logoGradientStart:     0.5,        // exit progress (0..1) where the gradient begins to crossfade (higher = later/deeper)
+
   // Logo orientation + intro animation
   logoRotationY:    90,   // degrees around Y so the logo faces the camera
   logoAnimRise:     2,    // start this far BELOW logoBase, then rise to it
   logoAnimDuration: 3,    // rise + opacity fade + outline ramp all share this
   spotAnimDuration: 6,    // spotlight ramps independently over this duration
+
+  // Logo scroll-exit — after the ring has rotated, scrolling further sinks the
+  // logo back down under the ring and fades it out ("leaves the scene").
+  logoExitStart:      0.25, // scroll progress (0..1) where the logo starts to leave (DESKTOP; mobile overridden below)
+  logoExitEnd:        0.45, // scroll progress where the transition (gradient/camera dip) completes (DESKTOP)
+  logoExitDrop:       3.5,  // camera follows the logo down this far through the floor (the transition drop)
+  logoExitFollowRate: 8,    // easing rate for the exit — also smooths the intro→scroll handoff
+  logoContinueDrop:   7.5,  // beyond logoExitEnd the logo eases DOWN by this many units total and SETTLES (bounded — it does not keep falling out of view). This is a LONG descent so the camera (which follows ~cameraContinueFollow of it) travels deep past the floor/ceiling into empty black space. Bigger = deeper journey / floor leaves the frame sooner.
+  logoSpinDeg:        1300,  // degrees the logo spins (like a top) per unit of scroll beyond logoExitEnd — a touch faster
+  cameraFollowExit:   1.0,  // how much the camera height follows the exiting logo (0..1)
+  cameraContinueFollow: 0.93, // in the empty space (continued descent past logoExitEnd) the camera follows this fraction of the logo's sink. High so the camera travels deep WITH the logo (surroundings leave the frame → pure black) while the small remainder (1 - this) × logoContinueDrop leaves the logo resting just BELOW frame centre. Higher → logo higher/more centred; lower → logo lower.
+  logoExitMinScale:   0.3,  // the logo shrinks to this fraction of its rest size at the bottom of the continued descent (smaller when it's far down in the empty space)
+
+  // Logo mouse parallax — very subtle, always active (does not wait for intro).
+  logoParallaxAmp:  0.08, // max positional offset (world units); keep small
+  logoParallaxRate: 8,    // easing rate toward the mouse target (higher = snappier)
 
   // Neon outline (OutlinePass)
   outlineEnabled:   true,
@@ -177,14 +250,25 @@ const params = {
   outlineGlow:      2,
   outlineThickness: 1.0,
 
-  // Camera (orbital around the logo, yaw-only)
+  // Camera (fixed pose; scroll rotates the ring, not the camera)
   fov:               70,
   cameraDistance:    4,
   cameraHeight:      0.0,
-  cameraThetaDeg:    0,
   lookOffsetX:       0,
   lookOffsetY:       2,
   lookOffsetZ:       0,
+  // Responsive framing: on viewports NARROWER than framingRefAspect (portrait /
+  // tablet) the camera pulls back so the wide ring still fits; on landscape /
+  // desktop (aspect ≥ ref) the base distance is kept. portraitFit scales how
+  // aggressively it pulls back:
+  //   1.0 = fully fit the whole ring (smallest, big empty bands top/bottom)
+  //   0.0 = never pull back (biggest — desktop distance — crops the ring sides)
+  // 0.35 keeps the composition large (center screen fills the phone, sides
+  // cropped) and, as a side effect, drops the logo lower in frame at the end of
+  // the scroll (a nearer camera makes the logo's world-space sink read bigger).
+  // Raise → smaller / more of the ring fits. Lower → bigger / more crop.
+  framingRefAspect:  1.6,
+  portraitFit:       0.35,
 
   // Scene layout
   sceneZ:           -5,
@@ -192,10 +276,40 @@ const params = {
   floorRadius:      7,
   logoExtraScale:   1.0,
 
-  // Interaction
-  cameraDragSensitivity: 0.001,
-  cameraFollowRate:      2,
-  cameraInvertX:         false,
+  // Floor "concrete" blackout — the view fades to black while the camera passes
+  // down through the floor, then clears below it to reveal the logo. World Y,
+  // relative to floorTargetY (the floor surface).
+  blackoutEnabled:  true,
+  blackoutFadeIn:   0.3,   // start darkening this far ABOVE the floor
+  blackoutDepth:    0.5,   // stay fully black from the floor down to this depth
+  blackoutFadeOut:  0.5,   // then fade back to clear over this further distance
+
+  // Floor occluder — an opaque dark ring just under the floor reflector. The
+  // reflector is a single-sided plane, so from below its backface is culled and
+  // you see the videos "through" it. This ring backs it. It's only shown while
+  // the camera is BELOW the floor (see animate) — otherwise, with the camera
+  // above and the logo dipping below, it would also cover the logo.
+  // Solid floor "concrete" occluder (disabled — using the blackout fade instead).
+  occluderEnabled:     false,
+  occluderColor:       '#010101',
+  occluderInnerRadius: 2.0,
+  occluderDepth:       1.0,
+
+  floorMeshVisible:    true,
+
+  // Well — the central pit the logo dives into. (Disabled: only useful with the
+  // camera-dive-into-well behavior, which we're not using.)
+  wellEnabled:     false,
+  wellColor:       '#010101',
+  wellRadius:      2.0,   // the well opening (≈ reflectorInnerRadius)
+  wellDepth:       6.0,   // how deep the walls go
+  wellShowMargin:  0.6,   // walls appear once the camera is within this of the well radius
+
+  // Scroll-driven ring rotation (camera is fixed). DESKTOP values; mobile gets
+  // its own tour timing in the IS_MOBILE override block below.
+  ringStartRotationDeg: 50,    // base rotation at scroll=0 so the initial view is framed/centered
+  scrollMaxRotationDeg: 150,   // extra rotation added over the full scroll — small turn, not a full spin
+  scrollFollowRate:     6,     // higher = ring tracks scroll faster (less lag)
 
   // Hover mask on the video planes
   maskColor:       '#2e0000',
@@ -204,7 +318,6 @@ const params = {
   maskBlur:        0.005,
   maskNoiseAmount: 0.12,   // 0 = none, 1 = full TV static
   maskNoiseSpeed:  60,     // higher = faster scrambling
-  hoverBadgeSize:  0.16,   // sticker size as a fraction of the screen's UV (0..1)
 
   // Video → light color smoothing
   videoColorSmoothRate: 4,
@@ -225,14 +338,50 @@ const params = {
   ringTargetOffsetY:  0.8,   // height above logoBase where the spot aims
 };
 
-// `import.meta.env.BASE_URL` keeps these resolving relative to the deployed
-// page (e.g. under the GitHub Pages subfolder), not the domain root.
+// ─── Mobile-only tour/exit timing ───────────────────────────────────────────
+// On portrait the ring reads differently and the camera is further back, so the
+// screen tour needs its own framing + timing. DESKTOP keeps every value above
+// untouched; only mobile gets these overrides.
+if (IS_MOBILE) {
+  // Screens are ~72° apart: screen 1 centered @ ring 0°, screen 2 @ 72°, screen
+  // 3 @ 144.7°; screen 1 swings back into the camera at ring 148°. So center
+  // screen 3 (@144.7) around scroll 0.45, then HARD-CLAMP the ring at 145° so it
+  // never reaches 148° — even as the exit keeps advancing scroll — which would
+  // pull the first screen through the camera.
+  params.ringStartRotationDeg = 0;    // first screen centered at scroll 0
+  params.scrollMaxRotationDeg = 322;  // screen 2 @ scroll 0.22, screen 3 @ scroll 0.45
+  params.ringMaxRotationDeg   = 145;  // clamp: hold on screen 3, below the 148° intrusion
+  params.logoExitStart        = 0.5;  // delay the exit so all 3 screens are toured first
+  params.logoExitEnd          = 0.68;
+  // Descent: the portrait camera sits ~1.9× further back, so the same world-space
+  // sink reads about half as deep on screen. Push the logo down further and let it
+  // drift lower relative to the camera so it ends near the bottom edge (like
+  // desktop) and the camera dives deep enough that the floor leaves the frame.
+  params.logoContinueDrop     = 14;   // was 7.5 — deeper sink for the further camera
+  params.cameraContinueFollow = 0.8;  // was 0.93 — logo sits lower in the frame
+  // Spin: the final orientation is (1 − logoExitEnd) × logoSpinDeg. With mobile's
+  // logoExitEnd (0.68) that span is 0.32, so 2250° lands on exactly 720° (2 full
+  // turns) → the logo settles facing forward, same as its start (like desktop).
+  params.logoSpinDeg          = 2250;
+}
+
+// Asset base URL. Locally (npm run dev / the standalone page) this is
+// import.meta.env.BASE_URL so the GLB/videos resolve relative to the deployed
+// page. When embedded in Webflow the relative path is wrong, so the host page
+// sets `window.CC_ASSET_BASE` (e.g. a jsDelivr URL, CORS-enabled — required for
+// the video color sampling) BEFORE loading this script, and we use that instead.
+// Must end with a trailing slash.
+const ASSET_BASE = (typeof window !== 'undefined' && window.CC_ASSET_BASE) || import.meta.env.BASE_URL;
+
+// Mobile loads 360p variants (videos/mobile/) — the per-frame video-texture
+// UPLOAD to the GPU is the mobile bottleneck (3 streams at once), and 360p is
+// ~4× less pixel data than the 720p desktop files while still being sharp on a
+// phone-sized screen. Desktop keeps the full-resolution files.
+const VIDEO_DIR = IS_MOBILE ? 'videos/mobile/' : 'videos/';
 const TEST_VIDEOS = [
-  `${import.meta.env.BASE_URL}videos/clip_1.mp4`,
-  `${import.meta.env.BASE_URL}videos/clip_2.mp4`,
-  `${import.meta.env.BASE_URL}videos/clip_3.mp4`,
-  `${import.meta.env.BASE_URL}videos/clip_4.mp4`,
-  `${import.meta.env.BASE_URL}videos/clip_5.mp4`,
+  `${ASSET_BASE}${VIDEO_DIR}Space.mp4`,
+  `${ASSET_BASE}${VIDEO_DIR}Roblox.mp4`,
+  `${ASSET_BASE}${VIDEO_DIR}Mrbeast-Ig.mp4`,
 ];
 
 // Measurements pulled from the GLB after it loads.
@@ -266,36 +415,53 @@ const glassMaterial = new THREE.MeshPhysicalMaterial({
   side:                THREE.DoubleSide,
 });
 
-// ─── Hover badge ("HOVER" sticker) shared by every video mask ───────────────
-const hoverBadgeTexture = (() => {
-  const SIZE = 512;
-  const c = document.createElement('canvas');
-  c.width = SIZE; c.height = SIZE;
-  const ctx = c.getContext('2d');
-  const cx = SIZE / 2, cy = SIZE / 2;
-  // Thin outer ring — subtle, no fill, lets the video below breathe through.
-  ctx.strokeStyle = 'rgba(249, 89, 33, 0.85)';
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(cx, cy, SIZE / 2 - 80, 0, Math.PI * 2); ctx.stroke();
-  // Even fainter inner ring — gives it depth without a heavy fill.
-  ctx.strokeStyle = 'rgba(249, 89, 33, 0.25)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(cx, cy, SIZE / 2 - 96, 0, Math.PI * 2); ctx.stroke();
-  // Clean label, letter-spaced
-  ctx.fillStyle = 'rgba(249, 89, 33, 0.95)';
-  ctx.font = '500 56px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('H O V E R', cx, cy);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  // Match the video texture's orientation convention so the sticker
-  // shares the same UV mapping on the curved screen (otherwise the
-  // canvas Y axis flips relative to the video).
-  tex.flipY = false;
-  return tex;
-})();
+// ─── Logo exit gradient material (unlit vertical gradient) ──────────────────
+// On its way out the logo dives into the unlit well below the ring, where the
+// transmissive glass would go invisible. Swap to this self-lit gradient so it
+// stays clearly readable as it leaves. uMinY/uMaxY are set to the logo's local
+// Y bounds once the GLB loads.
+// It renders as a thin "shell" coincident with the glass logo (polygonOffset +
+// depthWrite:false keep it just in front without z-fighting). uOpacity crossfades
+// it in smoothly over the glass as the logo exits — no hard material swap.
+const gradientMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uTop:     { value: new THREE.Color(params.logoGradientTop) },
+    uBottom:  { value: new THREE.Color(params.logoGradientBottom) },
+    uMinY:    { value: 0 },
+    uMaxY:    { value: 1 },
+    uOpacity: { value: 0 },
+  },
+  vertexShader: /* glsl */`
+    varying float vY;
+    void main() {
+      vY = position.y;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform vec3 uTop;
+    uniform vec3 uBottom;
+    uniform float uMinY;
+    uniform float uMaxY;
+    uniform float uOpacity;
+    varying float vY;
+    void main() {
+      float t = clamp((vY - uMinY) / max(uMaxY - uMinY, 1e-4), 0.0, 1.0);
+      gl_FragColor = vec4(mix(uBottom, uTop, t), uOpacity);
+    }
+  `,
+  side:          THREE.DoubleSide,
+  transparent:   true,
+  depthWrite:    false,   // don't block; blends over the glass
+  // The shell shares the glass mesh's exact geometry, so a plain polygonOffset
+  // isn't enough on curved/grazing areas — the shell loses the depth test against
+  // the coincident glass there and shows z-fighting stripes. Disable depthTest so
+  // the shell always draws. Safe here: the gradient colour depends only on
+  // position.y, so DoubleSide front/back faces paint identically (no ordering
+  // artifact), and the shell is only visible (uOpacity>0) once the logo is alone
+  // in the empty well with nothing in front of it.
+  depthTest:     false,
+});
 
 // ─── Mask shader (frosted-glass blur of the video behind, plus red tint) ────
 function makeMaskMaterial() {
@@ -307,14 +473,23 @@ function makeMaskMaterial() {
       uBlur:         { value: params.maskBlur },
       uNoiseAmount:  { value: params.maskNoiseAmount },
       uTime:         { value: 0 },
-      uBadgeTex:     { value: hoverBadgeTexture },
-      uBadgeScale:   { value: params.hoverBadgeSize },
+      // Cover-fit transform (matches the screen material's texture repeat/offset)
+      // so the blurred mask crops the video the same way the screen does.
+      uUvScale:      { value: new THREE.Vector2(1, 1) },
+      uUvOffset:     { value: new THREE.Vector2(0, 0) },
     },
     vertexShader: /* glsl */`
       varying vec2 vUv;
       void main() {
         vUv = uv;
+        // The mask shares the screen's exact (curved) geometry, so at grazing
+        // angles polygonOffset alone can't keep it in front → z-fighting glitches
+        // as the ring rotates. Bias ONLY the clip-space depth toward the near
+        // plane (leave x/y/w untouched) so the mask stays pixel-aligned with the
+        // screen — no lateral shift, no exposed video edge — while sitting just
+        // in front of it. Angle-independent because the geometry is coincident.
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_Position.z -= 0.001 * gl_Position.w;
       }
     `,
     fragmentShader: /* glsl */`
@@ -324,8 +499,8 @@ function makeMaskMaterial() {
       uniform float uBlur;
       uniform float uNoiseAmount;
       uniform float uTime;
-      uniform sampler2D uBadgeTex;
-      uniform float uBadgeScale;
+      uniform vec2 uUvScale;
+      uniform vec2 uUvOffset;
       varying vec2 vUv;
 
       float hash(vec2 p) {
@@ -333,31 +508,29 @@ function makeMaskMaterial() {
       }
 
       void main() {
+        // Cover-fit the video the same way the screen material does.
+        vec2 cuv = vUv * uUvScale + uUvOffset;
         float r = uBlur * uOpacity;
         vec3 sum = vec3(0.0);
-        for (int x = -2; x <= 2; x++) {
-          for (int y = -2; y <= 2; y++) {
+        for (int x = -${MASK_KERNEL_R}; x <= ${MASK_KERNEL_R}; x++) {
+          for (int y = -${MASK_KERNEL_R}; y <= ${MASK_KERNEL_R}; y++) {
             vec2 off = vec2(float(x), float(y)) * r;
-            sum += texture2D(uVideo, vUv + off).rgb;
+            sum += texture2D(uVideo, cuv + off).rgb;
           }
         }
-        vec3 bg = sum / 25.0;
+        vec3 bg = sum / ${MASK_KERNEL_TAPS}.0;
         vec3 finalColor = mix(bg, uMaskColor, uOpacity);
         // Dark-red noise grain that fades with the mask.
         float n = hash(vUv * 720.0 + uTime);
         finalColor = mix(finalColor, uMaskColor * n, uNoiseAmount * uOpacity);
-        // "HOVER" sticker painted into the screen UVs, centered at (0.5, 0.5).
-        // Lives on the curved surface, so it warps with perspective and stays
-        // fixed on the screen no matter how the camera orbits.
-        vec2 badgeUv = (vUv - 0.5) / uBadgeScale + 0.5;
-        if (badgeUv.x >= 0.0 && badgeUv.x <= 1.0 && badgeUv.y >= 0.0 && badgeUv.y <= 1.0) {
-          vec4 badge = texture2D(uBadgeTex, badgeUv);
-          finalColor = mix(finalColor, badge.rgb, badge.a * uOpacity);
-        }
         gl_FragColor = vec4(finalColor, 1.0);
       }
     `,
-    side: THREE.DoubleSide,
+    side:          THREE.DoubleSide,
+    // Coincident with the video plane — render just in front of it, no z-fight.
+    polygonOffset:       true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits:  -1,
   });
 }
 
@@ -365,10 +538,16 @@ function makeMaskMaterial() {
 const logoGroup   = new THREE.Group();
 const floorGroup  = new THREE.Group();
 const videosGroup = new THREE.Group();
+// videosPivot sits at the ring center (world x=0, z=sceneZ) and is the thing we
+// rotate on scroll — so the screens orbit around their true center while the
+// logo and floor stay put. videosGroup is offset inside it to keep the baked
+// GLB geometry aligned.
+const videosPivot = new THREE.Group();
 const ringGroup   = new THREE.Group();
 const logoBase    = new THREE.Vector3();
 const floorBase   = new THREE.Vector3();
-scene.add(logoGroup, floorGroup, videosGroup, ringGroup);
+videosPivot.add(videosGroup);
+scene.add(logoGroup, floorGroup, videosPivot, ringGroup);
 
 // "Legendary drop" SpotLight: one cone shining UP from the floor center at
 // the logo. Replaces the previous torus + ring of spotlights.
@@ -431,8 +610,8 @@ function makeBlurredReflector(geom, tintHex, blur) {
     clipBias:      0.003,
     // Reflectors render the whole scene to a texture every frame — the
     // biggest perf hit. Sub-resolution is invisible once blur is in the chain.
-    textureWidth:  Math.floor(window.innerWidth  * REFLECTOR_RT_SCALE),
-    textureHeight: Math.floor(window.innerHeight * REFLECTOR_RT_SCALE),
+    textureWidth:  Math.floor(viewportW() * REFLECTOR_RT_SCALE),
+    textureHeight: Math.floor(viewportH() * REFLECTOR_RT_SCALE),
     color:         new THREE.Color(tintHex),
   });
   r.material.uniforms.uBlur = { value: blur };
@@ -466,6 +645,21 @@ function makeBlurredReflector(geom, tintHex, blur) {
     }
   `;
   r.material.needsUpdate = true;
+
+  // Mobile: refresh the reflection only every other frame. Rendering the whole
+  // scene into the mirror RT is the reflector's real cost; the blurred, slowly
+  // moving reflection doesn't need a 60 Hz update, so skipping every second
+  // frame roughly halves that cost. (Only the floor reflector exists on mobile.)
+  if (IS_MOBILE) {
+    const origOnBeforeRender = r.onBeforeRender;
+    let reflFrame = 0;
+    r.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+      if ((reflFrame++ & 1) === 0) {
+        origOnBeforeRender.call(this, renderer, scene, camera, geometry, material, group);
+      }
+    };
+  }
+
   return r;
 }
 
@@ -531,6 +725,91 @@ function positionRoofReflector() {
   );
 }
 
+// ─── Floor occluder (opaque dark ring just under the floor) ─────────────────
+// The floor is a thin shell — from below/at grazing angle you can see the
+// videos "through" it. This ring sits just under the floor and blocks that
+// view. Its inner hole is kept larger than the camera's distance from centre,
+// so the camera and the exiting logo pass through the open middle and the logo
+// stays visible while the videos beyond get occluded. On LAYER_MAIN_ONLY so it
+// never shows up inside the floor/ceiling mirror reflections.
+let floorOccluder = null;
+function rebuildFloorOccluder() {
+  if (floorOccluder) {
+    scene.remove(floorOccluder);
+    floorOccluder.geometry.dispose();
+    floorOccluder.material.dispose();
+    floorOccluder = null;
+  }
+  if (!params.occluderEnabled) return;
+  const inner = params.occluderInnerRadius;
+  const outer = params.floorRadius;
+  if (outer <= inner) return;
+  const depth = params.occluderDepth;
+  // A solid annular "washer" (top face + outer wall + bottom face + inner wall),
+  // lathed around Y. Unlike a flat ring it also blocks grazing views through the
+  // floor's hollow side. The central hole (inner radius) stays open for the well
+  // so the logo diving through it stays visible.
+  const profile = [
+    new THREE.Vector2(inner, 0),
+    new THREE.Vector2(outer, 0),
+    new THREE.Vector2(outer, -depth),
+    new THREE.Vector2(inner, -depth),
+    new THREE.Vector2(inner, 0),
+  ];
+  const geom = new THREE.LatheGeometry(profile, 96);
+  const mat  = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(params.occluderColor),
+    side:  THREE.DoubleSide,
+  });
+  floorOccluder = new THREE.Mesh(geom, mat);
+  floorOccluder.layers.set(LAYER_MAIN_ONLY);
+  scene.add(floorOccluder);
+  positionFloorOccluder();
+}
+
+function positionFloorOccluder() {
+  if (!floorOccluder) return;
+  // Top face just under the floor surface (so the floor hides it from above);
+  // the washer then extends downward by occluderDepth.
+  floorOccluder.position.set(floorBase.x, params.floorTargetY - 0.01, floorBase.z);
+}
+
+// ─── Well walls (the pit the logo/camera dive into) ─────────────────────────
+// A dark opaque tube (wall + bottom) at the well radius. Shown only once the
+// camera has dived inside, where it hides the surrounding screens/floor. On
+// LAYER_MAIN_ONLY so it never appears in the mirror reflections.
+let wellWall = null;
+function rebuildWell() {
+  if (wellWall) {
+    scene.remove(wellWall);
+    wellWall.geometry.dispose();
+    wellWall.material.dispose();
+    wellWall = null;
+  }
+  if (!params.wellEnabled) return;
+  const r = params.wellRadius;
+  const profile = [
+    new THREE.Vector2(r,     0),
+    new THREE.Vector2(r,     -params.wellDepth),
+    new THREE.Vector2(0.001, -params.wellDepth),
+  ];
+  const geom = new THREE.LatheGeometry(profile, 64);
+  const mat  = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(params.wellColor),
+    side:  THREE.DoubleSide,
+  });
+  wellWall = new THREE.Mesh(geom, mat);
+  wellWall.layers.set(LAYER_MAIN_ONLY);
+  wellWall.visible = false;
+  scene.add(wellWall);
+  positionWell();
+}
+
+function positionWell() {
+  if (!wellWall) return;
+  wellWall.position.set(floorBase.x, params.floorTargetY, floorBase.z);
+}
+
 function bakeIntoGroup(meshes, group, material) {
   const bbox = new THREE.Box3();
   for (const mesh of meshes) {
@@ -593,6 +872,9 @@ function buildSlicedVideoLights(m, sceneCenter) {
   }
   const totalW = wMax - wMin;
   const totalH = hMax - hMin;
+  // Screen's own aspect ratio — used to "cover"-fit videos (fill + crop) instead
+  // of stretching them to the UVs.
+  m.userData.screenAspect = totalH > 1e-6 ? totalW / totalH : 1;
 
   const lookM = new THREE.Matrix4();
   const light = new THREE.RectAreaLight(
@@ -626,7 +908,8 @@ function applyLayout() {
   const glbScale = params.floorRadius / layout.measuredFloorRadius;
   floorGroup.scale.setScalar(glbScale);
   videosGroup.scale.setScalar(glbScale);
-  logoGroup.scale.setScalar(glbScale * params.logoExtraScale);
+  logoBaseScale = glbScale * params.logoExtraScale;
+  logoGroup.scale.setScalar(logoBaseScale);
 
   const yShift = params.floorTargetY - layout.floorBboxMaxY * glbScale;
   const logoYAdjust = -layout.logoBboxMinY * glbScale * (params.logoExtraScale - 1);
@@ -643,23 +926,45 @@ function applyLayout() {
   );
 
   floorGroup.position.copy(floorBase);
-  videosGroup.position.copy(floorBase);
+  // The pivot sits at the ring center in world space; offset videosGroup inside
+  // it so the baked screen geometry still lands at floorBase.
+  videosPivot.position.set(0, 0, params.sceneZ);
+  videosGroup.position.set(
+    floorBase.x - videosPivot.position.x,
+    floorBase.y - videosPivot.position.y,
+    floorBase.z - videosPivot.position.z,
+  );
   logoGroup.position.copy(logoBase);
   logoGroup.rotation.y = params.logoRotationY * Math.PI / 180;
 
-  // Don't override an in-flight intro animation with the resting position.
-  if (logoAnim.phase === 'intro') logoGroup.position.y = logoAnim.currentY;
+  // Don't override the in-flight logo animation with the resting position.
+  if (logoAnim.phase === 'run') logoGroup.position.y = logoAnim.currentY;
 
   updateRingLightPosition();
   positionFloorReflector();
   positionRoofReflector();
+  positionFloorOccluder();
+  positionWell();
+}
+
+// ─── Responsive framing ──────────────────────────────────────────────────────
+// Keeps the aspect correct and, on narrow (portrait/tablet) viewports, pulls the
+// camera back so the wide ring of screens still fits — full composition visible,
+// just smaller, with no wide-angle distortion. Landscape/desktop keep the base.
+function updateFraming() {
+  const a = viewportW() / viewportH();
+  camera.aspect = a;
+  camera.fov    = params.fov;
+  const pull    = Math.max(1, params.framingRefAspect / a); // >1 only when narrower than ref
+  const factor  = 1 + (pull - 1) * params.portraitFit;
+  camDistanceEff = params.cameraDistance * factor;
+  camera.updateProjectionMatrix();
 }
 
 // ─── Initial application ─────────────────────────────────────────────────────
 rebuildRingLight();
 applyColors();
-camera.fov = params.fov;
-camera.updateProjectionMatrix();
+updateFraming();
 
 // ─── GLB load ────────────────────────────────────────────────────────────────
 const loader = new GLTFLoader();
@@ -683,7 +988,7 @@ function classifyMesh(name) {
   return null;
 }
 
-loader.load(`${import.meta.env.BASE_URL}test_3.glb`, (gltf) => {
+loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   gltf.scene.updateMatrixWorld(true);
 
   const meshInfos = [];
@@ -720,12 +1025,24 @@ loader.load(`${import.meta.env.BASE_URL}test_3.glb`, (gltf) => {
 
   floorMeshes.forEach((m, i) => {
     const key = `floorColor${i + 1}`;
-    m.material = new THREE.MeshStandardMaterial({
-      color: params[key] ?? 0x000000,
-      metalness: params.floorMetalness,
-      roughness: params.floorRoughness,
-      side: THREE.DoubleSide,
-    });
+    // The highest piece is the ceiling. When the ceiling MIRROR is off (mobile),
+    // a metallic ceiling reflects the video RectAreaLights as bright rectangles
+    // (a stray "white block"). With no mirror to show a real reflection, make it
+    // a flat unlit dark material so it just reads as a plain black ceiling.
+    const isCeiling = floorMeshes.length > 1 && i === floorMeshes.length - 1;
+    if (isCeiling && !params.roofReflectorEnabled) {
+      m.material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(params[key] ?? 0x010101),
+        side:  THREE.DoubleSide,
+      });
+    } else {
+      m.material = new THREE.MeshStandardMaterial({
+        color: params[key] ?? 0x000000,
+        metalness: params.floorMetalness,
+        roughness: params.floorRoughness,
+        side: THREE.DoubleSide,
+      });
+    }
   });
 
   videoMeshes.forEach((m) => {
@@ -742,6 +1059,9 @@ loader.load(`${import.meta.env.BASE_URL}test_3.glb`, (gltf) => {
   const floorBbox = bakeIntoGroup(floorMeshes, floorGroup, null);
   bakeIntoGroup(videoMeshes, videosGroup, null);
 
+  // TEST: hide the floor dish (floorMeshes[0]) — the reflector mirror stays.
+  if (!params.floorMeshVisible && floorMeshes[0]) floorMeshes[0].visible = false;
+
   // Per-screen area lights so the screens illuminate the floor and ceiling.
   // Lights are children of their plane mesh, so they inherit the group's
   // transform when the scene is repositioned/rescaled.
@@ -756,36 +1076,33 @@ loader.load(`${import.meta.env.BASE_URL}test_3.glb`, (gltf) => {
 
     layout.sceneCenter = sceneCenter.clone();
 
-    const maskTowardCenter = new THREE.Vector3();
     videoMeshes.forEach((m) => {
       buildSlicedVideoLights(m, sceneCenter);
 
       m.userData.sampledVideoColor = new THREE.Color(0xffffff);
       m.userData.lastVideoColor    = new THREE.Color(0xffffff);
 
-      // Hover-fade mask: frosted-glass shader that blurs the video texture
-      // and tints it red. Sits just in front of the video plane (toward the
-      // scene center) so depth test keeps the logo on top.
-      const center = new THREE.Vector3();
-      m.geometry.boundingBox.getCenter(center);
+      // Hover-fade mask: frosted-glass shader that blurs the video texture and
+      // tints it red. It sits EXACTLY over the video plane (same geometry, no
+      // lateral offset) so no sliver of bare video shows at the edges; its
+      // material uses polygonOffset to render just in front without z-fighting.
       const maskGeom = m.geometry.clone();
       const mask = new THREE.Mesh(maskGeom, makeMaskMaterial());
-      maskTowardCenter.copy(sceneCenter).sub(center).normalize().multiplyScalar(0.005);
-      mask.position.copy(maskTowardCenter);
       // Render mask only into the main camera, not into the reflectors —
       // so the floor/ceiling mirrors see the bare video plane behind it.
       mask.layers.set(LAYER_MAIN_ONLY);
       m.add(mask);
       m.userData.maskMesh = mask;
       m.userData.hovered  = false;
-
-      // The "HOVER" sticker is drawn inside the mask shader itself (using
-      // the screen's own UVs), so it lives on the curved surface and warps
-      // with perspective. Nothing to add here.
     });
   }
 
-  if (!logoBbox.isEmpty()) layout.logoBboxMinY = logoBbox.min.y;
+  if (!logoBbox.isEmpty()) {
+    layout.logoBboxMinY = logoBbox.min.y;
+    // Feed the logo's local Y bounds to the exit gradient shader.
+    gradientMaterial.uniforms.uMinY.value = logoBbox.min.y;
+    gradientMaterial.uniforms.uMaxY.value = logoBbox.max.y;
+  }
   if (!floorBbox.isEmpty()) {
     // Use the lowest shell piece (the actual floor) for the floor-surface Y so
     // floorTargetY lands on the floor, not on the ceiling. Radius / center
@@ -813,7 +1130,20 @@ loader.load(`${import.meta.env.BASE_URL}test_3.glb`, (gltf) => {
   applyLayout();
   rebuildFloorReflector();
   rebuildRoofReflector();
+  rebuildFloorOccluder();
+  rebuildWell();
   outlinePass.selectedObjects = logoGroup.children.slice();
+
+  // Gradient "shells": one per logo mesh, same geometry, coincident with the
+  // glass. They ride along inside logoGroup and crossfade in (uOpacity) as the
+  // logo exits, giving a smooth glass→gradient transition with no hard swap.
+  // Added AFTER selectedObjects so the outline stays keyed to the glass only.
+  layout.logoGradientMeshes = layout.logoMeshes.map((m) => {
+    const shell = new THREE.Mesh(m.geometry, gradientMaterial);
+    shell.renderOrder = 1;   // draw over the glass during the crossfade
+    logoGroup.add(shell);
+    return shell;
+  });
 
   // Hide the logo offscreen until the intro plays so the loader doesn't
   // flash a static logo for a frame before the rise animation kicks in.
@@ -830,40 +1160,47 @@ loader.load(`${import.meta.env.BASE_URL}test_3.glb`, (gltf) => {
   checkAllLoaded(); // in case there are zero videos
 }, undefined, (err) => console.error('GLB load failed:', err));
 
-// ─── Camera orbit input (yaw only) ───────────────────────────────────────────
-const DEG = Math.PI / 180;
-let cameraTheta       = params.cameraThetaDeg * DEG;
-let cameraThetaTarget = cameraTheta;
+// ─── Scroll → ring rotation ──────────────────────────────────────────────────
+// The camera stays fixed at its initial pose. Scrolling the page rotates the
+// ring of screens behind the logo (videosPivot.rotation.y, applied in animate).
+// Locally the tall #scroll-spacer gives window.scrollY range; in Webflow the
+// sticky section's scroll produces the same 0→1 progress.
+let scrollProgress = 0;
+let videosRotY     = params.ringStartRotationDeg * DEG_TO_RAD;  // start already framed
+let logoParallaxX  = 0;   // damped mouse-parallax offset (always active)
+let logoParallaxY  = 0;
+let logoExitDamped = 0;   // damped scroll-exit amount — smooths the intro→scroll handoff
+let logoContinuedDamped = 0;  // damped extra descent beyond the exit (logo keeps going down)
+let logoSpinAngle       = 0;  // damped spin (like a top) after the gradient transition
+let logoBaseScale       = 1;  // logoGroup scale at rest (glbScale * logoExtraScale); shrunk during the descent
 
-function syncCameraAnglesFromParams() {
-  cameraThetaTarget = params.cameraThetaDeg * DEG;
-  cameraTheta       = cameraThetaTarget;
+// The tall scroll track. In Webflow it's the #cc-hero section (the sticky child
+// #cc-sticky pins while the page scrolls through it); locally it's absent and we
+// fall back to whole-page scroll driven by #scroll-spacer.
+const scrollTrackEl = document.getElementById('cc-hero');
+function updateScrollProgress() {
+  if (scrollTrackEl) {
+    // Section-relative progress: 0 when the section top reaches the viewport top,
+    // 1 when its bottom reaches the viewport bottom (i.e. the sticky child has
+    // traveled its full range and is about to unpin). Independent of anything
+    // else on the page, so the hero works as one section among many.
+    const rect = scrollTrackEl.getBoundingClientRect();
+    const range = rect.height - window.innerHeight;
+    scrollProgress = range > 0 ? Math.min(1, Math.max(0, -rect.top / range)) : 0;
+  } else {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    scrollProgress = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+  }
 }
+window.addEventListener('scroll', updateScrollProgress, { passive: true });
+updateScrollProgress();
 
-let isDragging = false;
-let dragStartX = 0;
-let dragStartTheta = 0;
-
-const canvasEl = renderer.domElement;
-
-canvasEl.addEventListener('pointerdown', (e) => {
-  isDragging = true;
-  canvasEl.setPointerCapture(e.pointerId);
-  dragStartX = e.clientX;
-  dragStartTheta = cameraThetaTarget;
-});
-
+// Hover detection over the video planes (drives the frosted-mask fade). Uses
+// world matrices, so it keeps working as the ring rotates.
 const raycaster = new THREE.Raycaster();
 const ndcMouse  = new THREE.Vector2();
 
 window.addEventListener('pointermove', (e) => {
-  if (isDragging) {
-    const sx = params.cameraInvertX ? -1 : 1;
-    const dx = e.clientX - dragStartX;
-    cameraThetaTarget = dragStartTheta + sx * dx * params.cameraDragSensitivity;
-  }
-
-  // Hover detection over video planes.
   ndcMouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
   ndcMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(ndcMouse, camera);
@@ -872,190 +1209,24 @@ window.addEventListener('pointermove', (e) => {
   if (hits.length > 0) hits[0].object.userData.hovered = true;
 });
 
-function endDrag(e) {
-  if (!isDragging) return;
-  isDragging = false;
-  try { canvasEl.releasePointerCapture(e.pointerId); } catch {}
-}
-window.addEventListener('pointerup', endDrag);
-window.addEventListener('pointercancel', endDrag);
-
-// ─── Comet trail (mouse overlay, 2D canvas above the WebGL canvas) ──────────
-const cometParams = {
-  enabled:  true,
-  size:     5,    // base radius (CSS px)
-  spacing:  5,     // px between spawned particles along the mouse path
-  fadeRate: 1,   // life decay per second (higher = shorter trail)
-  drift:    3,   // random per-particle velocity (px/frame)
-};
-
-const trailCanvas = document.createElement('canvas');
-trailCanvas.style.position      = 'fixed';
-trailCanvas.style.inset         = '0';
-trailCanvas.style.pointerEvents = 'none';
-trailCanvas.style.zIndex        = '1';
-document.body.appendChild(trailCanvas);
-const trailCtx = trailCanvas.getContext('2d');
-
-function resizeTrail() {
-  const dpr = window.devicePixelRatio || 1;
-  trailCanvas.width  = window.innerWidth  * dpr;
-  trailCanvas.height = window.innerHeight * dpr;
-  trailCanvas.style.width  = window.innerWidth  + 'px';
-  trailCanvas.style.height = window.innerHeight + 'px';
-  trailCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-resizeTrail();
-
-const cometParticles = [];
-let lastCometX = 0, lastCometY = 0, lastCometValid = false;
-
-window.addEventListener('pointermove', (e) => {
-  if (!cometParams.enabled) { lastCometValid = false; return; }
-  if (lastCometValid) {
-    const dx   = e.clientX - lastCometX;
-    const dy   = e.clientY - lastCometY;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 0) {
-      const count = Math.max(1, Math.min(40, Math.floor(dist / cometParams.spacing)));
-      for (let i = 0; i < count; i++) {
-        const t = i / count;
-        cometParticles.push({
-          x:   lastCometX + dx * t,
-          y:   lastCometY + dy * t,
-          vx:  (Math.random() - 0.5) * cometParams.drift,
-          vy:  (Math.random() - 0.5) * cometParams.drift,
-          life: 1,
-          size: cometParams.size * (0.6 + Math.random() * 0.6),
-          hue:  Math.random(),
-        });
-      }
-    }
-  }
-  lastCometX = e.clientX;
-  lastCometY = e.clientY;
-  lastCometValid = true;
-});
-
-const _cometA   = new THREE.Color();
-const _cometB   = new THREE.Color();
-const _cometMix = new THREE.Color();
-
-function updateCometTrail(dt) {
-  trailCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-  if (cometParticles.length === 0) return;
-
-  _cometA.set(params.gradientBottom);
-  _cometB.set(params.gradientTop);
-
-  trailCtx.globalCompositeOperation = 'lighter';
-  for (let i = cometParticles.length - 1; i >= 0; i--) {
-    const p = cometParticles[i];
-    p.life -= dt * cometParams.fadeRate;
-    p.x += p.vx;
-    p.y += p.vy;
-    if (p.life <= 0) { cometParticles.splice(i, 1); continue; }
-
-    _cometMix.copy(_cometA).lerp(_cometB, p.hue);
-    const r = (_cometMix.r * 255) | 0;
-    const g = (_cometMix.g * 255) | 0;
-    const b = (_cometMix.b * 255) | 0;
-    const alpha = p.life * p.life * 0.8;
-    const size  = p.size * p.life;
-
-    const grad = trailCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, size);
-    grad.addColorStop(0,   `rgba(${r},${g},${b},${alpha})`);
-    grad.addColorStop(0.5, `rgba(${r},${g},${b},${alpha * 0.35})`);
-    grad.addColorStop(1,   `rgba(${r},${g},${b},0)`);
-    trailCtx.fillStyle = grad;
-    trailCtx.fillRect(p.x - size, p.y - size, size * 2, size * 2);
-  }
-  trailCtx.globalCompositeOperation = 'source-over';
-}
-
-// ─── Planet camera control (mini top-down orbit dial, bottom-right) ─────────
-const PLANET_SIZE = 110;
-const planetEl = document.createElement('div');
-planetEl.style.cssText = [
-  'position:fixed',
-  `right:20px`, `bottom:20px`,
-  `width:${PLANET_SIZE}px`, `height:${PLANET_SIZE}px`,
-  'z-index:100',
-  'cursor:grab',
-  'touch-action:none',
-  'user-select:none',
-].join(';');
-planetEl.innerHTML = `
-  <svg width="${PLANET_SIZE}" height="${PLANET_SIZE}" viewBox="0 0 ${PLANET_SIZE} ${PLANET_SIZE}">
-    <defs>
-      <radialGradient id="ccs_planetBg" cx="50%" cy="50%" r="50%">
-        <stop offset="0%"  stop-color="#1a0606" stop-opacity="0.9"/>
-        <stop offset="85%" stop-color="#000000" stop-opacity="0.85"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="${PLANET_SIZE / 2}" cy="${PLANET_SIZE / 2}" r="${PLANET_SIZE / 2 - 4}"
-            fill="url(#ccs_planetBg)" stroke="#f95921" stroke-width="1" stroke-opacity="0.55"/>
-    <circle cx="${PLANET_SIZE / 2}" cy="${PLANET_SIZE / 2}" r="5" fill="#f95921"/>
-    <circle id="ccs_planetDot" r="6" fill="#fff" stroke="#f95921" stroke-width="2"
-            cx="${PLANET_SIZE / 2}" cy="${PLANET_SIZE / 2 + (PLANET_SIZE / 2 - 12)}"/>
-  </svg>
-`;
-document.body.appendChild(planetEl);
-const planetDot = planetEl.querySelector('#ccs_planetDot');
-const PLANET_ORBIT_R = PLANET_SIZE / 2 - 12;
-
-function updatePlanet() {
-  const cx = PLANET_SIZE / 2, cy = PLANET_SIZE / 2;
-  // cameraTheta = 0 → camera in its initial position (in front of the logo)
-  // → dot at the BOTTOM of the dial (closer to the viewer in top-down view).
-  const x = cx + Math.sin(cameraTheta) * PLANET_ORBIT_R;
-  const y = cy + Math.cos(cameraTheta) * PLANET_ORBIT_R;
-  planetDot.setAttribute('cx', x);
-  planetDot.setAttribute('cy', y);
-}
-
-let planetDragging = false;
-function planetAngleFromEvent(e) {
-  const rect = planetEl.getBoundingClientRect();
-  const dx = e.clientX - (rect.left + rect.width  / 2);
-  const dy = e.clientY - (rect.top  + rect.height / 2);
-  // Bottom of dial (positive dy) → theta 0, matching the initial camera pose.
-  return Math.atan2(dx, dy);
-}
-function planetSetAngle(e) {
-  const angle = planetAngleFromEvent(e);
-  cameraThetaTarget = angle;
-  cameraTheta       = angle; // snap so click/drag move the camera 1:1
-}
-planetEl.addEventListener('pointerdown', (e) => {
-  planetDragging = true;
-  planetEl.setPointerCapture(e.pointerId);
-  planetEl.style.cursor = 'grabbing';
-  planetSetAngle(e);
-});
-planetEl.addEventListener('pointermove', (e) => {
-  if (!planetDragging) return;
-  planetSetAngle(e);
-});
-function planetEnd(e) {
-  if (!planetDragging) return;
-  planetDragging = false;
-  try { planetEl.releasePointerCapture(e.pointerId); } catch {}
-  planetEl.style.cursor = 'grab';
-}
-planetEl.addEventListener('pointerup', planetEnd);
-planetEl.addEventListener('pointercancel', planetEnd);
+// (Comet trail removed — no longer used on desktop or mobile.)
+// (Camera orbit dial removed — the camera is fixed now; scroll drives the ring.)
 
 // ─── Resize ──────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  outlinePass.setSize(window.innerWidth, window.innerHeight);
-  resizeTrail();
-});
+function onResize() {
+  const w = viewportW(), h = viewportH();
+  updateFraming();  // aspect + responsive pull-back for portrait/tablet
+  renderer.setSize(w, h, false);   // updateStyle=false — CSS keeps the canvas at 100% of #app
+  composer.setSize(w, h);
+  outlinePass.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', onResize);
+// visualViewport fires on mobile URL-bar show/hide and rotation, where the plain
+// resize event is unreliable — keeps the canvas/aspect locked to the real screen.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', onResize);
+}
 
 
 // ─── Video attachment + per-screen color sampling ───────────────────────────
@@ -1091,12 +1262,28 @@ function attachVideo(index, url) {
       const tex = new THREE.VideoTexture(video);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.flipY = false; // GLB plane UVs expect non-flipped video
+
+      // Cover-fit: fill the screen and crop the excess instead of stretching the
+      // video. Compares the video's aspect to the screen's and zooms the texture.
+      const screenAspect = mesh.userData.screenAspect || 1;
+      const videoAspect  = (video.videoWidth || 16) / (video.videoHeight || 9);
+      let rx = 1, ry = 1;
+      if (videoAspect > screenAspect) rx = screenAspect / videoAspect; // crop sides
+      else                            ry = videoAspect / screenAspect; // crop top/bottom
+      const ox = (1 - rx) / 2, oy = (1 - ry) / 2;
+      tex.repeat.set(rx, ry);
+      tex.offset.set(ox, oy);
+
       mesh.material.map = tex;
       mesh.material.color.set(0xffffff);
       mesh.material.needsUpdate = true;
-      // Feed the same texture into the mask shader so it can blur it.
+      // Feed the same texture + cover transform into the mask shader.
       const mask = mesh.userData.maskMesh;
-      if (mask?.material?.uniforms) mask.material.uniforms.uVideo.value = tex;
+      if (mask?.material?.uniforms) {
+        mask.material.uniforms.uVideo.value = tex;
+        mask.material.uniforms.uUvScale.value.set(rx, ry);
+        mask.material.uniforms.uUvOffset.value.set(ox, oy);
+      }
       mesh.userData.videoElement = video;
       mesh.userData.videoTexture = tex;
       video.play().catch((e) => console.warn(`${label} play() rejected:`, e));
@@ -1152,7 +1339,24 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 1 / 30);
 
-  cameraTheta = damp(cameraTheta, cameraThetaTarget, params.cameraFollowRate, dt);
+  // Sample the (possibly smooth-scrolled, e.g. Lenis) scroll position every frame
+  // rather than only on native 'scroll' events. Smooth-scroll libraries advance
+  // window.scrollY in their own rAF loop; reading it here keeps the scene in sync
+  // with that interpolated value, avoiding stutter. The scroll listener stays as
+  // a fallback for when the loop is idle.
+  updateScrollProgress();
+
+  // Scroll rotates the ring of screens behind the logo; the camera stays fixed.
+  // ringStartRotationDeg frames the initial view; scroll adds rotation on top.
+  let scrollTargetDeg = params.ringStartRotationDeg + scrollProgress * params.scrollMaxRotationDeg;
+  // Clamp the ring rotation on mobile so it can't swing the first screen back
+  // into the camera (see IS_MOBILE block). Undefined on desktop → no clamp.
+  if (params.ringMaxRotationDeg != null) {
+    scrollTargetDeg = Math.min(scrollTargetDeg, params.ringMaxRotationDeg);
+  }
+  const scrollTargetAngle = scrollTargetDeg * DEG_TO_RAD;
+  videosRotY = damp(videosRotY, scrollTargetAngle, params.scrollFollowRate, dt);
+  videosPivot.rotation.y = videosRotY;
 
   // Mask opacity + matching light color so the reflection tracks what you see.
   _maskColor.set(params.maskColor);
@@ -1168,7 +1372,6 @@ function animate() {
     u.uBlur.value        = params.maskBlur;
     u.uNoiseAmount.value = params.maskNoiseAmount;
     u.uTime.value        = tNow * params.maskNoiseSpeed;
-    u.uBadgeScale.value  = params.hoverBadgeSize;
     // Ease the displayed color toward the most-recent sample to kill flicker.
     m.userData.lastVideoColor.lerp(m.userData.sampledVideoColor, colorMix);
     if (light) {
@@ -1177,46 +1380,137 @@ function animate() {
     }
   }
 
+  // ── Logo lifecycle (fully continuous — no hard phase gating) ─────────────
+  // Intro (rise + fade-in + outline + spot) is time-based, but SCROLL fast-
+  // forwards it so the user never has to wait: intro is forced complete by the
+  // time the exit begins (logoExitStart). Exit (sink under the ring) is scroll-
+  // driven and damped. This means logo + camera track scroll from the first
+  // frame, even mid-intro, with no teleport.
+  let introEased = 0, outlineRamp = 0, spotEased = 0, exitTarget = 0;
+  if (logoAnim.phase === 'run') {
+    const elapsed = performance.now() / 1000 - logoAnim.phaseStart;
+    const introFromTime   = Math.min(1, elapsed / params.logoAnimDuration);
+    const introFromScroll = params.logoExitStart > 0
+      ? Math.min(1, scrollProgress / params.logoExitStart)
+      : 1;
+    const introProgress = Math.max(introFromTime, introFromScroll);
+    introEased  = 1 - Math.pow(1 - introProgress, 3);      // easeOutCubic
+    const ot    = Math.max(0, (introProgress - 0.5) * 2);  // outline kicks in at halfway
+    outlineRamp = 1 - Math.pow(1 - ot, 3);
+    // Spotlight has its own (longer) time ramp, but scroll fast-forwards it too.
+    const spotProgress = Math.max(Math.min(1, elapsed / params.spotAnimDuration), introFromScroll);
+    spotEased = 1 - Math.pow(1 - spotProgress, 3);
+    // Exit: scroll past logoExitStart.
+    const span  = params.logoExitEnd - params.logoExitStart;
+    const exitT = span > 0
+      ? Math.min(1, Math.max(0, (scrollProgress - params.logoExitStart) / span))
+      : 0;
+    exitTarget = exitT * exitT * (3 - 2 * exitT);          // smoothstep
+  }
+  logoExitDamped = damp(logoExitDamped, exitTarget, params.logoExitFollowRate, dt);
+  const exitEased = logoExitDamped;
+  // Transition drop (0..logoExitDrop) — the camera follows THIS (through the floor).
+  const transitionOffsetY = -exitEased * params.logoExitDrop;
+  // Beyond logoExitEnd the logo eases DOWN to a bounded final rest (it does NOT
+  // keep falling out of view) and spins like a top. beyondT normalises the
+  // remaining scroll (logoExitEnd..1) → 0..1, smoothstep so it settles softly at
+  // the end. The camera follows only part of this (see below), so the logo comes
+  // to rest low in the frame — its final position.
+  const beyondExit = Math.max(0, scrollProgress - params.logoExitEnd);
+  const beyondT     = (1 - params.logoExitEnd) > 0
+    ? Math.min(1, beyondExit / (1 - params.logoExitEnd))
+    : 0;
+  const beyondEased = beyondT * beyondT * (3 - 2 * beyondT);   // smoothstep → settles
+  logoContinuedDamped = damp(logoContinuedDamped, beyondEased * params.logoContinueDrop, params.logoExitFollowRate, dt);
+  logoSpinAngle       = damp(logoSpinAngle, beyondExit * params.logoSpinDeg * DEG_TO_RAD, params.logoExitFollowRate, dt);
+  const logoExitOffsetY = transitionOffsetY - logoContinuedDamped;
+
+  // Mouse parallax runs constantly (does not wait for the intro) — very subtle.
+  // ndcMouse is kept up to date by the pointermove handler.
+  logoParallaxX = damp(logoParallaxX, ndcMouse.x * params.logoParallaxAmp, params.logoParallaxRate, dt);
+  logoParallaxY = damp(logoParallaxY, ndcMouse.y * params.logoParallaxAmp, params.logoParallaxRate, dt);
+
+  // Camera stays fixed in its horizontal position; only its HEIGHT follows the
+  // logo, and it keeps looking LEVEL (constant pitch) — it does NOT tilt to chase
+  // the logo. It tracks the transition drop 1:1 (blackout works), but in the
+  // empty space follows only cameraContinueFollow of the continued sink. Both the
+  // look target and the camera move by the same amount, so the logo — which sinks
+  // the full distance — drifts DOWN toward the bottom of the frame. The logo
+  // shrinks as it goes (see below), so it stays in view instead of exiting.
+  const restLookY = logoBase.y + params.lookOffsetY;
+  const followY   = (transitionOffsetY - logoContinuedDamped * params.cameraContinueFollow) * params.cameraFollowExit;
   lookTarget.set(
     logoBase.x + params.lookOffsetX,
-    logoBase.y + params.lookOffsetY,
+    restLookY + followY,
     logoBase.z + params.lookOffsetZ,
   );
-
   camera.position.set(
-    lookTarget.x + params.cameraDistance * Math.sin(cameraTheta),
-    lookTarget.y + params.cameraHeight,
-    lookTarget.z + params.cameraDistance * Math.cos(cameraTheta),
+    lookTarget.x,
+    restLookY + params.cameraHeight + followY,
+    lookTarget.z + camDistanceEff,
   );
   camera.lookAt(lookTarget);
-  updatePlanet();
 
-  if (logoAnim.phase === 'intro') {
-    const elapsed = performance.now() / 1000 - logoAnim.phaseStart;
-    const t  = Math.min(1, elapsed / params.logoAnimDuration);
-    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-    const startY = logoBase.y - params.logoAnimRise;
-    logoAnim.currentY = startY + (logoBase.y - startY) * eased;
-    logoGroup.position.y  = logoAnim.currentY;
-    glassMaterial.opacity = eased;
-    // Outline kicks in at the halfway point — remap t in [0.5..1].
-    const ot = Math.max(0, (t - 0.5) * 2);
-    outlinePass.edgeStrength = params.outlineStrength * (1 - Math.pow(1 - ot, 3));
-    // Spotlight has its own (typically longer) timeline.
-    const st = Math.min(1, elapsed / params.spotAnimDuration);
-    const sEased = 1 - Math.pow(1 - st, 3);
-    if (logoSpot) logoSpot.intensity = params.ringIntensity * sEased;
-    // Phase ends only when both timelines complete.
-    if (t >= 1 && st >= 1) {
-      logoGroup.position.y     = logoBase.y;
-      glassMaterial.opacity    = 1;
-      outlinePass.edgeStrength = params.outlineStrength;
-      if (logoSpot) logoSpot.intensity = params.ringIntensity;
-      logoAnim.phase           = 'done';
+  // "Concrete" blackout: fade the whole view to black while the camera crosses
+  // the floor, then clear below it. Driven by camera height vs the floor surface.
+  if (blackoutEl) {
+    const top = params.floorTargetY;
+    const y   = camera.position.y;
+    let o = 0;
+    if (params.blackoutEnabled) {
+      if      (y >= top + params.blackoutFadeIn) o = 0;                                   // above floor
+      else if (y >= top)                          o = (top + params.blackoutFadeIn - y) / params.blackoutFadeIn; // fade in
+      else if (y >= top - params.blackoutDepth)   o = 1;                                   // fully black (in the floor)
+      else if (y >= top - params.blackoutDepth - params.blackoutFadeOut)
+        o = (y - (top - params.blackoutDepth - params.blackoutFadeOut)) / params.blackoutFadeOut;                // fade out below
+      else o = 0;                                                                          // clear below → see the logo
     }
+    blackoutEl.style.opacity = String(o);
+  }
+
+  if (logoAnim.phase === 'run') {
+    // Vertical = rise offset (intro) + exit offset (scroll), both continuous.
+    const riseOffsetY = -(1 - introEased) * params.logoAnimRise;
+    logoAnim.currentY = logoBase.y + riseOffsetY + logoExitOffsetY;
+    logoGroup.position.set(
+      logoBase.x + logoParallaxX,
+      logoAnim.currentY + logoParallaxY,
+      logoBase.z,
+    );
+    // Spin like a top around Y (gentle, one direction) once past the exit — this
+    // kicks in right as the gradient transition finishes.
+    logoGroup.rotation.y = params.logoRotationY * DEG_TO_RAD + logoSpinAngle;
+    // Shrink the logo as it sinks into the empty space — smaller the further it
+    // goes down. Normalised against the continued descent → eases to
+    // logoExitMinScale at full scroll. Uses the damped descent value → smooth.
+    const shrinkT = params.logoContinueDrop > 0
+      ? Math.min(1, logoContinuedDamped / params.logoContinueDrop)
+      : 0;
+    const logoScale = logoBaseScale * (1 - shrinkT * (1 - params.logoExitMinScale));
+    logoGroup.scale.setScalar(logoScale);
+    // Glass fades in during the intro; the gradient shell crossfades in over it
+    // as the logo exits, but only AFTER logoGradientStart (so it kicks in once
+    // the camera is down in the floor, not the moment the exit begins). Remap
+    // exitEased into [logoGradientStart..1] → [0..1]. The neon outline fades out
+    // as the gradient takes over, leaving the pure gradient shape.
+    const gStart = params.logoGradientStart;
+    const gradT = gStart < 1
+      ? Math.min(1, Math.max(0, (exitEased - gStart) / (1 - gStart)))
+      : (exitEased > 0 ? 1 : 0);
+    // True crossfade: fade the GLASS OUT (opacity + transmission) as the gradient
+    // fades IN. This is essential because a transmissive MeshPhysicalMaterial is
+    // drawn in a SEPARATE, LAST render pass — it always draws on top of the
+    // transparent gradient shell regardless of renderOrder, so leaving the glass
+    // fully opaque made it fight/flicker over the gradient during the transition.
+    // Driving transmission → 0 also drops the glass out of that transmission pass
+    // by the time the gradient is full, so nothing renders over the gradient.
+    glassMaterial.opacity      = introEased * (1 - gradT);
+    glassMaterial.transmission = params.logoGlassTransmission * (1 - gradT);
+    gradientMaterial.uniforms.uOpacity.value = gradT;
+    outlinePass.edgeStrength = params.outlineStrength * outlineRamp * (1 - gradT);
+    if (logoSpot) logoSpot.intensity = params.ringIntensity * spotEased;
   }
 
   composer.render();
-  updateCometTrail(dt);
 }
 animate();
