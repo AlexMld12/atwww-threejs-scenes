@@ -49,8 +49,14 @@ const viewportW = () => appEl.clientWidth  || window.innerWidth;
 const viewportH = () => appEl.clientHeight || window.innerHeight;
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+// alpha:true so the canvas can become transparent in the empty well below the
+// floor — the DOM text + global background-lines canvas behind it then show
+// THROUGH, while the opaque logo stays in front (clearAlpha is animated in
+// animate()). Above the floor the clear alpha is 1, so the dark room hides
+// everything behind (incl. the gaps between screens).
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
+renderer.setClearColor(0x010101, 1);  // dark; applyColors() resets it from params.bg once params exist
 // updateStyle=false: we only drive the drawing-buffer size and set the canvas
 // CSS to fill its container ourselves (below), so it works whether or not the
 // host page has a `#app canvas { width:100% }` rule.
@@ -71,7 +77,10 @@ document.body.appendChild(loaderEl);
 // black — like sinking into solid concrete — then fade back to reveal the logo
 // below. Opacity is driven per-frame from the camera height vs the floor.
 const blackoutEl = document.createElement('div');
-blackoutEl.style.cssText = 'position:fixed;inset:0;background:#000;z-index:2;pointer-events:none;opacity:0';
+// High z-index so it covers the (now high-z-index in Webflow) scene canvas during
+// the floor crossing — it must hide the hollow-floor see-through. opacity:0 +
+// pointer-events:none the rest of the time, so it's invisible and never blocks.
+blackoutEl.style.cssText = 'position:fixed;inset:0;background:#000;z-index:99999;pointer-events:none;opacity:0';
 document.body.appendChild(blackoutEl);
 
 const loadingState = {
@@ -120,7 +129,9 @@ function startLogoAnimation() {
 
 // ─── Scene + camera + lights ─────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xFCFCFA);
+// No scene.background — we drive the clear color/alpha on the renderer instead,
+// so the canvas can go transparent in the empty well (see the renderer + animate).
+scene.background = null;
 
 const camera = new THREE.PerspectiveCamera(55, viewportW() / viewportH(), 0.1, 100);
 // Layer 1 = "main view only" — used for the hover masks so the planar
@@ -283,6 +294,12 @@ const params = {
   blackoutFadeIn:   0.3,   // start darkening this far ABOVE the floor
   blackoutDepth:    0.5,   // stay fully black from the floor down to this depth
   blackoutFadeOut:  0.5,   // then fade back to clear over this further distance
+
+  // Canvas transparency in the well: fade the renderer clear alpha 1→0 as the
+  // camera sinks below the floor, so the DOM text + global background lines
+  // behind the canvas show through while the opaque logo stays in front. Uses the
+  // same depth band as the blackout fade-out (the blackout covers the switch).
+  voidTransparency: true,
 
   // Floor occluder — an opaque dark ring just under the floor reflector. The
   // reflector is a single-sided plane, so from below its backface is culled and
@@ -890,7 +907,8 @@ function buildSlicedVideoLights(m, sceneCenter) {
 
 // ─── Apply functions ─────────────────────────────────────────────────────────
 function applyColors() {
-  scene.background.set(params.bg);
+  // Drive the clear COLOR here (alpha is animated per-frame in animate()).
+  renderer.setClearColor(new THREE.Color(params.bg), renderer.getClearAlpha());
   applyRingColor();
 
   layout.floorMeshes.forEach((m, i) => {
@@ -1466,6 +1484,26 @@ function animate() {
       else o = 0;                                                                          // clear below → see the logo
     }
     blackoutEl.style.opacity = String(o);
+  }
+
+  // Canvas transparency in the well. Clear alpha stays 1 (opaque dark) while the
+  // camera is above the floor — the room + gaps hide the DOM text and background
+  // lines behind the canvas. Once the camera sinks past the floor into the empty
+  // well, fade it to 0 so those show THROUGH the canvas while the opaque logo
+  // stays in front. Same depth band as the blackout fade-out, so the black DOM
+  // overlay covers the switch. pointer-events follows: 'none' once transparent so
+  // the DOM text/buttons behind become clickable.
+  if (params.voidTransparency) {
+    const top = params.floorTargetY;
+    const y   = camera.position.y;
+    const fadeStart = top - params.blackoutDepth;                       // still opaque at/above here
+    const fadeEnd   = top - params.blackoutDepth - params.blackoutFadeOut; // fully transparent here
+    let a = 1;
+    if      (y >= fadeStart) a = 1;
+    else if (y <= fadeEnd)   a = 0;
+    else                     a = (y - fadeEnd) / (fadeStart - fadeEnd);
+    renderer.setClearAlpha(a);
+    renderer.domElement.style.pointerEvents = a > 0.99 ? 'auto' : 'none';
   }
 
   if (logoAnim.phase === 'run') {
