@@ -7,16 +7,17 @@
    peaks appear / merge / split — so the rings fuse and divide like CELLS. Smooth,
    rounded, anti-aliased (fwidth), amber @ ~5%, on a dark background.
 
-   Integration (Webflow → site-wide footer custom code, before </body>):
+   Integration (Webflow custom code — page or site-wide, before </body>):
+     <script>window.BG_LINES_CONFIG = { mount: 'lines-bg' };</script>
      <script src="https://cdn.jsdelivr.net/gh/AlexMld12/atwww-threejs-scenes@main/background-lines/background-lines.js"></script>
-   or paste this whole file inline inside a <script>…</script>.
+
+   Placement:
+     • SCOPED (recommended here): set mount to the id of a STICKY 100vw×100vh div
+       that wraps the sections which should show the lines. The canvas fills that
+       div; the sections scroll over it. Give those sections transparent bgs.
+     • FULL-PAGE: omit mount → a fixed canvas is appended behind the whole page.
 
    Tuning: edit CONFIG, or set window.BG_LINES_CONFIG = {…} BEFORE this script.
-
-   Stacking: this canvas sits at the very back (zIndex below page content). The
-   Webflow sections above must have TRANSPARENT backgrounds for it to show. The
-   command-center hero reveals it automatically (its canvas goes transparent in
-   the well).
 ──────────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -35,10 +36,16 @@
     morph:       1.3,         // how fast peaks appear / merge / split (the "cell" fusion frequency)
     speed:       0.18,        // overall animation speed
     octaves:     3,           // field detail — fewer = smoother, rounder contours (closer to the SVG)
-    zIndex:      -1,          // stacking — behind ALL page content (content/sections sit on top)
+    zIndex:      -1,          // stacking. Full-page mode: behind all content. mount mode: within the container (0 is fine).
     dprCap:      IS_MOBILE ? 1.0 : 1.5,
     renderScale: IS_MOBILE ? 0.7 : 0.9, // render-buffer fraction (subtle bg → sub-res is invisible & faster)
-    target:      null,        // optional existing canvas id to render into; else a new fixed canvas
+    // Placement:
+    //   mount:  id/selector of a container to render INTO (e.g. a sticky 100vw×100vh
+    //           div wrapping the sections that should show the lines). The canvas is
+    //           created inside it, absolutely filling it. THIS is the scoped mode.
+    //   (none): falls back to a fixed, full-page canvas appended to <body>.
+    mount:       null,
+    target:      null,        // optional existing canvas id to render into (advanced)
   }, window.BG_LINES_CONFIG || {});
 
   function hexToRgb(h) {
@@ -49,10 +56,25 @@
   }
 
   // ── Canvas ────────────────────────────────────────────────────────────────
+  var mountEl = CONFIG.mount
+    ? (document.getElementById(CONFIG.mount) || document.querySelector(CONFIG.mount))
+    : null;
+  if (CONFIG.mount && !mountEl) console.warn('[bg-lines] mount "' + CONFIG.mount + '" not found — falling back to full-page.');
+
   var canvas;
   if (CONFIG.target && document.getElementById(CONFIG.target)) {
     canvas = document.getElementById(CONFIG.target);
+  } else if (mountEl) {
+    // Scoped: fill the given container (e.g. a sticky 100vw×100vh div).
+    canvas = document.createElement('canvas');
+    canvas.id = 'bg-lines-canvas';
+    canvas.style.cssText =
+      'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;' +
+      'z-index:' + CONFIG.zIndex + ';display:block';
+    if (getComputedStyle(mountEl).position === 'static') mountEl.style.position = 'relative';
+    mountEl.appendChild(canvas);
   } else {
+    // Full-page: fixed canvas behind everything.
     canvas = document.createElement('canvas');
     canvas.id = 'bg-lines-canvas';
     canvas.style.cssText =
