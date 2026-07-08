@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Background lines — preview</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #010101; color: #EBB245; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+      /* Content sits ABOVE the fixed background-lines canvas (which is z-index 0).
+         Sections must be transparent for the lines to show through — like Webflow. */
+      .section { position: relative; z-index: 1; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; }
+      h1 { font-size: clamp(28px, 6vw, 72px); font-weight: 700; letter-spacing: -0.02em; margin: 0; opacity: 0.9; }
+      p  { color: #cfcfcf; opacity: 0.7; max-width: 40ch; margin: 12px auto 0; }
+    </style>
+
+    <!-- Tune here without editing the module: overrides CONFIG before it loads. -->
+    <script>
+      window.BG_LINES_CONFIG = {
+        // transparent: false,  // true = only lines, page bg shows through
+        // lineOpacity: 0.06,   // per-line opacity (~5%)
+        // scale:       1.7,    // LOWER = larger sweeping cells; higher = smaller/denser
+        // lines:       10.0,   // concentric rings per cell
+        // thickness:   1.3,    // line width
+        // warp:        0.28,   // organic flow (lower = rounder, closer to the SVG)
+        // morph:       1.3,    // fusion frequency — how often cells merge/split
+        // speed:       0.18,   // overall animation speed
+        // octaves:     3,      // fewer = smoother/rounder (try 2 for very round)
+      };
+    </script>
+  </head>
+  <body>
+    <div class="section">
+      <div>
+        <h1>Background lines preview</h1>
+        <p>Scroll — the amber contour lines drift behind the content, like landonorris.com. Tweak values in the &lt;script&gt; above, then refresh.</p>
+      </div>
+    </div>
+    <div class="section"><h1>Second section</h1></div>
+    <div class="section"><h1>Third section</h1></div>
+
+    <script src="./background-lines.js"></script>
+  </body>
+</html>
