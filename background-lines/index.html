@@ -5,38 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Background lines — preview</title>
     <style>
-      html, body { margin: 0; padding: 0; background: #010101; color: #EBB245; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
-      /* Content sits ABOVE the fixed background-lines canvas (which is z-index 0).
-         Sections must be transparent for the lines to show through — like Webflow. */
-      .section { position: relative; z-index: 1; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; }
-      h1 { font-size: clamp(28px, 6vw, 72px); font-weight: 700; letter-spacing: -0.02em; margin: 0; opacity: 0.9; }
-      p  { color: #cfcfcf; opacity: 0.7; max-width: 40ch; margin: 12px auto 0; }
+      html, body { margin: 0; padding: 0; background: #050505; color: #EBB245; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+      /* A section that shows the lines: a plain block with a sticky inner bg div
+         carrying data-lines="background". The lines canvas fills that div; the
+         section content sits above it. (Mirrors the Webflow structure.) */
+      .lines-section { position: relative; }
+      .lines-bg {
+        position: sticky; top: 0; width: 100%; height: 100vh;
+        z-index: 0; margin-bottom: -100vh; overflow: hidden;
+      }
+      .content { position: relative; z-index: 1; min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; }
+      /* A plain section WITHOUT lines, to show they're scoped. */
+      .plain { position: relative; z-index: 1; background: #050505; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+      h1 { font-size: clamp(28px, 6vw, 64px); font-weight: 700; letter-spacing: -0.02em; margin: 0; opacity: 0.9; }
+      p  { color: #cfcfcf; opacity: 0.6; }
     </style>
 
-    <!-- Tune here without editing the module: overrides CONFIG before it loads. -->
+    <!-- Tune here (overrides CONFIG before the script loads). -->
     <script>
       window.BG_LINES_CONFIG = {
-        // transparent: false,  // true = only lines, page bg shows through
         // lineOpacity: 0.06,   // per-line opacity (~5%)
-        // scale:       1.7,    // LOWER = larger sweeping cells; higher = smaller/denser
+        // scale:       1.7,    // LOWER = larger sweeping cells
         // lines:       10.0,   // concentric rings per cell
-        // thickness:   1.3,    // line width
-        // warp:        0.28,   // organic flow (lower = rounder, closer to the SVG)
+        // warp:        0.28,   // organic flow (lower = rounder)
         // morph:       1.3,    // fusion frequency — how often cells merge/split
         // speed:       0.18,   // overall animation speed
-        // octaves:     3,      // fewer = smoother/rounder (try 2 for very round)
+        // octaves:     3,      // fewer = smoother/rounder (try 2)
       };
     </script>
   </head>
   <body>
-    <div class="section">
-      <div>
-        <h1>Background lines preview</h1>
-        <p>Scroll — the amber contour lines drift behind the content, like landonorris.com. Tweak values in the &lt;script&gt; above, then refresh.</p>
-      </div>
+    <!-- Section 1: has lines -->
+    <div class="lines-section">
+      <div class="lines-bg" data-lines="background"></div>
+      <div class="content"><div>
+        <h1>Section with lines</h1>
+        <p>Any div with data-lines="background" gets its own animated lines.</p>
+      </div></div>
+      <div class="content"><h1>…scroll over the same lines</h1></div>
     </div>
-    <div class="section"><h1>Second section</h1></div>
-    <div class="section"><h1>Third section</h1></div>
+
+    <!-- Section 2: no lines (plain) -->
+    <div class="plain"><h1 style="color:#888">Plain section (no lines)</h1></div>
+
+    <!-- Section 3: a separate lines instance, elsewhere in the page -->
+    <div class="lines-section">
+      <div class="lines-bg" data-lines="background"></div>
+      <div class="content"><h1>Another section with its own lines</h1></div>
+    </div>
 
     <script src="./background-lines.js"></script>
   </body>
