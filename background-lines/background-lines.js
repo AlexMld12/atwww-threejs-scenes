@@ -109,13 +109,34 @@
     '  else fragColor = vec4(mix(uBg, uLine, a), 1.0);\n' +
     '}\n';
 
-  var lineRgb = hexToRgb(CONFIG.lineColor);
-  var bgRgb   = hexToRgb(CONFIG.bgColor);
+  // Per-instance config: start from the global CONFIG, then apply any data-*
+  // overrides on the host element, so each section can look different.
+  //   data-lines-bg="#ffffff"        → background color (opaque unless transparent)
+  //   data-lines-color="#2a2a2a"     → line color
+  //   data-lines-opacity="0.12"      → per-line opacity
+  //   data-lines-transparent="true"  → don't paint a bg; host bg shows through
+  //   data-lines-scale / -lines / -thickness / -warp / -morph / -speed
+  function instanceConfig(el) {
+    var c = Object.assign({}, CONFIG);
+    if (!el) return c;
+    var d = el.dataset, f = parseFloat;
+    if (d.linesBg)                    c.bgColor     = d.linesBg;
+    if (d.linesColor)                 c.lineColor   = d.linesColor;
+    if (d.linesOpacity   != null)     c.lineOpacity = f(d.linesOpacity);
+    if (d.linesTransparent != null)   c.transparent = (d.linesTransparent === 'true' || d.linesTransparent === '1');
+    if (d.linesScale     != null)     c.scale       = f(d.linesScale);
+    if (d.linesLines     != null)     c.lines       = f(d.linesLines);
+    if (d.linesThickness != null)     c.thickness   = f(d.linesThickness);
+    if (d.linesWarp      != null)     c.warp        = f(d.linesWarp);
+    if (d.linesMorph     != null)     c.morph       = f(d.linesMorph);
+    if (d.linesSpeed     != null)     c.speed       = f(d.linesSpeed);
+    return c;
+  }
 
   // ── One independent renderer bound to one canvas ────────────────────────────
-  function createInstance(canvas) {
+  function createInstance(canvas, cfg) {
     var gl = canvas.getContext('webgl2', {
-      alpha: CONFIG.transparent,
+      alpha: cfg.transparent,
       antialias: false,
       premultipliedAlpha: true,
       powerPreference: 'low-power',
@@ -123,6 +144,8 @@
       stencil: false,
     });
     if (!gl) { console.warn('[bg-lines] WebGL2 unavailable — instance skipped.'); return null; }
+    var lineRgb = hexToRgb(cfg.lineColor);
+    var bgRgb   = hexToRgb(cfg.bgColor);
 
     function compile(type, src) {
       var s = gl.createShader(type);
@@ -143,18 +166,18 @@
 
     gl.uniform3f(U.uLine, lineRgb[0], lineRgb[1], lineRgb[2]);
     gl.uniform3f(U.uBg, bgRgb[0], bgRgb[1], bgRgb[2]);
-    gl.uniform1f(U.uScale, CONFIG.scale);
-    gl.uniform1f(U.uLines, CONFIG.lines);
-    gl.uniform1f(U.uThickness, CONFIG.thickness);
-    gl.uniform1f(U.uWarp, CONFIG.warp);
-    gl.uniform1f(U.uMorph, CONFIG.morph);
-    gl.uniform1f(U.uOpacity, CONFIG.lineOpacity);
-    gl.uniform1f(U.uTransparent, CONFIG.transparent ? 1.0 : 0.0);
+    gl.uniform1f(U.uScale, cfg.scale);
+    gl.uniform1f(U.uLines, cfg.lines);
+    gl.uniform1f(U.uThickness, cfg.thickness);
+    gl.uniform1f(U.uWarp, cfg.warp);
+    gl.uniform1f(U.uMorph, cfg.morph);
+    gl.uniform1f(U.uOpacity, cfg.lineOpacity);
+    gl.uniform1f(U.uTransparent, cfg.transparent ? 1.0 : 0.0);
 
     gl.bindVertexArray(gl.createVertexArray());
 
     function resize() {
-      var dpr = Math.min(window.devicePixelRatio || 1, CONFIG.dprCap) * CONFIG.renderScale;
+      var dpr = Math.min(window.devicePixelRatio || 1, cfg.dprCap) * cfg.renderScale;
       var w = Math.max(1, Math.floor(canvas.clientWidth  * dpr));
       var h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
       if (canvas.width !== w || canvas.height !== h) {
@@ -173,7 +196,7 @@
     function frame(now) {
       if (!running) return;
       resize();
-      gl.uniform1f(U.uTime, reduceMotion ? 0 : ((now - start) / 1000) * CONFIG.speed);
+      gl.uniform1f(U.uTime, reduceMotion ? 0 : ((now - start) / 1000) * cfg.speed);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       raf = reduceMotion ? 0 : requestAnimationFrame(frame);
     }
@@ -232,10 +255,10 @@
     if (hosts.length) {
       hosts.forEach(function (el) {
         var c = canvasInContainer(el);
-        if (c) { var inst = createInstance(c); if (inst) instances.push(inst); }
+        if (c) { var inst = createInstance(c, instanceConfig(el)); if (inst) instances.push(inst); }
       });
     } else {
-      var inst = createInstance(fullPageCanvas());
+      var inst = createInstance(fullPageCanvas(), instanceConfig(null));
       if (inst) instances.push(inst);
     }
     window.BG_LINES = { instances: instances, config: CONFIG, refresh: boot };
