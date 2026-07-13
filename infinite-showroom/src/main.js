@@ -233,7 +233,14 @@ if (rawCards.length) {
     .channels-cards .channel-card {
       position:relative !important; inset:auto !important; margin:0 !important; opacity:1 !important;
       transform:rotateY(180deg); backface-visibility:hidden; -webkit-backface-visibility:hidden; pointer-events:auto;
-    }`;
+      display:flex !important; flex-direction:column !important; overflow:hidden !important;
+    }
+    /* Description scrolls INSIDE the card (no visible scrollbar); the rest clips. */
+    .channels-cards .channel-card-bot {
+      flex:1 1 auto !important; min-height:0 !important; overflow-y:auto !important;
+      -webkit-overflow-scrolling:touch; scrollbar-width:none; -ms-overflow-style:none;
+    }
+    .channels-cards .channel-card-bot::-webkit-scrollbar { display:none !important; }`;
   document.head.appendChild(st);
 }
 
@@ -257,7 +264,11 @@ const cards = rawCards.map((card, i) => {
   // Auto-fill the avatar (img inside the card) too, when its src is empty.
   if (src) card.querySelectorAll('img').forEach(im => { if (!im.getAttribute('src')) im.src = src; });
 
-  return { box, inner, scroller: card.querySelector('.channel-card-bot') || card };
+  // Let the description scroll natively under Lenis smooth-scroll (otherwise
+  // Lenis hijacks the wheel and scrolls the page instead of the card).
+  const scroller = card.querySelector('.channel-card-bot') || card;
+  scroller.setAttribute('data-lenis-prevent', '');
+  return { box, inner, scroller };
 });
 
 // Each card owns a wide slice of scroll progress → it advances slowly.
