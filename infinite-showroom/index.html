@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Infinite Showroom — preview</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        background: #05060a;          /* space-dark; hides any transient gap */
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        overscroll-behavior: none;
+      }
+      /* ─── Scene section (Webflow structure) ─────────────────────────────────
+         .channels-universe = the TALL section that provides scroll length (its
+         height controls the timeline speed — longer = slower). .channels-sticky
+         pins the scene to the viewport while you scroll through the section; the
+         WebGL canvas mounts INTO it and the cards live inside it too. */
+      .channels-universe { position: relative; width: 100%; height: 800vh; }
+      .channels-sticky {
+        position: sticky; top: 0;
+        width: 100%;
+        height: 100vh;                /* fallback */
+        height: 100lvh;               /* large viewport = URL bar retracted */
+        overflow: hidden;
+        background: #05060a;
+      }
+      .channels-sticky canvas { display: block; }
+
+      /* ─── Centre cards (Webflow class contract) ─────────────────────────────
+         The scene only ANIMATES .channel-card (opacity + scale) via JS; every
+         size/font/colour below is plain CSS you own in Webflow. Sizes use your
+         1720px-reference clamp()s. Do NOT set a `transform` on .channel-card —
+         JS drives it. */
+      .channels-cards { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+      .channel-card {
+        position: absolute; inset: 0; margin: auto;   /* centred WITHOUT a transform (JS uses transform) */
+        box-sizing: border-box;
+        width:  clamp(215px, calc(215 / 1720 * 100vw), calc(215 / 1720 * 100vw));
+        height: clamp(312px, calc(312 / 1720 * 100vw), calc(312 / 1720 * 100vw));
+        padding:
+          clamp(37.5px, calc(37.5 / 1720 * 100vw), calc(37.5 / 1720 * 100vw))
+          clamp(10px,   calc(10 / 1720 * 100vw),   calc(10 / 1720 * 100vw));
+        border-radius: clamp(4px, calc(4 / 1720 * 100vw), calc(4 / 1720 * 100vw));
+        background: #ffffff;
+        display: flex; flex-direction: column;
+        gap: clamp(16px, calc(16 / 1720 * 100vw), calc(16 / 1720 * 100vw));
+        overflow: hidden;                             /* clip to the rounded box */
+        opacity: 0;                                   /* JS drives opacity + scale */
+        pointer-events: auto;                         /* interactive (scrollable) while visible */
+        will-change: transform, opacity;
+      }
+
+      .channel-card-top {
+        flex: 0 0 auto;                               /* pinned header */
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: clamp(16px, calc(16 / 1720 * 100vw), calc(16 / 1720 * 100vw));
+      }
+      .channel-card-img {
+        width:  clamp(46px, calc(46 / 1720 * 100vw), calc(46 / 1720 * 100vw));
+        height: clamp(46px, calc(46 / 1720 * 100vw), calc(46 / 1720 * 100vw));
+        border-radius: 50%; object-fit: cover; display: block;
+      }
+      .channel-card-name { font-weight: 700; color: #ff6a00; text-align: center; font-size: 15px; letter-spacing: .02em; }
+      .channel-card-span { display: block; color: #111; margin-top: 4px; }
+
+      /* Bottom = description. It scrolls INSIDE the card when the text is long,
+         with NO visible scrollbar. As the innermost scroll container it consumes
+         the wheel/touch first, so the SCENE stays frozen while you read; only
+         once it's fully scrolled does further scrolling advance the scene. */
+      .channel-card-bot {
+        flex: 1 1 auto; min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;                        /* Firefox */
+        -ms-overflow-style: none;                     /* old Edge */
+      }
+      .channel-card-bot::-webkit-scrollbar { display: none; }   /* Chrome / Safari */
+      .channel-card-description { color: #333; text-align: center; font-size: 12px; line-height: 1.5; }
+    </style>
+
+    <!-- ─── Webflow-editable config (scene settings only) ─────────────────────
+         Card CONTENT + STYLE live in the .channels-cards DOM below (built in
+         Webflow). This object only tunes the WebGL field. -->
+    <script>
+      window.SHOWROOM_CONFIG = {
+        // transparent: false,   bg: '#05060a',
+        // farOpacity: 0.10,     nearOpacity: 1.0,
+        // driftSpeed: 9.0,      scrollBoost: 1.1,
+        // parallax:   5.0,      maxTexture: 768,
+        // images: [ '...url...', ... ],   // optional — else src/images/field/*
+      };
+    </script>
+  </head>
+  <body>
+    <!-- Webflow structure: a tall section (.channels-universe) with a sticky pin
+         (.channels-sticky) that holds the WebGL canvas + the cards overlay.
+         `data-lenis-prevent` lets the card scroll natively under Lenis. -->
+    <div class="channels-universe">
+      <div class="channels-sticky">
+        <div class="channels-cards">
+          <div class="channel-card" data-card="0">
+            <div class="channel-card-top">
+              <img class="channel-card-img" alt="">
+              <div class="channel-card-name">CAYLUS · 70M<span class="channel-card-span">SUBSCRIBERS</span></div>
+            </div>
+            <div class="channel-card-bot" data-lenis-prevent>
+              <div class="channel-card-description">Caylus initially approached us to fully manage a clipping channel for his gaming content. Within just one month of launch, we had grown the channel to well over 100,000 subscribers. After seeing its success, he entrusted us with launching and managing a clipping channel for his reaction content, which quickly became another major success, amassing over 100 million views in a single month. Over the past three years, our partnership has expanded to fully managing 10 of Caylus' social media accounts, including clip channels, Top Videos channels, TikTok, and Instagram. During that time, our content has generated over 1 billion views while consistently growing his audience across every platform.</div>
+            </div>
+          </div>
+
+          <div class="channel-card" data-card="1">
+            <div class="channel-card-top">
+              <img class="channel-card-img" alt="">
+              <div class="channel-card-name">ETHAN SCHULTEIS · 5M<span class="channel-card-span">SUBSCRIBERS</span></div>
+            </div>
+            <div class="channel-card-bot" data-lenis-prevent>
+              <div class="channel-card-description">Placeholder description — edit this text in Webflow. Short copy sits comfortably; long copy scrolls inside the card without a scrollbar.</div>
+            </div>
+          </div>
+
+          <div class="channel-card" data-card="2">
+            <div class="channel-card-top">
+              <img class="channel-card-img" alt="">
+              <div class="channel-card-name">STOKES TWINS · 60M<span class="channel-card-span">SUBSCRIBERS</span></div>
+            </div>
+            <div class="channel-card-bot" data-lenis-prevent>
+              <div class="channel-card-description">Placeholder description — edit this text in Webflow.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
