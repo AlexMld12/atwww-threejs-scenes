@@ -32,12 +32,12 @@
       /* ─── Centre cards (Webflow class contract) ─────────────────────────────
          The scene only ANIMATES .channel-card (opacity + scale) via JS; every
          size/font/colour below is plain CSS you own in Webflow. Sizes use your
-         1720px-reference clamp()s. Do NOT set a `transform` on .channel-card —
-         JS drives it. */
+         1720px-reference clamp()s. The FLIP rig (front image + centering +
+         perspective) is built by the script at runtime and wraps this card as
+         the BACK face — so you only style the card itself here, nothing else. */
       .channels-cards { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
 
       .channel-card {
-        position: absolute; inset: 0; margin: auto;   /* centred WITHOUT a transform (JS uses transform) */
         box-sizing: border-box;
         width:  clamp(215px, calc(215 / 1720 * 100vw), calc(215 / 1720 * 100vw));
         height: clamp(312px, calc(312 / 1720 * 100vw), calc(312 / 1720 * 100vw));
@@ -49,9 +49,6 @@
         display: flex; flex-direction: column;
         gap: clamp(16px, calc(16 / 1720 * 100vw), calc(16 / 1720 * 100vw));
         overflow: hidden;                             /* clip to the rounded box */
-        opacity: 0;                                   /* JS drives opacity + scale */
-        pointer-events: auto;                         /* interactive (scrollable) while visible */
-        will-change: transform, opacity;
       }
 
       .channel-card-top {

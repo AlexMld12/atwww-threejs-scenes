@@ -204,26 +204,61 @@ function recycle(item, toFar) {
     : FIELD.zNear - Math.random() * 4;
 }
 
-// ─── The 3 centre cards (HTML/CSS, built & styled in Webflow) ─────────────────
-// Webflow structure (class contract):
-//   .channels-cards  →  .channel-card ×3  (each: .channel-card-top {img, name,
-//   span} + .channel-card-bot {description}). This script only ANIMATES the
-//   cards (fly-in scale+fade → hold → gentle exit) from CARD_WINDOWS; all
-//   sizing/fonts/colours are plain CSS. The .channel-card-img auto-fills locally
-//   from src/images/cards/ (alpha order) when its <img src> is left empty.
-const cardEls = Array.from(document.querySelectorAll('.channels-cards .channel-card'));
-cardEls.forEach((el, i) => {
-  const src = CARD_URLS[i];
-  if (!src) return;
-  el.querySelectorAll('img').forEach((img) => { if (!img.getAttribute('src')) img.src = src; });
-});
-// The scrollable region inside each card (long descriptions scroll here without
-// scrolling the scene — see index.html CSS). Reset to top when a card hides.
-const cardScrollers = cardEls.map(el => el.querySelector('.channel-card-bot') || el);
-
 const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = v => Math.max(0, Math.min(1, v));
+
+// ─── The 3 centre cards (FLIP: image front + Webflow back) ────────────────────
+// The client builds ONLY the BACK of the card in Webflow (`.channel-card` with
+// `.channel-card-top`/`.channel-card-bot`). The FRONT is the channel image,
+// which ARRIVES from the distance like a field photo (tiny + faint → full),
+// then the card FLIPS to reveal that Webflow back. This script wraps each
+// `.channel-card` in a flip rig at runtime, so nothing extra is needed in
+// Webflow. The scene ANIMATES it (arrive → flip → hold/scroll → exit) from
+// CARD_WINDOWS; all card styling stays plain CSS.
+const rawCards = Array.from(document.querySelectorAll('.channels-cards .channel-card'));
+if (!rawCards.length) console.warn('[infinite-showroom] No ".channels-cards .channel-card" found — check Webflow structure/classes.');
+
+if (rawCards.length) {
+  // Structural + flip CSS, injected so it works in Webflow regardless of the CSS
+  // applied there. Visual styling (bg, size, padding, fonts) stays on .channel-card.
+  const st = document.createElement('style');
+  st.textContent = `
+    .channels-cards { position:absolute; inset:0; z-index:10; pointer-events:none; }
+    .sc-slot  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+    .sc-box   { perspective:1200px; opacity:0; visibility:hidden; will-change:transform,opacity; }
+    .sc-inner { position:relative; transform-style:preserve-3d; }
+    .sc-front { position:absolute; inset:0; overflow:hidden; backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+    .sc-front img { width:100%; height:100%; object-fit:cover; display:block; }
+    .channels-cards .channel-card {
+      position:relative !important; inset:auto !important; margin:0 !important; opacity:1 !important;
+      transform:rotateY(180deg); backface-visibility:hidden; -webkit-backface-visibility:hidden; pointer-events:auto;
+    }`;
+  document.head.appendChild(st);
+}
+
+const cards = rawCards.map((card, i) => {
+  const src = CARD_URLS[i] || null;
+
+  const slot  = document.createElement('div'); slot.className  = 'sc-slot';
+  const box   = document.createElement('div'); box.className   = 'sc-box';
+  const inner = document.createElement('div'); inner.className = 'sc-inner';
+  const front = document.createElement('div'); front.className = 'sc-front';
+  const img   = document.createElement('img');
+  if (src) img.src = src;
+  front.appendChild(img);
+
+  // Wrap: .channels-cards > .sc-slot > .sc-box > .sc-inner > [.sc-front, .channel-card(back)]
+  card.parentNode.insertBefore(slot, card);
+  slot.appendChild(box); box.appendChild(inner);
+  inner.appendChild(front); inner.appendChild(card);
+  front.style.borderRadius = getComputedStyle(card).borderRadius;   // match the card's rounding
+
+  // Auto-fill the avatar (img inside the card) too, when its src is empty.
+  if (src) card.querySelectorAll('img').forEach(im => { if (!im.getAttribute('src')) im.src = src; });
+
+  return { box, inner, scroller: card.querySelector('.channel-card-bot') || card };
+});
 
 // Each card owns a wide slice of scroll progress → it advances slowly.
 const CARD_WINDOWS = [
@@ -232,30 +267,34 @@ const CARD_WINDOWS = [
   { start: 0.72, end: 0.98 },
 ];
 
-// lp = 0..1 within the card's window. Drives the DOM card's CSS transform.
-function driveCard(el, lp, i) {
+// lp = 0..1 within the card's window.
+function driveCard(c, lp) {
   if (lp <= 0 || lp >= 1) {
-    if (el.style.visibility !== 'hidden') {
-      el.style.opacity = '0';
-      el.style.visibility = 'hidden';
-      if (cardScrollers[i]) cardScrollers[i].scrollTop = 0;   // reset scroll for next time
+    if (c.box.style.visibility !== 'hidden') {
+      c.box.style.opacity = '0'; c.box.style.visibility = 'hidden'; c.scroller.scrollTop = 0;
     }
     return;
   }
-  el.style.visibility = 'visible';
+  c.box.style.visibility = 'visible';
 
-  // Slow fly-in (32%) → long hold (read/scroll) → slow, gentle exit (26%).
-  const IN = 0.32, HOLD = 0.74;
-  let op, scale;
+  // Arrive like a field photo (tiny + faint → full) → settle → flip to the back
+  // → hold (read/scroll) → gentle exit.
+  const IN = 0.34, SET = 0.44, FLIP_A = 0.60, HOLD = 0.80;
+  let op, scale, rotY;
   if (lp < IN) {
-    const t = easeInOut(lp / IN);          op = t;         scale = lerp(0.8, 1, t);
+    const t = easeInOut(lp / IN);                     op = t;          scale = lerp(0.12, 1, t); rotY = 0;
+  } else if (lp < SET) {
+    op = 1; scale = 1; rotY = 0;
+  } else if (lp < FLIP_A) {
+    const t = easeInOut((lp - SET) / (FLIP_A - SET)); op = 1; scale = 1; rotY = 180 * t;
   } else if (lp < HOLD) {
-    op = 1; scale = 1;
+    op = 1; scale = 1; rotY = 180;
   } else {
-    const t = easeInOut((lp - HOLD) / (1 - HOLD));  op = 1 - t * t; scale = lerp(1, 1.1, t);
+    const t = easeInOut((lp - HOLD) / (1 - HOLD));    op = 1 - t * t; scale = lerp(1, 1.1, t); rotY = 180;
   }
-  el.style.opacity   = op;
-  el.style.transform = `scale(${scale})`;
+  c.box.style.opacity   = op;
+  c.box.style.transform = `scale(${scale})`;
+  c.inner.style.transform = `rotateY(${rotY}deg)`;
 }
 
 // ─── Scroll tracking ─────────────────────────────────────────────────────────
@@ -328,9 +367,9 @@ function animate() {
     m.material.opacity = CFG.farOpacity + (CFG.nearOpacity - CFG.farOpacity) * d * d;
   }
 
-  for (let i = 0; i < cardEls.length; i++) {
+  for (let i = 0; i < cards.length; i++) {
     const w = CARD_WINDOWS[i];
-    if (w) driveCard(cardEls[i], clamp01((progress - w.start) / (w.end - w.start)), i);
+    if (w) driveCard(cards[i], clamp01((progress - w.start) / (w.end - w.start)));
   }
 
   // Dev-only functional probe (harmless in prod).
