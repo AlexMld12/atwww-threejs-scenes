@@ -19,5 +19,13 @@ export default defineConfig({
     target: 'es2020',
     sourcemap: false,
     assetsInlineLimit: 0,
+    // Stable, un-hashed entry filename so the Webflow/jsDelivr embed URL
+    // (.../footer-test/assets/neon-footer.js) never changes across rebuilds —
+    // same convention as the command-center-slider scene.
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/neon-footer.js',
+      },
+    },
   },
 });
