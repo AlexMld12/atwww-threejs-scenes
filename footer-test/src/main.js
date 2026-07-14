@@ -19,6 +19,13 @@ const mountEl = document.getElementById('footer-canvas')
   || document.body;
 const scrollSection = document.querySelector('.footer-universe');
 
+// Asset base for the GLB. Locally / on GitHub Pages the relative path resolves
+// against the page; embedded on Webflow it must point at the CDN folder that
+// holds the .glb, so Webflow sets `window.FOOTER_ASSET_BASE` (e.g. a jsDelivr
+// URL, CORS-enabled). Same convention as command-center-slider's CC_ASSET_BASE.
+const ASSET_BASE = (typeof window !== 'undefined' && window.FOOTER_ASSET_BASE)
+  || import.meta.env.BASE_URL;
+
 // ─── Renderer + scene ────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 // Cap DPR a touch below the device max — keeps the heavy postpro pipeline
@@ -753,7 +760,7 @@ const draco  = new DRACOLoader();
 draco.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 loader.setDRACOLoader(draco);
 
-loader.load('./test_2_updated.glb', (gltf) => {
+loader.load(ASSET_BASE + 'test_2_updated.glb', (gltf) => {
   gltf.scene.updateMatrixWorld(true);
 
   const logoMeshes = [], floorMeshes = [], pedestalMeshes = [];
