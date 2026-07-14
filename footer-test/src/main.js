@@ -8,6 +8,17 @@ import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 
+// ─── Webflow mount + scroll track ─────────────────────────────────────────────
+// The canvas mounts into #footer-canvas (local scaffold) or the Webflow sticky
+// child (.footer-sticky). The tall .footer-universe section provides the scroll
+// range that drives the camera reveal; when absent we fall back to page scroll.
+const mountEl = document.getElementById('footer-canvas')
+  || document.querySelector('.footer-sticky')
+  || document.querySelector('.footer-universe')
+  || document.getElementById('app')
+  || document.body;
+const scrollSection = document.querySelector('.footer-universe');
+
 // ─── Renderer + scene ────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 // Cap DPR a touch below the device max — keeps the heavy postpro pipeline
@@ -17,7 +28,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
-document.getElementById('app').appendChild(renderer.domElement);
+mountEl.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
@@ -36,6 +47,23 @@ const params = {
   posX: 0, posY: 0, posZ: 3,
   lookX: 0, lookY: -0.5, lookZ: -5,
   camPitchDeg: 0, camYawDeg: 0, camRollDeg: -12,
+
+  // Scroll-driven camera reveal. scroll 0 → the camera sits high above the logo,
+  // centred over the stack and looking down at the whole scene; scroll 1 → it
+  // eases into the resting front view (pos*/look*/camRollDeg above), which is
+  // the original framing. Only the camera moves — the scene itself is untouched.
+  // (The scene is centred at x≈0, z≈sceneZ; floor at floorTargetY, rings stacked
+  //  above it — so the start look-at targets that column from overhead.)
+  scrollCam:        true,
+  camStartPosX:     0,
+  camStartPosY:     18,     // high above the stack — far enough to read as an overhead shot, not a close-up
+  camStartPosZ:     -3.5,   // slightly toward the viewer so the down-look isn't a degenerate straight-down
+  camStartLookX:    0,
+  camStartLookY:    -1.4,   // ≈ floorTargetY — aim at the base of the stack
+  camStartLookZ:    -5,     // ≈ sceneZ
+  camStartRollDeg:  0,
+  camStartFov:      60,     // a touch wider up top to fit the whole spread of rings
+  scrollCamEase:    1.0,    // 0 = linear, 1 = full smoothstep on the reveal
 
   sceneZ:         -5,
   floorTargetY:   -1.4,
@@ -604,15 +632,67 @@ const layout = {
   floorMeshesByName: {},
 };
 
-function applyCamera() {
-  camera.fov = params.fov;
-  camera.position.set(params.posX, params.posY, params.posZ);
-  camera.lookAt(params.lookX, params.lookY, params.lookZ);
-  const DEG = Math.PI / 180;
-  camera.rotateX(params.camPitchDeg * DEG);
-  camera.rotateY(params.camYawDeg   * DEG);
-  camera.rotateZ(params.camRollDeg  * DEG);
+// ─── Scroll-driven camera ─────────────────────────────────────────────────────
+// Two cached camera states (start = above/looking down, end = resting front
+// view). Each frame we lerp position + fov and slerp orientation between them by
+// the eased scroll progress, so the footer "settles" into place as you scroll.
+const _camScratch = new THREE.PerspectiveCamera();
+const camStart = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), fov: 55 };
+const camEnd   = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), fov: 55 };
+
+function bakeCamState(out, pos, look, pitchDeg, yawDeg, rollDeg, fov) {
+  const D = Math.PI / 180;
+  _camScratch.up.set(0, 1, 0);
+  _camScratch.position.copy(pos);
+  _camScratch.lookAt(look);
+  _camScratch.rotateX(pitchDeg * D);
+  _camScratch.rotateY(yawDeg   * D);
+  _camScratch.rotateZ(rollDeg  * D);
+  out.pos.copy(pos);
+  out.quat.copy(_camScratch.quaternion);
+  out.fov = fov;
+}
+
+function computeCameraStates() {
+  bakeCamState(camStart,
+    new THREE.Vector3(params.camStartPosX, params.camStartPosY, params.camStartPosZ),
+    new THREE.Vector3(params.camStartLookX, params.camStartLookY, params.camStartLookZ),
+    0, 0, params.camStartRollDeg, params.camStartFov);
+  bakeCamState(camEnd,
+    new THREE.Vector3(params.posX, params.posY, params.posZ),
+    new THREE.Vector3(params.lookX, params.lookY, params.lookZ),
+    params.camPitchDeg, params.camYawDeg, params.camRollDeg, params.fov);
+}
+
+function applyCameraProgress(p) {
+  if (!params.scrollCam) { // static — sit at the resting view
+    camera.position.copy(camEnd.pos);
+    camera.quaternion.copy(camEnd.quat);
+    camera.fov = camEnd.fov;
+    camera.updateProjectionMatrix();
+    return;
+  }
+  // Optional smoothstep so the reveal eases in and out rather than tracking
+  // scroll linearly (scrollCamEase blends between linear and full smoothstep).
+  const s = p * p * (3 - 2 * p);
+  const e = THREE.MathUtils.lerp(p, s, params.scrollCamEase);
+  camera.position.lerpVectors(camStart.pos, camEnd.pos, e);
+  camera.quaternion.slerpQuaternions(camStart.quat, camEnd.quat, e);
+  camera.fov = THREE.MathUtils.lerp(camStart.fov, camEnd.fov, e);
   camera.updateProjectionMatrix();
+}
+
+// Section-relative progress (0 → footer entering, 1 → fully revealed at rest),
+// so this works as one scene among several on the page. Falls back to whole-page
+// scroll when the .footer-universe section isn't present.
+function getScrollProgress() {
+  if (scrollSection) {
+    const rect = scrollSection.getBoundingClientRect();
+    const range = rect.height - window.innerHeight;
+    return range > 0 ? Math.min(1, Math.max(0, -rect.top / range)) : 0;
+  }
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  return max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
 }
 
 function applyLayout() {
@@ -664,7 +744,8 @@ function bakeIntoGroup(meshes, group, material) {
   return bbox;
 }
 
-applyCamera();
+computeCameraStates();
+applyCameraProgress(getScrollProgress());
 
 // ─── GLB load ────────────────────────────────────────────────────────────────
 const loader = new GLTFLoader();
@@ -765,6 +846,9 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 1 / 30);
   const t  = clock.getElapsedTime();
+
+  // Scroll-driven camera reveal: high above the logo → resting front view.
+  applyCameraProgress(getScrollProgress());
 
   // Mouse parallax on the logo.
   mouseXs = damp(mouseXs, mouseX, params.parallaxSmoothRate, dt);

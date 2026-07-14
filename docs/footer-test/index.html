@@ -2,24 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>Neon Footer</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body {
         width: 100%;
-        height: 100%;
-        overflow: hidden;
+        /* Black so any transient gap while the mobile URL bar shows/hides is
+           invisible against the dark scene — no flash. */
         background: #000;
         color: #fff;
         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        overscroll-behavior: none;
       }
-      #app { position: fixed; inset: 0; }
-      canvas { display: block; touch-action: none; }
+      /* ─── Footer section (Webflow structure) ────────────────────────────────
+         .footer-universe = the TALL section that gives scroll length; its height
+         controls how far you scroll to reveal the footer (longer = slower).
+         .footer-sticky pins the scene to the viewport while you scroll through
+         the section. The WebGL canvas mounts INTO #footer-canvas.
+         Locally this scaffold reproduces exactly what the Webflow sticky section
+         provides, so window scroll drives the camera the same way. */
+      .footer-universe { position: relative; width: 100%; height: 300vh; }
+      .footer-sticky {
+        position: sticky; top: 0;
+        width: 100%;
+        height: 100vh;   /* fallback for browsers without lvh */
+        height: 100lvh;  /* large viewport = URL bar retracted */
+        overflow: hidden;
+        background: #000;
+      }
+      #footer-canvas { position: absolute; inset: 0; }
+      /* pan-y (not none) so a vertical swipe on the canvas scrolls the page —
+         that scroll is what drives the camera reveal. In Webflow the sticky
+         section behaves the same; the canvas must never swallow the scroll. */
+      canvas { display: block; touch-action: pan-y; }
     </style>
-    <script type="module" crossorigin src="./assets/index-D4Y6d5wJ.js"></script>
+    <script type="module" crossorigin src="./assets/index-6TnrGn1J.js"></script>
   </head>
   <body>
-    <div id="app"></div>
+    <div class="footer-universe">
+      <div class="footer-sticky">
+        <div id="footer-canvas"></div>
+      </div>
+    </div>
   </body>
 </html>
