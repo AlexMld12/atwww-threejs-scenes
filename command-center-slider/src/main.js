@@ -28,12 +28,13 @@ const MSAA_SAMPLES       = IS_MOBILE ? 4   : 2;
 const REFLECTOR_RT_SCALE   = IS_MOBILE ? 0.3 : 0.5;
 const ENABLE_FLOOR_REFLECTOR = true;         // floor mirror on both (mobile at reduced RT)
 const ENABLE_ROOF_REFLECTOR  = !IS_MOBILE;   // ceiling mirror desktop-only
-// Reflectors re-render the WHOLE scene into a texture every frame — the single
-// biggest per-frame GPU cost. Refresh each mirror only every REFLECTION_EVERY-th
-// frame and reuse the previous texture in between: a blurred, slowly-moving
-// mirror at 30fps is visually imperceptible, but this halves the reflector pass.
-// Applies to BOTH mirrors on desktop AND mobile. Bump to 3 for ~one-third cost.
-const REFLECTION_EVERY = 2;
+// Reflectors re-render the WHOLE scene into a texture every frame — a big per-
+// frame GPU cost. Half-rating (2 = every other frame) is possible, BUT the hero's
+// mirrors reflect the bright, animated video screens (high temporal frequency),
+// so a 30fps mirror visibly FLICKERS here. Kept at 1 (every frame) for a stable
+// reflection; the override-material guard below still drops a wasted per-frame
+// depth re-render. (The footer's blurred/faded reflection does tolerate 2.)
+const REFLECTION_EVERY = 1;
 // Blur kernel radius for the frosted hover mask: 5×5 (25 taps) on desktop, 3×3
 // (9 taps) on mobile — this shader runs on every video-plane fragment every
 // frame, so trimming taps directly helps the video phase where mobile lags.
