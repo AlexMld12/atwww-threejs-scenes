@@ -254,7 +254,8 @@ const params = {
   logoExitStart:      0.25, // scroll progress (0..1) where the logo starts to leave (DESKTOP; mobile overridden below)
   logoExitEnd:        0.45, // scroll progress where the transition (gradient/camera dip) completes (DESKTOP)
   logoExitDrop:       3.5,  // camera follows the logo down this far through the floor (the transition drop)
-  logoExitFollowRate: 8,    // easing rate for the exit — also smooths the intro→scroll handoff
+  logoExitFollowRate: 24,   // easing rate for the exit — also smooths the intro→scroll handoff.
+                            // Raised 8->24 so the logo exit tracks the page's Lenis scroll (less lag).
   logoContinueDrop:   7.5,  // beyond logoExitEnd the logo eases DOWN by this many units total and SETTLES (bounded — it does not keep falling out of view). This is a LONG descent so the camera (which follows ~cameraContinueFollow of it) travels deep past the floor/ceiling into empty black space. Bigger = deeper journey / floor leaves the frame sooner.
   logoSpinDeg:        1300,  // degrees the logo spins (like a top) per unit of scroll beyond logoExitEnd — a touch faster
   cameraFollowExit:   1.0,  // how much the camera height follows the exiting logo (0..1)
@@ -337,7 +338,10 @@ const params = {
   // its own tour timing in the IS_MOBILE override block below.
   ringStartRotationDeg: 50,    // base rotation at scroll=0 so the initial view is framed/centered
   scrollMaxRotationDeg: 150,   // extra rotation added over the full scroll — small turn, not a full spin
-  scrollFollowRate:     6,     // higher = ring tracks scroll faster (less lag)
+  scrollFollowRate:     30,    // higher = ring tracks scroll faster (less lag). Raised 6->30:
+                               // the page's Lenis already smooths scroll, so a low rate here
+                               // double-smooths and the ring visibly trails the page. ~30 locks
+                               // it to the page feel; lower = floatier, higher = tighter.
 
   // Hover mask on the video planes
   maskColor:       '#2e0000',
