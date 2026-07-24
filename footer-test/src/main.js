@@ -950,42 +950,48 @@ function applyRenderTargets(w, h, effPR) {
   logoFillMaterial.uniforms.uResolution.value.set(sceneRT.width, sceneRT.height);
 }
 
-// Adaptive controller state — refresh-RELATIVE + probe design. The old version
-// judged load from RAW performance.now() intervals against ABSOLUTE ms cutoffs,
-// but the rAF interval is floored by the display's vsync period (~16.7ms @60Hz):
-// an UP threshold below that period could NEVER be met (→ one-way ratchet down),
-// and a ~20ms DOWN threshold false-positived on sub-50Hz / throttled displays
-// where the GPU is idle but pacing is slow. Instead we measure the actual refresh
-// period and express every decision RELATIVE to it, so it behaves the same on
-// 60/120/144Hz. Because headroom is undetectable under vsync (a 3ms GPU and a
-// 16ms GPU both read ~16.7ms @60Hz), recovery is a TIME-BASED probe, not a
-// low-interval reading, with exponential backoff so it can never thrash.
-const RS_WARMUP        = 30;   // ignore the first N measured frames (shader/JIT warmup)
-const RS_COOLDOWN      = 45;   // frames to wait after a scale change before another
-const DROP_FACTOR      = 1.5;  // interval > refreshMs*this ⇒ a "dropped" frame (missed ≥1 vsync)
-const DOWN_HOLD        = 30;   // consecutive dropped frames before a downscale
-const PROBE_AFTER_BASE = 300;  // good frames (~5s @60Hz) with no drop before probing UP one notch
-const PROBE_AFTER_MAX  = PROBE_AFTER_BASE * 8; // backoff cap for repeatedly-failing probes
-const PROBE_OBSERVE    = 120;  // frames a probe must survive (no downscale) to count as a success
+// Adaptive controller — TRUE-GPU-COST design. The old version inferred load from
+// RAW requestAnimationFrame INTERVALS, but that signal is floored by the display's
+// vsync period (~16.7ms @60Hz): a fast GPU (2ms) and a GPU just coping (16ms) both
+// read ~16.7ms, so a single stray frame could wrongly downscale even very capable
+// hardware — a visible quality regression. Instead we measure the actual GPU frame
+// time with an EXT_disjoint_timer_query_webgl2 TIME_ELAPSED query wrapped around the
+// frame's render work, and decide against vsync-INDEPENDENT millisecond budgets. On
+// a capable GPU rsGpuMs stays tiny (~1-3ms) << RS_BUDGET_MS, so it NEVER downscales
+// → renderScale pinned at 1.0 → byte-identical output.
+const gl = renderer.getContext();
+// The timer-query extension exposes per-frame GPU cost. When it is absent (e.g.
+// Safari, which never shipped it) the controller is DISABLED — no queries are ever
+// issued, rsGpuMs is never sampled, and renderScale stays 1 forever (full quality,
+// no adaptation). getExtension returns null rather than throwing when unsupported.
+const rsExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
 
-let refreshMs   = 1000;        // running MIN of measured intervals ≈ the vsync period (persists across resume)
-let rsWarmCount = 0;           // measured frames since the last reset (warmup gate)
-let rsCooldown  = 0;           // frames left before another scale change is allowed
-let dropCount   = 0;           // consecutive dropped frames — the downscale sustain signal
-let goodStreak  = 0;           // frames since the last downscale — the probe timer
-let probing     = false;       // an upscale probe is currently under observation
-let probeAfter  = PROBE_AFTER_BASE; // current probe interval (doubles on each failed probe)
-let rsLastTime  = 0;           // performance.now() of the previous measured frame
-let rsSkipFrame = false;       // skip this frame's interval (resume/resize/scale-change spike)
+const RS_WARMUP    = 15;   // ignore the first N measured samples (shader/JIT warmup)
+const RS_COOLDOWN  = 45;   // frames to wait after a scale change before another
+const RS_SETTLE    = 2;    // measured samples to skip after a scale change / resume / resize (RT realloc perturbs timing)
+const RS_BUDGET_MS = 13;   // sustained EMA above this ⇒ over budget (targets 60fps smoothness, vsync-independent)
+const RS_HEADROOM_MS = 8;  // sustained EMA below this ⇒ clear headroom (deadband 8-13ms suppresses oscillation)
+const RS_DOWN_HOLD = 20;   // consecutive over-budget samples before a downscale (short sustain window)
+const RS_UP_HOLD   = 60;   // consecutive clear-headroom samples before an upscale (longer window)
 
-// Reset the decision signal — called on resume so the huge interval across the
-// paused gap can't be read as a dropped frame and force a spurious downscale.
-// refreshMs PERSISTS across resume: the display's period doesn't change while paused.
+let rsQuery      = null;   // the single TIME_ELAPSED query currently in flight (null = none pending)
+let rsGpuMs      = 0;      // EMA of the measured GPU frame cost in milliseconds
+let rsGpuSeeded  = false;  // false until the first valid sample seeds the EMA
+let rsWarmCount  = 0;      // measured samples since the last reset (warmup gate)
+let rsCooldown   = 0;      // frames left before another scale change is allowed
+let rsSettle     = 0;      // measured samples still to skip after a scale change / resume / resize
+let rsOverCount  = 0;      // consecutive samples with rsGpuMs > RS_BUDGET_MS — the downscale sustain signal
+let rsUnderCount = 0;      // consecutive samples with rsGpuMs < RS_HEADROOM_MS — the upscale sustain signal
+
+// Reset the decision signal — called on resume so the stale EMA/counters from
+// before the pause can't force a spurious scale change. The GPU-ms signal is
+// wall-clock-independent, so the paused gap itself never pollutes it; we still
+// re-seed the EMA and skip a couple of settling samples on resume.
 function resetAdaptive() {
   rsWarmCount = 0; rsCooldown = 0;
-  dropCount = 0; goodStreak = 0;
-  probing = false; probeAfter = PROBE_AFTER_BASE;
-  rsLastTime = 0; rsSkipFrame = false;
+  rsOverCount = 0; rsUnderCount = 0;
+  rsGpuMs = 0; rsGpuSeeded = false;
+  rsSettle = RS_SETTLE;
 }
 
 function setRenderScale(next) {
@@ -993,70 +999,66 @@ function setRenderScale(next) {
   renderScale = next;
   const effPR = Math.min(window.devicePixelRatio, 1.75) * renderScale;
   applyRenderTargets(window.innerWidth, window.innerHeight, effPR);
-  rsCooldown  = RS_COOLDOWN;
-  dropCount   = 0;
-  goodStreak  = 0;            // both a downscale and a probe reset the "frames since change" timer
-  rsSkipFrame = true;         // the reallocation happens this frame — don't sample the next interval
+  rsCooldown   = RS_COOLDOWN;
+  rsOverCount  = 0;
+  rsUnderCount = 0;
+  rsSettle     = RS_SETTLE;   // the RT reallocation happens this frame — skip the next couple of samples
 }
 
-// Measure the frame interval against the display's refresh period and decide
-// whether to change scale. Skips warmup / resume / resize / scale-change frames
-// so their spikes never seed refreshMs or trip a threshold.
-function updateAdaptive() {
-  const now = performance.now();
-  if (rsSkipFrame || rsLastTime === 0) {
-    rsLastTime  = now;
-    rsSkipFrame = false;
-    return;
-  }
-  const interval = now - rsLastTime;
-  rsLastTime = now;
-
-  // Warmup gate: let shaders / JIT settle before trusting any interval or letting
-  // it seed refreshMs (a slow first frame must not poison the measured period).
+// Fold one freshly-read GPU cost into the decision. Runs only when a query result
+// has been read (see pollGpuTimer). Thresholds are absolute milliseconds, so the
+// verdict is identical on 60/120/144Hz — no probe/backoff needed since headroom
+// is now directly measured rather than inferred.
+function decideRenderScale() {
+  // Warmup gate: let shaders / JIT settle before trusting any sample.
   if (rsWarmCount < RS_WARMUP) { rsWarmCount++; return; }
+  // Settle gate: discard the couple of samples right after a scale change / resume
+  // / resize, whose timings are perturbed by the RT reallocation.
+  if (rsSettle > 0) { rsSettle--; return; }
 
-  // 1. MEASURE THE DISPLAY PERIOD — the fastest frames ≈ the vsync period, so a
-  //    running minimum tracks it. Every threshold below is now relative to this,
-  //    which makes the controller behave identically on 60 / 120 / 144Hz.
-  refreshMs = Math.min(refreshMs, interval);
-
-  // 2. DROP DETECTION — a frame "dropped" when it ran well past the period, i.e.
-  //    it missed at least one vsync. A healthy display sits at interval ≈ refreshMs
-  //    (ratio ≈ 1.0 < DROP_FACTOR) → never counts a drop → never downscales.
-  if (interval > refreshMs * DROP_FACTOR) dropCount++;
-  else                                    dropCount = 0;
-  goodStreak++;
+  // Sustain counters against the deadband. rsGpuMs in [RS_HEADROOM_MS, RS_BUDGET_MS]
+  // increments neither → the controller holds (no oscillation across the band).
+  if (rsGpuMs > RS_BUDGET_MS)   rsOverCount++;  else rsOverCount  = 0;
+  if (rsGpuMs < RS_HEADROOM_MS) rsUnderCount++; else rsUnderCount = 0;
 
   if (rsCooldown > 0) { rsCooldown--; return; }
 
-  // DOWNSCALE on SUSTAINED drops (this is also the probe-failure path).
-  if (dropCount >= DOWN_HOLD && renderScale > RS_FLOOR) {
-    if (probing) {
-      // A downscale fired while probing → the step up was too much. Back the probe
-      // interval off exponentially (capped) so recovery can't thrash on a machine
-      // that keeps rejecting the same notch.
-      probing    = false;
-      probeAfter = Math.min(PROBE_AFTER_MAX, probeAfter * 2);
-    }
+  // DOWNSCALE one step on a sustained over-budget window (weak GPU, or a real load
+  // spike). Never fires on a capable GPU whose rsGpuMs stays well under budget.
+  if (rsOverCount >= RS_DOWN_HOLD && renderScale > RS_FLOOR) {
     setRenderScale(Math.max(RS_FLOOR, renderScale - RS_STEP));
     return;
   }
 
-  // 3. RECOVERY = TIME-BASED PROBE. Headroom is invisible under vsync, so we can't
-  //    read "the GPU is now fast enough" from the interval — instead, after a long
-  //    drop-free streak we optimistically step UP one notch and OBSERVE it.
-  if (probing) {
-    // The probe survived PROBE_OBSERVE frames with no downscale → lock it in and
-    // reset the backoff so the next reclaim happens at the base cadence again.
-    if (goodStreak >= PROBE_OBSERVE) {
-      probing    = false;
-      probeAfter = PROBE_AFTER_BASE;
-    }
-  } else if (renderScale < 1 && goodStreak >= probeAfter) {
-    probing = true;
-    setRenderScale(Math.min(1, renderScale + RS_STEP)); // resets goodStreak for the OBSERVE window
+  // UPSCALE one step on a sustained clear-headroom window — the measured GPU cost
+  // directly proves the reclaim is safe, so recovery is immediate once cost drops.
+  if (rsUnderCount >= RS_UP_HOLD && renderScale < 1) {
+    setRenderScale(Math.min(1, renderScale + RS_STEP));
   }
+}
+
+// Poll the previously-issued timer query. Keeps exactly ONE query in flight: only
+// after the prior one is read (or discarded) is rsQuery cleared so animate() may
+// start the next. When a valid result is ready, fold it into the EMA and decide.
+function pollGpuTimer() {
+  if (!rsExt || rsQuery === null) return;
+  // If the GPU signalled a disjoint event, every timing straddling it is invalid —
+  // discard this query WITHOUT touching the EMA.
+  if (gl.getParameter(rsExt.GPU_DISJOINT_EXT)) {
+    gl.deleteQuery(rsQuery);
+    rsQuery = null;
+    return;
+  }
+  // Not ready yet → leave it pending (still the one query in flight), read next frame.
+  if (!gl.getQueryParameter(rsQuery, gl.QUERY_RESULT_AVAILABLE)) return;
+
+  const gpuMs = gl.getQueryParameter(rsQuery, gl.QUERY_RESULT) / 1e6; // ns → ms
+  gl.deleteQuery(rsQuery);
+  rsQuery = null;
+
+  if (!rsGpuSeeded) { rsGpuMs = gpuMs; rsGpuSeeded = true; }
+  else              { rsGpuMs += (gpuMs - rsGpuMs) * 0.1; }
+  decideRenderScale();
 }
 
 window.addEventListener('resize', onViewportResize);
@@ -1074,7 +1076,7 @@ function onViewportResize() {
   const effPR = Math.min(window.devicePixelRatio, 1.75) * renderScale;
   applyRenderTargets(w, h, effPR);
   particleMat.uniforms.uPxScale.value = h / 2;
-  rsSkipFrame = true;   // don't let the resize-frame reallocation spike bias the EMA
+  rsSettle = RS_SETTLE;   // don't let the resize-frame RT reallocation spike bias the EMA
 }
 
 // ─── Render loop ─────────────────────────────────────────────────────────────
@@ -1087,8 +1089,6 @@ let running  = false;
 
 function animate() {
   rafId = requestAnimationFrame(animate);
-  // Adaptive-resolution frame-time signal (raw wall-clock, before the clamp below).
-  updateAdaptive();
   const dt = Math.min(clock.getDelta(), 1 / 30);
   const t  = clock.getElapsedTime();
 
@@ -1134,6 +1134,19 @@ function animate() {
 
   logoFillMaterial.uniforms.uTime.value = t;
 
+  // ─── Adaptive-resolution GPU timing ────────────────────────────────────────
+  // First poll the previously-issued query (may fold a sample + change scale),
+  // THEN wrap this frame's GPU render work — the sceneRT glass capture, the
+  // Reflector RT (via its onBeforeRender during composer.render), AND
+  // composer.render() — in a single TIME_ELAPSED query. Only start a new query
+  // when none is pending (one in flight at a time); disabled when unsupported.
+  pollGpuTimer();
+  const rsMeasuring = rsExt !== null && rsQuery === null;
+  if (rsMeasuring) {
+    rsQuery = gl.createQuery();
+    gl.beginQuery(rsExt.TIME_ELAPSED_EXT, rsQuery);
+  }
+
   // Capture the scene WITHOUT the logo (+ floor + pedestal + reflector) into
   // sceneRT for the logo's glass shader to refract. Half-rated (technique 3):
   // re-captured every GLASS_CAPTURE_EVERY frames; on skipped frames the glass
@@ -1157,6 +1170,10 @@ function animate() {
   }
 
   composer.render();
+
+  // Close the query immediately after the last render call so it spans exactly
+  // the frame's GPU work; its result is read on a later frame by pollGpuTimer.
+  if (rsMeasuring) gl.endQuery(rsExt.TIME_ELAPSED_EXT);
   frameCount++;
 }
 
