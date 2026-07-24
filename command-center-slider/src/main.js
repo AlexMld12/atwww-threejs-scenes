@@ -66,7 +66,18 @@ const viewportH = () => appEl.clientHeight || window.innerHeight;
 // (OutputPass) hits the default framebuffer, so the renderer's own MSAA would
 // anti-alias nothing but that quad's screen-border edge. Dropping it is free.
 const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
+// ─── Adaptive resolution state ────────────────────────────────────────────────
+// BASE_PR is the full-quality (capped) device pixel ratio. renderScale multiplies
+// it: 1.0 = full DPR, byte-identical to the non-adaptive path. The controller in
+// animate() steps renderScale DOWN through RS_STEPS only under SUSTAINED over-
+// budget frames, and probes back UP when there's headroom (see the monitor). On a
+// GPU that holds the frame budget it stays pinned at 1.0 forever (every render
+// target keeps its full-DPR size), so output is identical to today.
+const BASE_PR = Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP);
+let renderScale = 1;
+const RS_STEPS  = [1.0, 0.85, 0.72, 0.6];
+let rsIndex     = 0;
+renderer.setPixelRatio(BASE_PR);
 renderer.setClearColor(0x010101, 1);  // dark; applyColors() resets it from params.bg once params exist
 // updateStyle=false: we only drive the drawing-buffer size and set the canvas
 // CSS to fill its container ourselves (below), so it works whether or not the
@@ -143,6 +154,16 @@ const scene = new THREE.Scene();
 // No scene.background — we drive the clear color/alpha on the renderer instead,
 // so the canvas can go transparent in the empty well (see the renderer + animate).
 scene.background = null;
+// This Scene is a pure identity root: nothing ever transforms `scene` itself
+// (verified — there are no scene.position/rotation/scale writes anywhere). With
+// matrixAutoUpdate ON, the root sets matrixWorldNeedsUpdate every frame, which
+// force-recomputes the world matrix of the ENTIRE object tree each frame. Turning
+// it OFF stops that root force. matrixWorldAutoUpdate stays ON, so the renderer
+// still walks the graph, and the ANIMATED nodes (logoGroup, videosPivot) — which
+// keep matrixAutoUpdate ON and thus set their own matrixWorldNeedsUpdate — still
+// update and still force their own subtrees. The static nodes frozen below then
+// truly stop recomputing matrices per frame. Provably zero visual change.
+scene.matrixAutoUpdate = false;
 
 const camera = new THREE.PerspectiveCamera(55, viewportW() / viewportH(), 0.1, 100);
 // Layer 1 = "main view only" — used for the hover masks so the planar
@@ -192,6 +213,58 @@ composer.addPass(outlinePass);
 const pr = renderer.getPixelRatio();
 composer.addPass(new SMAAPass(viewportW() * pr, viewportH() * pr));
 composer.addPass(new OutputPass());
+
+// ─── Adaptive resolution controller ───────────────────────────────────────────
+// applyRenderScale() re-applies the current renderScale to the whole chain. The
+// controller lives in animate(). It judges load RELATIVE to the measured display
+// refresh period (refreshMs = a running MIN of the raw performance.now() frame
+// interval — the fastest frames ≈ the vsync period), NOT against absolute ms.
+// This is essential because the rAF interval is bounded below by vsync (~16.7ms
+// @60Hz): an absolute UP threshold under a vsync could never be met (one-way
+// ratchet down), and an absolute ~20ms DOWN threshold false-positives on a slow-
+// but-idle sub-50Hz display. Relative to refreshMs it behaves identically on
+// 60/120/144Hz. A frame is "dropped" when it overruns the refresh period by
+// RS_DROP_FACTOR (missed ≥1 vsync); SUSTAINED drops step the scale DOWN. Headroom
+// is invisible under vsync (a 3ms and a 16ms GPU both read one vsync), so recovery
+// is a TIME-BASED PROBE: after a long clean streak step UP one notch and observe —
+// if it drops again, step back down and back off exponentially (no thrash).
+// Warmup/resume/resize frames are skipped so transient spikes can't move it.
+const RS_DROP_FACTOR     = 1.5;  // interval > refreshMs*this ⇒ a dropped frame (missed a vsync)
+const RS_DOWN_HOLD       = 30;   // sustained-drop accumulator level before stepping down
+const RS_PROBE_AFTER     = 300;  // base clean frames (~5s @60Hz) before probing back up
+const RS_PROBE_AFTER_MAX = 2400; // cap for the (backing-off) probe interval (8× base)
+const RS_PROBE_OBSERVE   = 120;  // clean frames after a probe before it's judged a success
+const RS_COOLDOWN        = 45;   // min frames between scale changes
+const RS_WARMUP          = 30;   // ignore the first frames (shader compile / asset warm-up)
+
+let refreshMs        = 1000;  // running MIN of the measured frame interval ≈ the vsync period; every threshold above is relative to it. Seeded high; persists across resume.
+let rsLastNow        = 0;     // performance.now() of the previous measured frame (0 = seed)
+let rsWarmup         = RS_WARMUP;
+let rsSkip           = 0;     // skip N upcoming frames (resume / resize / RT realloc)
+let rsDropAccum      = 0;     // leaky sustained-drop signal: +1 on a dropped frame, −1 (floored at 0) otherwise
+let rsGoodStreak     = 0;     // measured frames since the last downscale (drives the recovery probe)
+let rsCooldown       = 0;     // frames remaining before another scale change is allowed
+let rsProbeAfter     = RS_PROBE_AFTER;  // current clean-frame gate before a probe (doubles on a failed probe, capped)
+let rsProbing        = false; // a probe up-step is still inside its observe window
+
+function applyRenderScale() {
+  const pr = BASE_PR * renderScale;
+  renderer.setPixelRatio(pr);
+  composer.setPixelRatio(pr);   // cascades pr → composerRT + SMAAPass + OutputPass
+  const w = viewportW(), h = viewportH();
+  renderer.setSize(w, h, false);
+  composer.setSize(w, h);
+  outlinePass.setSize(w, h);    // handles its own edge/blur RTs
+  // The two Reflector RTs are deliberately NOT resized here — they stay fixed at
+  // REFLECTOR_RT_SCALE. Recreating a Reflector RT hitches, so they ride through
+  // scale changes untouched.
+  //
+  // The RT reallocation above makes the NEXT frame's interval large and
+  // unrepresentative — skip a couple of frames and clear the drop signal so the
+  // controller never reads its own resize hitch as a dropped frame.
+  rsSkip      = Math.max(rsSkip, 2);
+  rsDropAccum = 0;
+}
 
 // Only the ring spotlight and the per-screen RectAreaLights illuminate the
 // scene — no ambient / key / fill. Anything outside those cones stays black.
@@ -871,6 +944,13 @@ function bakeIntoGroup(meshes, group, material) {
     mesh.rotation.set(0, 0, 0);
     mesh.scale.set(1, 1, 1);
     mesh.updateMatrix();
+    // Geometry is baked into world space and the mesh's local transform is now a
+    // fixed identity that never changes again — so skip per-frame local-matrix
+    // recomposition. Its WORLD matrix still updates when a moving parent forces it
+    // (logo meshes ride the animated logoGroup; screen meshes ride the rotating
+    // videosPivot), so nothing visual changes. Static floor/ceiling meshes simply
+    // stay put. Zero visual change.
+    mesh.matrixAutoUpdate = false;
     if (material) mesh.material = material;
     group.add(mesh);
     geom.computeBoundingBox();
@@ -1184,6 +1264,22 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   rebuildRoofReflector();
   rebuildFloorOccluder();
   rebuildWell();
+
+  // ── Freeze static transforms (perf; provably zero visual change) ──────────
+  // floorGroup / videosGroup / ringGroup / logoSpotTarget are transformed exactly
+  // once — by applyLayout() / rebuildRingLight(), which run only here (no GUI
+  // mutates params, and applyLayout is never called again — onResize does not call
+  // it). Bake their current local matrix and stop per-frame recomposition.
+  // videosGroup still ROTATES visually because its parent videosPivot (which keeps
+  // auto-updating) force-updates its world every frame — only videosGroup's fixed
+  // local offset is frozen. Combined with the scene-root freeze, the floor /
+  // ceiling / screen-rig / spot-target matrices stop churning each frame.
+  [floorGroup, videosGroup, ringGroup, logoSpotTarget].forEach((o) => {
+    if (!o) return;
+    o.updateMatrix();            // ensure .matrix holds the final local transform…
+    o.matrixAutoUpdate = false;  // …then stop recomposing it every frame
+  });
+
   outlinePass.selectedObjects = logoGroup.children.slice();
 
   // Gradient "shells": one per logo mesh, same geometry, coincident with the
@@ -1193,6 +1289,10 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   layout.logoGradientMeshes = layout.logoMeshes.map((m) => {
     const shell = new THREE.Mesh(m.geometry, gradientMaterial);
     shell.renderOrder = 1;   // draw over the glass during the crossfade
+    // Identity local transform, coincident with the glass; it rides logoGroup, so
+    // its world is force-updated by the animated parent — freeze the local matrix.
+    shell.updateMatrix();
+    shell.matrixAutoUpdate = false;
     logoGroup.add(shell);
     return shell;
   });
@@ -1291,11 +1391,13 @@ window.addEventListener('pointermove', (e) => {
 
 // ─── Resize ──────────────────────────────────────────────────────────────────
 function onResize() {
-  const w = viewportW(), h = viewportH();
   updateFraming();  // aspect + responsive pull-back for portrait/tablet
-  renderer.setSize(w, h, false);   // updateStyle=false — CSS keeps the canvas at 100% of #app
-  composer.setSize(w, h);
-  outlinePass.setSize(w, h);
+  // Re-apply the CURRENT renderScale at the new viewport size (updateStyle=false —
+  // CSS keeps the canvas at 100% of #app). Routing through applyRenderScale rather
+  // than hardcoding the base pixel ratio is essential: this handler also fires on
+  // the mobile URL-bar show/hide (via visualViewport), and hardcoding BASE_PR
+  // would snap resolution back to full mid-session, undoing an adaptive downscale.
+  applyRenderScale();
   // The track's cached position/size can change on resize/layout — refresh them
   // (scrollProgress is recomputed from the live scrollY next frame regardless).
   recomputeScrollMetrics();
@@ -1621,6 +1723,73 @@ function animate() {
     if (logoSpot) logoSpot.intensity = params.ringIntensity * spotEased;
   }
 
+  // ── Adaptive resolution monitor ─────────────────────────────────────────────
+  // Measure the RAW frame interval (performance.now() delta — unlike dt above,
+  // this is NOT clamped). Track refreshMs (a running MIN ≈ the vsync period) and
+  // judge every threshold RELATIVE to it, so this behaves identically on
+  // 60/120/144Hz. Sustained DROPPED frames (interval > refreshMs*DROP_FACTOR)
+  // step the scale DOWN; recovery is a time-based PROBE up with exponential
+  // backoff. Warmup/resume/resize frames are skipped so transient spikes can't
+  // move the scale, and a cooldown between changes prevents oscillation.
+  const rsNow = performance.now();
+  if (rsSkip > 0) {
+    rsSkip--;
+    rsLastNow = rsNow;               // reset the interval baseline; don't measure
+  } else if (rsLastNow === 0) {
+    rsLastNow = rsNow;               // first frame — just seed the baseline
+  } else {
+    const frameMs = rsNow - rsLastNow;
+    rsLastNow = rsNow;
+    if (rsWarmup > 0) {
+      rsWarmup--;                    // still warming up — ignore
+    } else {
+      // Measure the display period: the fastest frames ≈ the vsync interval. Every
+      // threshold below is relative to this, so no absolute-ms assumption survives.
+      refreshMs = Math.min(refreshMs, frameMs);
+      if (rsCooldown > 0) rsCooldown--;
+
+      // Drop detection: a frame that overran the refresh period by DROP_FACTOR
+      // missed at least one vsync. Feed a leaky accumulator (rises on drops,
+      // decays otherwise) so a lone good frame can't reset a sustained signal.
+      const dropped = frameMs > refreshMs * RS_DROP_FACTOR;
+      rsDropAccum   = dropped ? rsDropAccum + 1 : Math.max(0, rsDropAccum - 1);
+      rsGoodStreak++;                // measured frames since the last downscale
+
+      if (rsDropAccum >= RS_DOWN_HOLD && rsCooldown === 0 && rsIndex < RS_STEPS.length - 1) {
+        // Sustained drops → drop a step. A healthy display sits at interval ≈
+        // refreshMs (ratio ≈ 1 < DROP_FACTOR) and never reaches here, so at full
+        // quality on a GPU that holds budget this never fires → byte-identical.
+        rsIndex++;
+        renderScale = RS_STEPS[rsIndex];
+        applyRenderScale();          // (also sets rsSkip + clears rsDropAccum)
+        // If this reverses a probe still under observation, the step up was too
+        // much: back off exponentially so we don't thrash retrying it.
+        if (rsProbing) rsProbeAfter = Math.min(rsProbeAfter * 2, RS_PROBE_AFTER_MAX);
+        rsProbing    = false;
+        rsDropAccum  = 0;
+        rsGoodStreak = 0;
+        rsCooldown   = RS_COOLDOWN;
+      } else if (rsProbing && rsGoodStreak >= RS_PROBE_OBSERVE) {
+        // The probe survived its observe window with no downscale → success. Lock
+        // it in and reset the probe interval back to base (goodStreak keeps
+        // climbing toward the next probe so resolution is reclaimed step by step).
+        rsProbing    = false;
+        rsProbeAfter = RS_PROBE_AFTER;
+      } else if (!rsProbing && rsIndex > 0 && rsGoodStreak >= rsProbeAfter && rsCooldown === 0) {
+        // Headroom is undetectable under vsync (a 3ms and a 16ms GPU both read one
+        // vsync), so recovery is a TIME-BASED PROBE: after a long clean streak step
+        // UP one notch and observe. If it drops again the branch above steps back
+        // down and backs off; if it survives, the branch above marks it a success.
+        rsIndex--;
+        renderScale = RS_STEPS[rsIndex];
+        applyRenderScale();
+        rsProbing    = true;
+        rsGoodStreak = 0;
+        rsCooldown   = RS_COOLDOWN;
+      }
+    }
+  }
+
   // Advance the reflector cadence counter once per rendered frame so the gated
   // mirrors (makeBlurredReflector) refresh their RT every REFLECTION_EVERY-th
   // frame. Do this immediately before rendering, where the reflectors' gated
@@ -1637,6 +1806,16 @@ function startLoop() {
   if (running) return;
   running = true;
   clock.getDelta();
+  // Reset the adaptive-resolution frame-time signal on resume. While paused the
+  // loop is fully stopped (nothing measured), so the first interval after a
+  // refocus/re-entry is huge; reseed the interval baseline, clear the drop signal
+  // and good-streak, and skip a couple of frames so that pause-gap spike can't be
+  // read as a dropped frame and cause a spurious downscale. refreshMs (the
+  // measured vsync period) is deliberately kept — it doesn't change across a pause.
+  rsLastNow    = 0;
+  rsDropAccum  = 0;
+  rsGoodStreak = 0;
+  rsSkip       = Math.max(rsSkip, 2);
   rafId = requestAnimationFrame(animate);
 }
 

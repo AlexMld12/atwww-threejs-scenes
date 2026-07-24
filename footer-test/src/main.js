@@ -31,7 +31,7 @@ const ASSET_BASE = (typeof window !== 'undefined' && window.FOOTER_ASSET_BASE)
 // OutputPass blits the resolved result to the default framebuffer as a single
 // fullscreen quad, so the renderer's own MSAA would only anti-alias that quad's
 // edges (i.e. nothing). Dropping it removes a redundant multisample resolve.
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 // Cap DPR a touch below the device max — keeps the heavy postpro pipeline
 // (planar reflection + sceneRT + composer) within budget on retina/mobile.
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -757,9 +757,20 @@ function applyLayout() {
   pedestalGroup.position.copy(floorBase);
   logoGroup.position.copy(logoBase);
 
+  // Floor + pedestal are laid out here exactly once and never transformed again
+  // (only the logo gets per-frame parallax). Freeze their matrices so the render
+  // loop stops recomposing an unchanging local matrix every frame. updateMatrix()
+  // bakes the current pos/scale first; matrixWorld still recomputes from the
+  // (static) parent, so this is purely a redundant-CPU removal — zero visual.
+  floorGroup.updateMatrix();    floorGroup.matrixAutoUpdate    = false;
+  pedestalGroup.updateMatrix(); pedestalGroup.matrixAutoUpdate = false;
+
   positionStackedRings();
   // Mirror plane + the floor shader's world-space centre for the radial fade.
   reflector.position.set(floorBase.x, params.floorTargetY, floorBase.z);
+  // The reflector plane is static too (only its RT contents change each frame via
+  // onBeforeRender, which reads the unchanged matrixWorld) — freeze its matrix.
+  reflector.updateMatrix(); reflector.matrixAutoUpdate = false;
   for (const mat of floorReflMats) {
     const sh = mat.userData.reflShader;
     if (sh) sh.uniforms.uFloorCenter.value.set(floorBase.x, floorBase.z);
@@ -784,6 +795,51 @@ function bakeIntoGroup(meshes, group, material) {
 
 computeCameraStates();
 applyCameraProgress(getScrollProgress());
+
+// ─── Pre-warm (compile the full pipeline before the reveal) ──────────────────
+// The footer is off-screen at load, so its rAF loop is visibility-gated and does
+// not run until the user scrolls to it. That means the VERY FIRST render — which
+// compiles every post-processing shader (OutlinePass, UnrealBloomPass, the glass
+// refraction ShaderMaterial) and allocates/populates the RTs — would otherwise
+// happen mid-scroll and stall that frame. So we run ONE full render right here,
+// while still off-screen, exercising the exact same render section animate() does:
+// renderer.compile + the sceneRT glass capture + the Reflector RT (via its
+// onBeforeRender during composer.render) + a real composer.render(). renderer.compile
+// alone is insufficient — the post passes only compile on an actual composer.render().
+// Runs exactly once, does NOT schedule/duplicate the rAF loop (the visibility gate
+// still owns that), and restores every group.visible toggle it flips.
+let warmedUp = false;
+function warmUp() {
+  if (warmedUp || !layout.ready) return;
+  warmedUp = true;
+
+  renderer.compile(scene, camera);
+
+  // sceneRT glass capture — identical group toggles to animate(), restored after.
+  logoGroup.visible     = false;
+  reflector.visible     = false;
+  floorGroup.visible    = false;
+  pedestalGroup.visible = false;
+  renderer.setRenderTarget(sceneRT);
+  renderer.clear();
+  renderer.render(scene, camera);
+  renderer.setRenderTarget(null);
+  reflector.visible     = true;
+  logoGroup.visible     = true;
+  floorGroup.visible    = true;
+  pedestalGroup.visible = true;
+
+  // Full composer render — compiles the post passes and populates the Reflector RT
+  // (reflector.onBeforeRender fires here, flipping reflectorRendered true).
+  composer.render();
+
+  // Reset the half-rate cadence guards so the first REAL frame re-captures from the
+  // live reveal camera (warm-up ran at the load-time scroll pose). Warm-up's job was
+  // only to compile shaders + allocate RTs, never to seed a displayed frame.
+  glassCaptured     = false;
+  reflectorRendered = false;
+  frameCount        = 0;
+}
 
 // ─── GLB load ────────────────────────────────────────────────────────────────
 const loader = new GLTFLoader();
@@ -853,6 +909,10 @@ loader.load(ASSET_BASE + 'test_2_updated.glb', (gltf) => {
   applyLayout();
   buildStackedRings();
   stackedRingsGroup.rotation.y = params.stackedRingsYawDeg * Math.PI / 180;
+
+  // Everything (layout, passes, RTs, rings) is now set up — compile the whole
+  // pipeline once while off-screen so scrolling to the footer doesn't hitch.
+  warmUp();
 }, undefined, (err) => console.error('GLB load failed:', err));
 
 // ─── Pointer + resize ────────────────────────────────────────────────────────
@@ -862,18 +922,160 @@ window.addEventListener('pointermove', (e) => {
   mouseY = (e.clientY / window.innerHeight) * 2 - 1;
 });
 
-window.addEventListener('resize', () => {
-  const w = window.innerWidth, h = window.innerHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
+// ─── Adaptive resolution ─────────────────────────────────────────────────────
+// One helper drives EVERY per-viewport render-target dimension from a single
+// effective pixel ratio, and is the ONLY place that resizes them. It's called
+// from both the resize handler and the adaptive controller so the two can never
+// disagree. effPR folds the (capped) device pixel ratio with renderScale; at
+// renderScale=1 it equals the base `pr` captured at init, so the resulting
+// sizes — and thus the rendered output — are byte-identical to before.
+//   - renderer.setPixelRatio only re-runs setSize() with the renderer's STALE
+//     stored width/height, so we still call renderer.setSize(w,h) to pick up a
+//     new window size and refresh the canvas style.
+//   - The glass blur samples tScene in TEXEL units, so uResolution MUST track
+//     sceneRT's actual (floored) pixel size.
+//   - The Reflector RT (reflectorRTSize) is intentionally NOT resized, and the
+//     particle uPxScale (CSS-px based) is handled by the resize handler, not here.
+let renderScale = 1;
+const RS_FLOOR = 0.6, RS_STEP = 0.075;
+
+function applyRenderTargets(w, h, effPR) {
+  renderer.setPixelRatio(effPR);
   renderer.setSize(w, h);
+  composer.setPixelRatio(effPR);
   composer.setSize(w, h);
   bloomPass.setSize(w, h);
   outlinePass.setSize(w, h);
-  sceneRT.setSize(Math.floor(w * pr), Math.floor(h * pr));
+  sceneRT.setSize(Math.floor(w * effPR), Math.floor(h * effPR));
   logoFillMaterial.uniforms.uResolution.value.set(sceneRT.width, sceneRT.height);
+}
+
+// Adaptive controller state — refresh-RELATIVE + probe design. The old version
+// judged load from RAW performance.now() intervals against ABSOLUTE ms cutoffs,
+// but the rAF interval is floored by the display's vsync period (~16.7ms @60Hz):
+// an UP threshold below that period could NEVER be met (→ one-way ratchet down),
+// and a ~20ms DOWN threshold false-positived on sub-50Hz / throttled displays
+// where the GPU is idle but pacing is slow. Instead we measure the actual refresh
+// period and express every decision RELATIVE to it, so it behaves the same on
+// 60/120/144Hz. Because headroom is undetectable under vsync (a 3ms GPU and a
+// 16ms GPU both read ~16.7ms @60Hz), recovery is a TIME-BASED probe, not a
+// low-interval reading, with exponential backoff so it can never thrash.
+const RS_WARMUP        = 30;   // ignore the first N measured frames (shader/JIT warmup)
+const RS_COOLDOWN      = 45;   // frames to wait after a scale change before another
+const DROP_FACTOR      = 1.5;  // interval > refreshMs*this ⇒ a "dropped" frame (missed ≥1 vsync)
+const DOWN_HOLD        = 30;   // consecutive dropped frames before a downscale
+const PROBE_AFTER_BASE = 300;  // good frames (~5s @60Hz) with no drop before probing UP one notch
+const PROBE_AFTER_MAX  = PROBE_AFTER_BASE * 8; // backoff cap for repeatedly-failing probes
+const PROBE_OBSERVE    = 120;  // frames a probe must survive (no downscale) to count as a success
+
+let refreshMs   = 1000;        // running MIN of measured intervals ≈ the vsync period (persists across resume)
+let rsWarmCount = 0;           // measured frames since the last reset (warmup gate)
+let rsCooldown  = 0;           // frames left before another scale change is allowed
+let dropCount   = 0;           // consecutive dropped frames — the downscale sustain signal
+let goodStreak  = 0;           // frames since the last downscale — the probe timer
+let probing     = false;       // an upscale probe is currently under observation
+let probeAfter  = PROBE_AFTER_BASE; // current probe interval (doubles on each failed probe)
+let rsLastTime  = 0;           // performance.now() of the previous measured frame
+let rsSkipFrame = false;       // skip this frame's interval (resume/resize/scale-change spike)
+
+// Reset the decision signal — called on resume so the huge interval across the
+// paused gap can't be read as a dropped frame and force a spurious downscale.
+// refreshMs PERSISTS across resume: the display's period doesn't change while paused.
+function resetAdaptive() {
+  rsWarmCount = 0; rsCooldown = 0;
+  dropCount = 0; goodStreak = 0;
+  probing = false; probeAfter = PROBE_AFTER_BASE;
+  rsLastTime = 0; rsSkipFrame = false;
+}
+
+function setRenderScale(next) {
+  if (next === renderScale) return;
+  renderScale = next;
+  const effPR = Math.min(window.devicePixelRatio, 1.75) * renderScale;
+  applyRenderTargets(window.innerWidth, window.innerHeight, effPR);
+  rsCooldown  = RS_COOLDOWN;
+  dropCount   = 0;
+  goodStreak  = 0;            // both a downscale and a probe reset the "frames since change" timer
+  rsSkipFrame = true;         // the reallocation happens this frame — don't sample the next interval
+}
+
+// Measure the frame interval against the display's refresh period and decide
+// whether to change scale. Skips warmup / resume / resize / scale-change frames
+// so their spikes never seed refreshMs or trip a threshold.
+function updateAdaptive() {
+  const now = performance.now();
+  if (rsSkipFrame || rsLastTime === 0) {
+    rsLastTime  = now;
+    rsSkipFrame = false;
+    return;
+  }
+  const interval = now - rsLastTime;
+  rsLastTime = now;
+
+  // Warmup gate: let shaders / JIT settle before trusting any interval or letting
+  // it seed refreshMs (a slow first frame must not poison the measured period).
+  if (rsWarmCount < RS_WARMUP) { rsWarmCount++; return; }
+
+  // 1. MEASURE THE DISPLAY PERIOD — the fastest frames ≈ the vsync period, so a
+  //    running minimum tracks it. Every threshold below is now relative to this,
+  //    which makes the controller behave identically on 60 / 120 / 144Hz.
+  refreshMs = Math.min(refreshMs, interval);
+
+  // 2. DROP DETECTION — a frame "dropped" when it ran well past the period, i.e.
+  //    it missed at least one vsync. A healthy display sits at interval ≈ refreshMs
+  //    (ratio ≈ 1.0 < DROP_FACTOR) → never counts a drop → never downscales.
+  if (interval > refreshMs * DROP_FACTOR) dropCount++;
+  else                                    dropCount = 0;
+  goodStreak++;
+
+  if (rsCooldown > 0) { rsCooldown--; return; }
+
+  // DOWNSCALE on SUSTAINED drops (this is also the probe-failure path).
+  if (dropCount >= DOWN_HOLD && renderScale > RS_FLOOR) {
+    if (probing) {
+      // A downscale fired while probing → the step up was too much. Back the probe
+      // interval off exponentially (capped) so recovery can't thrash on a machine
+      // that keeps rejecting the same notch.
+      probing    = false;
+      probeAfter = Math.min(PROBE_AFTER_MAX, probeAfter * 2);
+    }
+    setRenderScale(Math.max(RS_FLOOR, renderScale - RS_STEP));
+    return;
+  }
+
+  // 3. RECOVERY = TIME-BASED PROBE. Headroom is invisible under vsync, so we can't
+  //    read "the GPU is now fast enough" from the interval — instead, after a long
+  //    drop-free streak we optimistically step UP one notch and OBSERVE it.
+  if (probing) {
+    // The probe survived PROBE_OBSERVE frames with no downscale → lock it in and
+    // reset the backoff so the next reclaim happens at the base cadence again.
+    if (goodStreak >= PROBE_OBSERVE) {
+      probing    = false;
+      probeAfter = PROBE_AFTER_BASE;
+    }
+  } else if (renderScale < 1 && goodStreak >= probeAfter) {
+    probing = true;
+    setRenderScale(Math.min(1, renderScale + RS_STEP)); // resets goodStreak for the OBSERVE window
+  }
+}
+
+window.addEventListener('resize', onViewportResize);
+if (window.visualViewport) {
+  // A mobile URL-bar show/hide fires visualViewport resize without a window
+  // resize; route it through the same helper so it RE-APPLIES the current
+  // renderScale instead of snapping back to full DPR mid-session.
+  window.visualViewport.addEventListener('resize', onViewportResize);
+}
+
+function onViewportResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  const effPR = Math.min(window.devicePixelRatio, 1.75) * renderScale;
+  applyRenderTargets(w, h, effPR);
   particleMat.uniforms.uPxScale.value = h / 2;
-});
+  rsSkipFrame = true;   // don't let the resize-frame reallocation spike bias the EMA
+}
 
 // ─── Render loop ─────────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
@@ -885,6 +1087,8 @@ let running  = false;
 
 function animate() {
   rafId = requestAnimationFrame(animate);
+  // Adaptive-resolution frame-time signal (raw wall-clock, before the clamp below).
+  updateAdaptive();
   const dt = Math.min(clock.getDelta(), 1 / 30);
   const t  = clock.getElapsedTime();
 
@@ -903,12 +1107,12 @@ function animate() {
 
   // Stadium ring sweep + per-ring sine pitch (random phase keeps them out of sync).
   for (const mesh of stackedRingMeshes) {
-    const u = mesh.material.userData.neon, anim = mesh.material.userData.anim;
+    const u = mesh.material.userData.neon;
+    // Only uTime varies per frame. uArcWidth / uBaseIntensity / uPeakBoost /
+    // uPulseDepth are products of runtime-constant params.* and build-baked anim.*
+    // multipliers — they are set once at material creation and never change, so
+    // re-assigning them every frame is redundant (identical value each time).
     u.uTime.value          = t;
-    u.uArcWidth.value      = params.neonArcWidth      * anim.arcWidthMul;
-    u.uBaseIntensity.value = params.neonBaseIntensity * anim.baseIntensityMul;
-    u.uPeakBoost.value     = params.neonPeakBoost     * anim.peakBoostMul;
-    u.uPulseDepth.value    = params.neonPulseDepth    * anim.pulseDepthMul;
     const spec = mesh.userData.spec;
     mesh.rotation.x = Math.sin(t * spec.tiltSpeed + mesh.userData.tiltPhase) * spec.tiltAmp * DEG;
   }
@@ -968,6 +1172,7 @@ function start() {
   if (running) return;   // idempotent — never two concurrent rAF loops
   running = true;
   clock.getDelta();      // discard the stale delta accrued while paused (no time jump)
+  resetAdaptive();       // drop the pre-pause EMA/counters so the resume-gap interval can't force a spurious downscale
   rafId = requestAnimationFrame(animate);
 }
 
