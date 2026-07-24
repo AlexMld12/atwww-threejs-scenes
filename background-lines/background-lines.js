@@ -17,7 +17,7 @@
 
    Webflow: give a div the custom attribute  data-lines = background , then add
    (page or site-wide, before </body>):
-     <script src="https://cdn.jsdelivr.net/gh/AlexMld12/atwww-threejs-scenes@main/background-lines/background-lines.js"></script>
+     <script src="https://cdn.jsdelivr.net/gh/regizor/atwww-threejs-scenes@main/background-lines/background-lines.js"></script>
 
    Sections that should reveal the lines need TRANSPARENT backgrounds. The
    command-center hero reveals its lines automatically (its canvas goes
