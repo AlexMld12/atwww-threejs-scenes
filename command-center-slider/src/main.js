@@ -28,6 +28,12 @@ const MSAA_SAMPLES       = IS_MOBILE ? 4   : 2;
 const REFLECTOR_RT_SCALE   = IS_MOBILE ? 0.3 : 0.5;
 const ENABLE_FLOOR_REFLECTOR = true;         // floor mirror on both (mobile at reduced RT)
 const ENABLE_ROOF_REFLECTOR  = !IS_MOBILE;   // ceiling mirror desktop-only
+// Reflectors re-render the WHOLE scene into a texture every frame — the single
+// biggest per-frame GPU cost. Refresh each mirror only every REFLECTION_EVERY-th
+// frame and reuse the previous texture in between: a blurred, slowly-moving
+// mirror at 30fps is visually imperceptible, but this halves the reflector pass.
+// Applies to BOTH mirrors on desktop AND mobile. Bump to 3 for ~one-third cost.
+const REFLECTION_EVERY = 2;
 // Blur kernel radius for the frosted hover mask: 5×5 (25 taps) on desktop, 3×3
 // (9 taps) on mobile — this shader runs on every video-plane fragment every
 // frame, so trimming taps directly helps the video phase where mobile lags.
@@ -54,7 +60,11 @@ const viewportH = () => appEl.clientHeight || window.innerHeight;
 // THROUGH, while the opaque logo stays in front (clearAlpha is animated in
 // animate()). Above the floor the clear alpha is 1, so the dark room hides
 // everything behind (incl. the gaps between screens).
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+// antialias:false — all scene geometry renders through the EffectComposer into an
+// MSAA render target (composerRT, `samples` above) and only a fullscreen quad
+// (OutputPass) hits the default framebuffer, so the renderer's own MSAA would
+// anti-alias nothing but that quad's screen-border edge. Dropping it is free.
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
 renderer.setClearColor(0x010101, 1);  // dark; applyColors() resets it from params.bg once params exist
 // updateStyle=false: we only drive the drawing-buffer size and set the canvas
@@ -663,25 +673,44 @@ function makeBlurredReflector(geom, tintHex, blur) {
   `;
   r.material.needsUpdate = true;
 
-  // Mobile: refresh the reflection only every other frame. Rendering the whole
-  // scene into the mirror RT is the reflector's real cost; the blurred, slowly
-  // moving reflection doesn't need a 60 Hz update, so skipping every second
-  // frame roughly halves that cost. (Only the floor reflector exists on mobile.)
-  if (IS_MOBILE) {
-    const origOnBeforeRender = r.onBeforeRender;
-    let reflFrame = 0;
-    r.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
-      if ((reflFrame++ & 1) === 0) {
-        origOnBeforeRender.call(this, renderer, scene, camera, geometry, material, group);
-      }
-    };
-  }
+  // Half-rate the re-render: rendering the whole scene into the mirror RT is the
+  // reflector's real cost, so refresh it only every REFLECTION_EVERY-th frame and
+  // reuse the last texture in between (the mirror is never hidden and the RT is
+  // never cleared — it just keeps displaying its previous contents). Applies to
+  // BOTH mirrors, desktop + mobile.
+  //
+  // The gate reads the shared per-frame `reflectorFrame` counter (advanced once
+  // per rendered frame in animate) rather than a per-CALL counter: with two
+  // reflectors, each onBeforeRender fires several times per frame (each mirror
+  // re-renders the scene the OTHER mirror appears in, via nested renders), so a
+  // per-call counter would desync. A per-reflector `initialized` guard forces the
+  // very first onBeforeRender to render regardless of the counter's parity when
+  // the reflector is built — so the RT is always populated before it is ever
+  // displayed (no first-frame flicker / uninitialised-texture artifact).
+  const origOnBeforeRender = r.onBeforeRender;
+  let initialized = false;
+  r.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+    // Skip during OutlinePass override passes (depth/mask): that pass re-renders
+    // the scene with an override material INTO the reflection RT as the frame's
+    // LAST write, so a skipped half-rate frame would then reuse depth garbage → a
+    // 30Hz strobe. Only the real color RenderPass (no overrideMaterial) may write
+    // the reflection RT. (Bonus: also drops a wasted per-frame depth re-render.)
+    if (scene.overrideMaterial) return;
+    if (!initialized || (reflectorFrame % REFLECTION_EVERY) === 0) {
+      initialized = true;
+      origOnBeforeRender.call(this, renderer, scene, camera, geometry, material, group);
+    }
+  };
 
   return r;
 }
 
 let floorReflector = null;
 let roofReflector  = null;
+// Advanced once per rendered frame in animate(); read by every reflector's gated
+// onBeforeRender (see makeBlurredReflector) to decide whether to refresh its RT
+// this frame or reuse last frame's texture. Shared so both mirrors stay in phase.
+let reflectorFrame = 0;
 
 function rebuildFloorReflector() {
   if (floorReflector) {
@@ -1196,21 +1225,46 @@ let logoBaseScale       = 1;  // logoGroup scale at rest (glbScale * logoExtraSc
 // #cc-sticky pins while the page scrolls through it); locally it's absent and we
 // fall back to whole-page scroll driven by #scroll-spacer.
 const scrollTrackEl = document.getElementById('cc-hero');
+// Cached layout metrics for the scroll track. updateScrollProgress() runs every
+// frame from animate(), so it must NOT trigger a getBoundingClientRect() /
+// scrollHeight layout read there. These metrics depend only on layout, not on the
+// current scroll offset, so they're recomputed just on scroll + resize; the
+// per-frame reader below derives progress from the live window.scrollY alone.
+//   trackAbsTop   = the track's document-absolute top (rect.top + scrollY). Scroll
+//                   invariant — rect.top at any instant is (trackAbsTop - scrollY).
+//   trackRange    = rect.height - innerHeight (the section's scrollable span).
+//   pageScrollMax = fallback whole-page scroll range (no #cc-hero present).
+let trackAbsTop   = 0;
+let trackRange    = 0;
+let pageScrollMax = 0;
+function recomputeScrollMetrics() {
+  if (scrollTrackEl) {
+    const rect = scrollTrackEl.getBoundingClientRect();
+    trackAbsTop = rect.top + window.scrollY;
+    trackRange  = rect.height - window.innerHeight;
+  } else {
+    pageScrollMax = document.documentElement.scrollHeight - window.innerHeight;
+  }
+}
 function updateScrollProgress() {
   if (scrollTrackEl) {
     // Section-relative progress: 0 when the section top reaches the viewport top,
     // 1 when its bottom reaches the viewport bottom (i.e. the sticky child has
-    // traveled its full range and is about to unpin). Independent of anything
-    // else on the page, so the hero works as one section among many.
-    const rect = scrollTrackEl.getBoundingClientRect();
-    const range = rect.height - window.innerHeight;
-    scrollProgress = range > 0 ? Math.min(1, Math.max(0, -rect.top / range)) : 0;
+    // traveled its full range and is about to unpin). rect.top is reconstructed
+    // from the cached absolute top and the live scrollY — no layout read here, and
+    // mathematically identical to getBoundingClientRect().top.
+    const top = trackAbsTop - window.scrollY;
+    scrollProgress = trackRange > 0 ? Math.min(1, Math.max(0, -top / trackRange)) : 0;
   } else {
-    const max = document.documentElement.scrollHeight - window.innerHeight;
-    scrollProgress = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+    scrollProgress = pageScrollMax > 0 ? Math.min(1, Math.max(0, window.scrollY / pageScrollMax)) : 0;
   }
 }
-window.addEventListener('scroll', updateScrollProgress, { passive: true });
+// Refresh the cached metrics on scroll (one layout read per scroll event — the
+// same read the per-frame path used to do, now moved OFF the render loop) and on
+// resize (see onResize). Live window.scrollY still drives progress every frame, so
+// smooth-scroll (Lenis) interpolation between scroll events stays in sync.
+window.addEventListener('scroll', () => { recomputeScrollMetrics(); updateScrollProgress(); }, { passive: true });
+recomputeScrollMetrics();
 updateScrollProgress();
 
 // Hover detection over the video planes (drives the frosted-mask fade). Uses
@@ -1237,6 +1291,9 @@ function onResize() {
   renderer.setSize(w, h, false);   // updateStyle=false — CSS keeps the canvas at 100% of #app
   composer.setSize(w, h);
   outlinePass.setSize(w, h);
+  // The track's cached position/size can change on resize/layout — refresh them
+  // (scrollProgress is recomputed from the live scrollY next frame regardless).
+  recomputeScrollMetrics();
 }
 window.addEventListener('resize', onResize);
 window.addEventListener('orientationchange', onResize);
@@ -1559,6 +1616,11 @@ function animate() {
     if (logoSpot) logoSpot.intensity = params.ringIntensity * spotEased;
   }
 
+  // Advance the reflector cadence counter once per rendered frame so the gated
+  // mirrors (makeBlurredReflector) refresh their RT every REFLECTION_EVERY-th
+  // frame. Do this immediately before rendering, where the reflectors' gated
+  // onBeforeRender callbacks read it.
+  reflectorFrame++;
   composer.render();
 }
 

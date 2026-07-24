@@ -27,7 +27,11 @@ const ASSET_BASE = (typeof window !== 'undefined' && window.FOOTER_ASSET_BASE)
   || import.meta.env.BASE_URL;
 
 // ─── Renderer + scene ────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// antialias:false — every draw lands in composerRT (samples:4, HalfFloat) and
+// OutputPass blits the resolved result to the default framebuffer as a single
+// fullscreen quad, so the renderer's own MSAA would only anti-alias that quad's
+// edges (i.e. nothing). Dropping it removes a redundant multisample resolve.
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 // Cap DPR a touch below the device max — keeps the heavy postpro pipeline
 // (planar reflection + sceneRT + composer) within budget on retina/mobile.
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -219,6 +223,21 @@ const logoBase  = new THREE.Vector3();
 const floorBase = new THREE.Vector3();
 const stackedRingMeshes = [];
 
+// ─── Half-rate cadence for the redundant full-scene passes ───────────────────
+// The per-frame pipeline does three full-scene renders: the glass sceneRT
+// capture, the hidden Reflector's mirror re-render, and the composer RenderPass.
+// The first two feed blurred/mirrored textures where a 30fps refresh is visually
+// imperceptible, so we re-render each every OTHER frame and reuse its previous
+// texture on skipped frames (the RT is never cleared or hidden — only the
+// re-render is gated). Each RT is guaranteed to render on the first frame before
+// it is ever displayed (glassCaptured / reflectorRendered guards), so there is
+// no first-frame flicker. Tune via the *_EVERY constants (1 = every frame).
+const REFLECTION_EVERY     = 2;
+const GLASS_CAPTURE_EVERY  = 2;
+let frameCount        = 0;
+let glassCaptured     = false;
+let reflectorRendered = false;
+
 // ─── Reflector (hidden — used only for its RT) ───────────────────────────────
 // CircleGeometry sized to the floor footprint. material.colorWrite/depthWrite
 // off means it contributes no pixels visually, but its onBeforeRender still
@@ -243,10 +262,22 @@ scene.add(reflector);
 // reflection only contains the rings + particles above the floor.
 const _reflectorBefore = reflector.onBeforeRender.bind(reflector);
 reflector.onBeforeRender = function (r, s, c) {
+  // Skip during OutlinePass override passes (depth/mask): that pass re-renders the
+  // scene with an override material INTO the reflection RT as the frame's LAST
+  // write, so a skipped half-rate frame would then reuse depth garbage → a strobe.
+  // Only the real color RenderPass (no overrideMaterial) may write the RT.
+  if (s.overrideMaterial) return;
+  // Half-rate the mirror re-render (technique 3): on skipped frames we return
+  // before _reflectorBefore, so the Reflector keeps its previous RT texture and
+  // textureMatrix — the floor shader samples the last mirror, one frame stale
+  // and imperceptible. Always render the first frame (reflectorRendered guard)
+  // so the RT is initialised before it is ever displayed.
+  if (reflectorRendered && (frameCount % REFLECTION_EVERY) !== 0) return;
   const wasLogo = logoGroup.visible, wasFloor = floorGroup.visible, wasPed = pedestalGroup.visible;
   logoGroup.visible = floorGroup.visible = pedestalGroup.visible = false;
   _reflectorBefore(r, s, c);
   logoGroup.visible = wasLogo; floorGroup.visible = wasFloor; pedestalGroup.visible = wasPed;
+  reflectorRendered = true;
 };
 
 // ─── Logo material (screen-space refraction glass) ───────────────────────────
@@ -900,8 +931,12 @@ function animate() {
   logoFillMaterial.uniforms.uTime.value = t;
 
   // Capture the scene WITHOUT the logo (+ floor + pedestal + reflector) into
-  // sceneRT for the logo's glass shader to refract.
-  if (layout.ready) {
+  // sceneRT for the logo's glass shader to refract. Half-rated (technique 3):
+  // re-captured every GLASS_CAPTURE_EVERY frames; on skipped frames the glass
+  // shader reuses the previous sceneRT texture (heavily blurred + distorted, so
+  // one frame stale is imperceptible). Always captured on the first frame
+  // (glassCaptured guard) so the texture is initialised before it is displayed.
+  if (layout.ready && (!glassCaptured || (frameCount % GLASS_CAPTURE_EVERY) === 0)) {
     logoGroup.visible     = false;
     reflector.visible     = false;
     floorGroup.visible    = false;
@@ -914,9 +949,11 @@ function animate() {
     logoGroup.visible     = true;
     floorGroup.visible    = true;
     pedestalGroup.visible = true;
+    glassCaptured = true;
   }
 
   composer.render();
+  frameCount++;
 }
 
 // ─── Visibility gate ─────────────────────────────────────────────────────────
