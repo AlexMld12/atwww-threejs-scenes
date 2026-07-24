@@ -344,7 +344,7 @@ if (CFG.parallax > 0 && !IS_MOBILE) {
 const clock = new THREE.Clock();
 
 function animate() {
-  requestAnimationFrame(animate);
+  rafId = requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
 
   // Scroll flips the persistent travel direction; its magnitude adds speed.
@@ -396,4 +396,42 @@ function onResize() {
 }
 window.addEventListener('resize', onResize);
 
-animate();
+// ─── Render-loop gating (pause offscreen / hidden tab) ───────────────────────
+// Full-cost GPU work must actually CEASE when the scene is scrolled out of view
+// OR the tab is backgrounded — not just skip a draw. `onscreen` (from the
+// IntersectionObserver on the scene section) and `visible` (from
+// visibilitychange) are tracked separately; the loop runs only when BOTH hold.
+let rafId = 0;
+let running = false;
+let onscreen = false;              // set by the IntersectionObserver below
+let visible  = !document.hidden;   // set by visibilitychange
+
+function start() {
+  if (running) return;             // idempotent — never two concurrent rAF loops
+  running = true;
+  clock.getDelta();                // discard the stale (huge) delta → no time jump
+  lastScrollY = window.scrollY;    // reset scroll accumulator → no field lurch on resume
+  scrollVel = 0;                   // resume from base drift, not a stale scroll boost
+  rafId = requestAnimationFrame(animate);
+}
+function stop() {
+  if (!running) return;
+  running = false;
+  cancelAnimationFrame(rafId);     // stop scheduling — GPU work truly stops
+}
+function updateRunning() {
+  if (onscreen && visible) start();
+  else stop();
+}
+
+document.addEventListener('visibilitychange', () => {
+  visible = !document.hidden;
+  updateRunning();
+});
+
+// Observe the scene's root section; kept alive for the page lifetime.
+const io = new IntersectionObserver((entries) => {
+  onscreen = entries[entries.length - 1].isIntersecting;
+  updateRunning();
+}, { threshold: 0 });
+io.observe(sceneSection || mountEl);

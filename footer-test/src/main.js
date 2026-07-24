@@ -849,8 +849,11 @@ const clock = new THREE.Clock();
 const damp = (v, t, rate, dt) => v + (t - v) * (1 - Math.exp(-rate * dt));
 const DEG  = Math.PI / 180;
 
+let rafId    = null;
+let running  = false;
+
 function animate() {
-  requestAnimationFrame(animate);
+  rafId = requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 1 / 30);
   const t  = clock.getElapsedTime();
 
@@ -915,4 +918,44 @@ function animate() {
 
   composer.render();
 }
-animate();
+
+// ─── Visibility gate ─────────────────────────────────────────────────────────
+// The footer sits at the bottom of a tall sticky section, so it's offscreen most
+// of the session — and a backgrounded tab shouldn't burn GPU either. Render only
+// while BOTH the mount is on-screen AND the tab is visible; otherwise fully stop
+// the loop (no rAF scheduled) so the heavy postpro pipeline actually ceases.
+let onscreen = false;
+let visible  = !document.hidden;
+
+function start() {
+  if (running) return;   // idempotent — never two concurrent rAF loops
+  running = true;
+  clock.getDelta();      // discard the stale delta accrued while paused (no time jump)
+  rafId = requestAnimationFrame(animate);
+}
+
+function stop() {
+  if (!running) return;
+  running = false;
+  cancelAnimationFrame(rafId);
+  rafId = null;
+}
+
+function updateRunState() {
+  if (onscreen && visible) start();
+  else                     stop();
+}
+
+// Kept alive for the page lifetime — never disconnected.
+const visibilityObserver = new IntersectionObserver((entries) => {
+  onscreen = entries[entries.length - 1].isIntersecting;
+  updateRunState();
+});
+visibilityObserver.observe(mountEl);
+
+document.addEventListener('visibilitychange', () => {
+  visible = !document.hidden;
+  updateRunState();
+});
+
+updateRunState();

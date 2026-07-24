@@ -1348,13 +1348,23 @@ setInterval(() => {
 
 // ─── Render loop ─────────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
+// Visibility gating: the loop runs ONLY while the scene is both on-screen and
+// the tab is foreground, so the GPU work actually stops when scrolled away or
+// backgrounded (saves battery / frees frame budget for the rest of the page).
+// Two independent signals — onscreen (IntersectionObserver on the mount element)
+// and pageVisible (document visibility) — must BOTH be true. rafId/running let
+// stopLoop() truly cancel the frame and keep startLoop() idempotent.
+let rafId       = null;
+let running     = false;
+let onscreen    = true;              // set for real by the observer's first callback
+let pageVisible = !document.hidden;
 const damp = (v, t, rate, dt) => v + (t - v) * (1 - Math.exp(-rate * dt));
 const lookTarget    = new THREE.Vector3();
 const _maskColor    = new THREE.Color();
 const _blendedLight = new THREE.Color();
 
 function animate() {
-  requestAnimationFrame(animate);
+  rafId = requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 1 / 30);
 
   // Sample the (possibly smooth-scrolled, e.g. Lenis) scroll position every frame
@@ -1551,4 +1561,44 @@ function animate() {
 
   composer.render();
 }
-animate();
+
+// Start the loop only when both signals are true. Idempotent: the running guard
+// prevents ever scheduling two concurrent rAF loops. Discard the stale delta
+// accrued while paused (clock.getDelta() once, thrown away) so the first resumed
+// frame doesn't get a huge dt → no visual jump / physics blowup.
+function startLoop() {
+  if (running) return;
+  running = true;
+  clock.getDelta();
+  rafId = requestAnimationFrame(animate);
+}
+
+// Fully stop the loop — cancel the pending frame so the GPU work actually ceases.
+function stopLoop() {
+  if (!running) return;
+  running = false;
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+}
+
+// Single source of truth: render only when on-screen AND the tab is foreground.
+function syncLoop() {
+  if (onscreen && pageVisible) startLoop();
+  else stopLoop();
+}
+
+// Observe the mount element; kept alive for the page lifetime (never disconnected).
+const loopObserver = new IntersectionObserver((entries) => {
+  onscreen = entries[entries.length - 1].isIntersecting;
+  syncLoop();
+});
+loopObserver.observe(appEl);
+
+document.addEventListener('visibilitychange', () => {
+  pageVisible = !document.hidden;
+  syncLoop();
+});
+
+syncLoop();
