@@ -134,7 +134,8 @@
   }
 
   // ── One independent renderer bound to one canvas ────────────────────────────
-  function createInstance(canvas, cfg) {
+  function createInstance(canvas, cfg, host) {
+    if (!host) host = canvas;              // element to observe for on-screen state
     var gl = canvas.getContext('webgl2', {
       alpha: cfg.transparent,
       antialias: false,
@@ -202,9 +203,28 @@
     }
     function play()  { if (!running) { running = true; start = performance.now(); raf = requestAnimationFrame(frame); } }
     function pause() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
+
+    // Render only while the host is on-screen AND the tab is visible. Track the
+    // two signals separately and let sync() be the single source of truth: any
+    // false signal pauses; we resume only when both are true. play()/pause() are
+    // idempotent (play() guards on `running`), and play() resets `start` so the
+    // first resumed frame gets a fresh clock — no huge time delta / visual jump.
+    var onscreen = true, visible = !document.hidden;
+    function sync() { if (onscreen && visible && !reduceMotion) play(); else pause(); }
+
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) pause(); else if (!reduceMotion) play();
+      visible = !document.hidden;
+      sync();
     });
+    // Pause when the host scrolls out of the viewport, resume when it returns.
+    // Kept alive for the page lifetime — never disconnected.
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (entries) {
+        onscreen = entries[entries.length - 1].isIntersecting;
+        sync();
+      }).observe(host);
+    }
+
     raf = requestAnimationFrame(frame);
 
     return { canvas: canvas, gl: gl, play: play, pause: pause };
@@ -255,7 +275,7 @@
     if (hosts.length) {
       hosts.forEach(function (el) {
         var c = canvasInContainer(el);
-        if (c) { var inst = createInstance(c, instanceConfig(el)); if (inst) instances.push(inst); }
+        if (c) { var inst = createInstance(c, instanceConfig(el), el); if (inst) instances.push(inst); }
       });
     } else {
       var inst = createInstance(fullPageCanvas(), instanceConfig(null));

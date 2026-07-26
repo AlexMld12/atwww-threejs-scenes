@@ -28,6 +28,13 @@ const MSAA_SAMPLES       = IS_MOBILE ? 4   : 2;
 const REFLECTOR_RT_SCALE   = IS_MOBILE ? 0.3 : 0.5;
 const ENABLE_FLOOR_REFLECTOR = true;         // floor mirror on both (mobile at reduced RT)
 const ENABLE_ROOF_REFLECTOR  = !IS_MOBILE;   // ceiling mirror desktop-only
+// Reflectors re-render the WHOLE scene into a texture every frame — a big per-
+// frame GPU cost. Half-rating (2 = every other frame) is possible, BUT the hero's
+// mirrors reflect the bright, animated video screens (high temporal frequency),
+// so a 30fps mirror visibly FLICKERS here. Kept at 1 (every frame) for a stable
+// reflection; the override-material guard below still drops a wasted per-frame
+// depth re-render. (The footer's blurred/faded reflection does tolerate 2.)
+const REFLECTION_EVERY = 1;
 // Blur kernel radius for the frosted hover mask: 5×5 (25 taps) on desktop, 3×3
 // (9 taps) on mobile — this shader runs on every video-plane fragment every
 // frame, so trimming taps directly helps the video phase where mobile lags.
@@ -54,8 +61,24 @@ const viewportH = () => appEl.clientHeight || window.innerHeight;
 // THROUGH, while the opaque logo stays in front (clearAlpha is animated in
 // animate()). Above the floor the clear alpha is 1, so the dark room hides
 // everything behind (incl. the gaps between screens).
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
+// antialias:false — all scene geometry renders through the EffectComposer into an
+// MSAA render target (composerRT, `samples` above) and only a fullscreen quad
+// (OutputPass) hits the default framebuffer, so the renderer's own MSAA would
+// anti-alias nothing but that quad's screen-border edge. Dropping it is free.
+const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
+// ─── Adaptive resolution state ────────────────────────────────────────────────
+// BASE_PR is the full-quality (capped) device pixel ratio. renderScale multiplies
+// it: 1.0 = full DPR, byte-identical to the non-adaptive path. The controller in
+// animate() steps renderScale DOWN through RS_STEPS only when the TRUE GPU frame
+// time (measured with a timer query) stays over budget, and reclaims a step UP when
+// the measured GPU cost shows sustained headroom (see the monitor). On a GPU that
+// holds the frame budget it stays pinned at 1.0 forever (every render target keeps
+// its full-DPR size), so output is identical to today.
+const BASE_PR = Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP);
+let renderScale = 1;
+const RS_STEPS  = [1.0, 0.85, 0.72, 0.6];
+let rsIndex     = 0;
+renderer.setPixelRatio(BASE_PR);
 renderer.setClearColor(0x010101, 1);  // dark; applyColors() resets it from params.bg once params exist
 // updateStyle=false: we only drive the drawing-buffer size and set the canvas
 // CSS to fill its container ourselves (below), so it works whether or not the
@@ -132,6 +155,16 @@ const scene = new THREE.Scene();
 // No scene.background — we drive the clear color/alpha on the renderer instead,
 // so the canvas can go transparent in the empty well (see the renderer + animate).
 scene.background = null;
+// This Scene is a pure identity root: nothing ever transforms `scene` itself
+// (verified — there are no scene.position/rotation/scale writes anywhere). With
+// matrixAutoUpdate ON, the root sets matrixWorldNeedsUpdate every frame, which
+// force-recomputes the world matrix of the ENTIRE object tree each frame. Turning
+// it OFF stops that root force. matrixWorldAutoUpdate stays ON, so the renderer
+// still walks the graph, and the ANIMATED nodes (logoGroup, videosPivot) — which
+// keep matrixAutoUpdate ON and thus set their own matrixWorldNeedsUpdate — still
+// update and still force their own subtrees. The static nodes frozen below then
+// truly stop recomputing matrices per frame. Provably zero visual change.
+scene.matrixAutoUpdate = false;
 
 const camera = new THREE.PerspectiveCamera(55, viewportW() / viewportH(), 0.1, 100);
 // Layer 1 = "main view only" — used for the hover masks so the planar
@@ -181,6 +214,62 @@ composer.addPass(outlinePass);
 const pr = renderer.getPixelRatio();
 composer.addPass(new SMAAPass(viewportW() * pr, viewportH() * pr));
 composer.addPass(new OutputPass());
+
+// ─── Adaptive resolution controller ───────────────────────────────────────────
+// applyRenderScale() re-applies the current renderScale to the whole chain. The
+// controller lives in animate(). It judges load on the TRUE GPU frame time — read
+// with an EXT_disjoint_timer_query_webgl2 timer query wrapped around the frame's
+// render — NOT on the requestAnimationFrame interval. The rAF interval is bounded
+// below by vsync (~16.7ms @60Hz), so it can't tell a fast GPU (2ms) from one just
+// coping (16ms) on a 60Hz panel, and a stray frame there wrongly downscales even a
+// very capable GPU. The measured GPU cost is vsync-INDEPENDENT: a fast GPU reads
+// its real ~1-3ms (never over the 13ms budget → never downscales) and a struggling
+// GPU reads its real >13ms and steps down; headroom is directly measured (no probe
+// needed) so recovery is a straight up-step when the EMA sits below the headroom
+// threshold. If the extension is unavailable (rsExt === null, e.g. Safari) the
+// controller is fully DISABLED — renderScale stays 1.0 forever (full quality).
+// Warmup/resume/resize samples are skipped so transient spikes can't move it.
+const gl    = renderer.getContext();
+// EXT_disjoint_timer_query_webgl2 exposes TIME_ELAPSED_EXT queries (true GPU time)
+// on WebGL2. null on browsers that don't expose it (Safari) → controller disabled.
+const rsExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+
+const RS_BUDGET_MS    = 13;  // sustained EMA above this (ms of GPU time) ⇒ over budget → downscale
+const RS_HEADROOM_MS  = 8;   // sustained EMA below this ⇒ clear headroom → upscale (deadband 8–13ms)
+const RS_DOWN_SAMPLES = 20;  // consecutive over-budget measured samples before a downscale (short window)
+const RS_UP_SAMPLES   = 60;  // consecutive headroom measured samples before an upscale (longer window)
+const RS_COOLDOWN     = 45;  // min measured samples between scale changes
+const RS_WARMUP       = 15;  // ignore the first measured samples (shader compile / asset warm-up)
+const RS_SETTLE       = 2;   // skip a couple of measured samples after a scale change / resume / resize
+
+let rsGpuMs      = 0;      // EMA of the true GPU frame time in ms (see RS_BUDGET_MS)
+let rsSeeded     = false;  // EMA seeds on the first valid measured sample
+let rsQuery      = null;   // the single TIME_ELAPSED_EXT query in flight (null = none pending)
+let rsWarmup     = RS_WARMUP;
+let rsSettle     = 0;      // skip N upcoming measured samples (resume / resize / RT realloc perturbs timing)
+let rsOverCount  = 0;      // consecutive measured samples with EMA over budget
+let rsUnderCount = 0;      // consecutive measured samples with EMA in headroom
+let rsCooldown   = 0;      // measured samples remaining before another scale change is allowed
+
+function applyRenderScale() {
+  const pr = BASE_PR * renderScale;
+  renderer.setPixelRatio(pr);
+  composer.setPixelRatio(pr);   // cascades pr → composerRT + SMAAPass + OutputPass
+  const w = viewportW(), h = viewportH();
+  renderer.setSize(w, h, false);
+  composer.setSize(w, h);
+  outlinePass.setSize(w, h);    // handles its own edge/blur RTs
+  // The two Reflector RTs are deliberately NOT resized here — they stay fixed at
+  // REFLECTOR_RT_SCALE. Recreating a Reflector RT hitches, so they ride through
+  // scale changes untouched.
+  //
+  // The RT reallocation above perturbs the next couple of measured GPU timings —
+  // skip them and clear the sustain counters so the controller never reads its own
+  // resize hitch as over-budget frames.
+  rsSettle     = Math.max(rsSettle, RS_SETTLE);
+  rsOverCount  = 0;
+  rsUnderCount = 0;
+}
 
 // Only the ring spotlight and the per-screen RectAreaLights illuminate the
 // scene — no ambient / key / fill. Anything outside those cones stays black.
@@ -243,7 +332,8 @@ const params = {
   logoExitStart:      0.25, // scroll progress (0..1) where the logo starts to leave (DESKTOP; mobile overridden below)
   logoExitEnd:        0.45, // scroll progress where the transition (gradient/camera dip) completes (DESKTOP)
   logoExitDrop:       3.5,  // camera follows the logo down this far through the floor (the transition drop)
-  logoExitFollowRate: 8,    // easing rate for the exit — also smooths the intro→scroll handoff
+  logoExitFollowRate: 24,   // easing rate for the exit — also smooths the intro→scroll handoff.
+                            // Raised 8->24 so the logo exit tracks the page's Lenis scroll (less lag).
   logoContinueDrop:   7.5,  // beyond logoExitEnd the logo eases DOWN by this many units total and SETTLES (bounded — it does not keep falling out of view). This is a LONG descent so the camera (which follows ~cameraContinueFollow of it) travels deep past the floor/ceiling into empty black space. Bigger = deeper journey / floor leaves the frame sooner.
   logoSpinDeg:        1300,  // degrees the logo spins (like a top) per unit of scroll beyond logoExitEnd — a touch faster
   cameraFollowExit:   1.0,  // how much the camera height follows the exiting logo (0..1)
@@ -326,7 +416,10 @@ const params = {
   // its own tour timing in the IS_MOBILE override block below.
   ringStartRotationDeg: 50,    // base rotation at scroll=0 so the initial view is framed/centered
   scrollMaxRotationDeg: 150,   // extra rotation added over the full scroll — small turn, not a full spin
-  scrollFollowRate:     6,     // higher = ring tracks scroll faster (less lag)
+  scrollFollowRate:     30,    // higher = ring tracks scroll faster (less lag). Raised 6->30:
+                               // the page's Lenis already smooths scroll, so a low rate here
+                               // double-smooths and the ring visibly trails the page. ~30 locks
+                               // it to the page feel; lower = floatier, higher = tighter.
 
   // Hover mask on the video planes
   maskColor:       '#2e0000',
@@ -663,25 +756,44 @@ function makeBlurredReflector(geom, tintHex, blur) {
   `;
   r.material.needsUpdate = true;
 
-  // Mobile: refresh the reflection only every other frame. Rendering the whole
-  // scene into the mirror RT is the reflector's real cost; the blurred, slowly
-  // moving reflection doesn't need a 60 Hz update, so skipping every second
-  // frame roughly halves that cost. (Only the floor reflector exists on mobile.)
-  if (IS_MOBILE) {
-    const origOnBeforeRender = r.onBeforeRender;
-    let reflFrame = 0;
-    r.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
-      if ((reflFrame++ & 1) === 0) {
-        origOnBeforeRender.call(this, renderer, scene, camera, geometry, material, group);
-      }
-    };
-  }
+  // Half-rate the re-render: rendering the whole scene into the mirror RT is the
+  // reflector's real cost, so refresh it only every REFLECTION_EVERY-th frame and
+  // reuse the last texture in between (the mirror is never hidden and the RT is
+  // never cleared — it just keeps displaying its previous contents). Applies to
+  // BOTH mirrors, desktop + mobile.
+  //
+  // The gate reads the shared per-frame `reflectorFrame` counter (advanced once
+  // per rendered frame in animate) rather than a per-CALL counter: with two
+  // reflectors, each onBeforeRender fires several times per frame (each mirror
+  // re-renders the scene the OTHER mirror appears in, via nested renders), so a
+  // per-call counter would desync. A per-reflector `initialized` guard forces the
+  // very first onBeforeRender to render regardless of the counter's parity when
+  // the reflector is built — so the RT is always populated before it is ever
+  // displayed (no first-frame flicker / uninitialised-texture artifact).
+  const origOnBeforeRender = r.onBeforeRender;
+  let initialized = false;
+  r.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+    // Skip during OutlinePass override passes (depth/mask): that pass re-renders
+    // the scene with an override material INTO the reflection RT as the frame's
+    // LAST write, so a skipped half-rate frame would then reuse depth garbage → a
+    // 30Hz strobe. Only the real color RenderPass (no overrideMaterial) may write
+    // the reflection RT. (Bonus: also drops a wasted per-frame depth re-render.)
+    if (scene.overrideMaterial) return;
+    if (!initialized || (reflectorFrame % REFLECTION_EVERY) === 0) {
+      initialized = true;
+      origOnBeforeRender.call(this, renderer, scene, camera, geometry, material, group);
+    }
+  };
 
   return r;
 }
 
 let floorReflector = null;
 let roofReflector  = null;
+// Advanced once per rendered frame in animate(); read by every reflector's gated
+// onBeforeRender (see makeBlurredReflector) to decide whether to refresh its RT
+// this frame or reuse last frame's texture. Shared so both mirrors stay in phase.
+let reflectorFrame = 0;
 
 function rebuildFloorReflector() {
   if (floorReflector) {
@@ -837,6 +949,13 @@ function bakeIntoGroup(meshes, group, material) {
     mesh.rotation.set(0, 0, 0);
     mesh.scale.set(1, 1, 1);
     mesh.updateMatrix();
+    // Geometry is baked into world space and the mesh's local transform is now a
+    // fixed identity that never changes again — so skip per-frame local-matrix
+    // recomposition. Its WORLD matrix still updates when a moving parent forces it
+    // (logo meshes ride the animated logoGroup; screen meshes ride the rotating
+    // videosPivot), so nothing visual changes. Static floor/ceiling meshes simply
+    // stay put. Zero visual change.
+    mesh.matrixAutoUpdate = false;
     if (material) mesh.material = material;
     group.add(mesh);
     geom.computeBoundingBox();
@@ -1150,6 +1269,22 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   rebuildRoofReflector();
   rebuildFloorOccluder();
   rebuildWell();
+
+  // ── Freeze static transforms (perf; provably zero visual change) ──────────
+  // floorGroup / videosGroup / ringGroup / logoSpotTarget are transformed exactly
+  // once — by applyLayout() / rebuildRingLight(), which run only here (no GUI
+  // mutates params, and applyLayout is never called again — onResize does not call
+  // it). Bake their current local matrix and stop per-frame recomposition.
+  // videosGroup still ROTATES visually because its parent videosPivot (which keeps
+  // auto-updating) force-updates its world every frame — only videosGroup's fixed
+  // local offset is frozen. Combined with the scene-root freeze, the floor /
+  // ceiling / screen-rig / spot-target matrices stop churning each frame.
+  [floorGroup, videosGroup, ringGroup, logoSpotTarget].forEach((o) => {
+    if (!o) return;
+    o.updateMatrix();            // ensure .matrix holds the final local transform…
+    o.matrixAutoUpdate = false;  // …then stop recomposing it every frame
+  });
+
   outlinePass.selectedObjects = logoGroup.children.slice();
 
   // Gradient "shells": one per logo mesh, same geometry, coincident with the
@@ -1159,6 +1294,10 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   layout.logoGradientMeshes = layout.logoMeshes.map((m) => {
     const shell = new THREE.Mesh(m.geometry, gradientMaterial);
     shell.renderOrder = 1;   // draw over the glass during the crossfade
+    // Identity local transform, coincident with the glass; it rides logoGroup, so
+    // its world is force-updated by the animated parent — freeze the local matrix.
+    shell.updateMatrix();
+    shell.matrixAutoUpdate = false;
     logoGroup.add(shell);
     return shell;
   });
@@ -1196,21 +1335,46 @@ let logoBaseScale       = 1;  // logoGroup scale at rest (glbScale * logoExtraSc
 // #cc-sticky pins while the page scrolls through it); locally it's absent and we
 // fall back to whole-page scroll driven by #scroll-spacer.
 const scrollTrackEl = document.getElementById('cc-hero');
+// Cached layout metrics for the scroll track. updateScrollProgress() runs every
+// frame from animate(), so it must NOT trigger a getBoundingClientRect() /
+// scrollHeight layout read there. These metrics depend only on layout, not on the
+// current scroll offset, so they're recomputed just on scroll + resize; the
+// per-frame reader below derives progress from the live window.scrollY alone.
+//   trackAbsTop   = the track's document-absolute top (rect.top + scrollY). Scroll
+//                   invariant — rect.top at any instant is (trackAbsTop - scrollY).
+//   trackRange    = rect.height - innerHeight (the section's scrollable span).
+//   pageScrollMax = fallback whole-page scroll range (no #cc-hero present).
+let trackAbsTop   = 0;
+let trackRange    = 0;
+let pageScrollMax = 0;
+function recomputeScrollMetrics() {
+  if (scrollTrackEl) {
+    const rect = scrollTrackEl.getBoundingClientRect();
+    trackAbsTop = rect.top + window.scrollY;
+    trackRange  = rect.height - window.innerHeight;
+  } else {
+    pageScrollMax = document.documentElement.scrollHeight - window.innerHeight;
+  }
+}
 function updateScrollProgress() {
   if (scrollTrackEl) {
     // Section-relative progress: 0 when the section top reaches the viewport top,
     // 1 when its bottom reaches the viewport bottom (i.e. the sticky child has
-    // traveled its full range and is about to unpin). Independent of anything
-    // else on the page, so the hero works as one section among many.
-    const rect = scrollTrackEl.getBoundingClientRect();
-    const range = rect.height - window.innerHeight;
-    scrollProgress = range > 0 ? Math.min(1, Math.max(0, -rect.top / range)) : 0;
+    // traveled its full range and is about to unpin). rect.top is reconstructed
+    // from the cached absolute top and the live scrollY — no layout read here, and
+    // mathematically identical to getBoundingClientRect().top.
+    const top = trackAbsTop - window.scrollY;
+    scrollProgress = trackRange > 0 ? Math.min(1, Math.max(0, -top / trackRange)) : 0;
   } else {
-    const max = document.documentElement.scrollHeight - window.innerHeight;
-    scrollProgress = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+    scrollProgress = pageScrollMax > 0 ? Math.min(1, Math.max(0, window.scrollY / pageScrollMax)) : 0;
   }
 }
-window.addEventListener('scroll', updateScrollProgress, { passive: true });
+// Refresh the cached metrics on scroll (one layout read per scroll event — the
+// same read the per-frame path used to do, now moved OFF the render loop) and on
+// resize (see onResize). Live window.scrollY still drives progress every frame, so
+// smooth-scroll (Lenis) interpolation between scroll events stays in sync.
+window.addEventListener('scroll', () => { recomputeScrollMetrics(); updateScrollProgress(); }, { passive: true });
+recomputeScrollMetrics();
 updateScrollProgress();
 
 // Hover detection over the video planes (drives the frosted-mask fade). Uses
@@ -1232,11 +1396,16 @@ window.addEventListener('pointermove', (e) => {
 
 // ─── Resize ──────────────────────────────────────────────────────────────────
 function onResize() {
-  const w = viewportW(), h = viewportH();
   updateFraming();  // aspect + responsive pull-back for portrait/tablet
-  renderer.setSize(w, h, false);   // updateStyle=false — CSS keeps the canvas at 100% of #app
-  composer.setSize(w, h);
-  outlinePass.setSize(w, h);
+  // Re-apply the CURRENT renderScale at the new viewport size (updateStyle=false —
+  // CSS keeps the canvas at 100% of #app). Routing through applyRenderScale rather
+  // than hardcoding the base pixel ratio is essential: this handler also fires on
+  // the mobile URL-bar show/hide (via visualViewport), and hardcoding BASE_PR
+  // would snap resolution back to full mid-session, undoing an adaptive downscale.
+  applyRenderScale();
+  // The track's cached position/size can change on resize/layout — refresh them
+  // (scrollProgress is recomputed from the live scrollY next frame regardless).
+  recomputeScrollMetrics();
 }
 window.addEventListener('resize', onResize);
 window.addEventListener('orientationchange', onResize);
@@ -1348,13 +1517,23 @@ setInterval(() => {
 
 // ─── Render loop ─────────────────────────────────────────────────────────────
 const clock = new THREE.Clock();
+// Visibility gating: the loop runs ONLY while the scene is both on-screen and
+// the tab is foreground, so the GPU work actually stops when scrolled away or
+// backgrounded (saves battery / frees frame budget for the rest of the page).
+// Two independent signals — onscreen (IntersectionObserver on the mount element)
+// and pageVisible (document visibility) — must BOTH be true. rafId/running let
+// stopLoop() truly cancel the frame and keep startLoop() idempotent.
+let rafId       = null;
+let running     = false;
+let onscreen    = true;              // set for real by the observer's first callback
+let pageVisible = !document.hidden;
 const damp = (v, t, rate, dt) => v + (t - v) * (1 - Math.exp(-rate * dt));
 const lookTarget    = new THREE.Vector3();
 const _maskColor    = new THREE.Color();
 const _blendedLight = new THREE.Color();
 
 function animate() {
-  requestAnimationFrame(animate);
+  rafId = requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 1 / 30);
 
   // Sample the (possibly smooth-scrolled, e.g. Lenis) scroll position every frame
@@ -1549,6 +1728,130 @@ function animate() {
     if (logoSpot) logoSpot.intensity = params.ringIntensity * spotEased;
   }
 
+  // ── Adaptive resolution monitor (GPU timer query) ───────────────────────────
+  // Judge load on the TRUE GPU frame time via a TIME_ELAPSED_EXT timer query
+  // wrapped around composer.render() (below). This is vsync-INDEPENDENT: a capable
+  // GPU reads its real ~1-3ms cost (never over budget → never downscales) while a
+  // struggling one reads its real >13ms cost and steps down. Only ONE query is ever
+  // in flight — poll the previously-issued one here, then (further down) issue the
+  // next one around the render. When the extension is unavailable (rsExt === null,
+  // e.g. Safari) this whole block is inert and renderScale stays pinned at 1.0.
+  if (rsExt && rsQuery !== null) {
+    if (gl.getParameter(rsExt.GPU_DISJOINT_EXT)) {
+      // The GPU timer was disturbed this interval → every in-flight timing is
+      // invalid. Discard this query without touching the EMA.
+      gl.deleteQuery(rsQuery);
+      rsQuery = null;
+    } else if (gl.getQueryParameter(rsQuery, gl.QUERY_RESULT_AVAILABLE)) {
+      const gpuMs = gl.getQueryParameter(rsQuery, gl.QUERY_RESULT) / 1e6;  // ns → ms
+      gl.deleteQuery(rsQuery);
+      rsQuery = null;
+      if (rsWarmup > 0) {
+        rsWarmup--;                    // still warming up — ignore this sample
+      } else if (rsSettle > 0) {
+        rsSettle--;                    // perturbed by a recent realloc/resume — skip it
+      } else {
+        // Fold the true GPU cost into a slow EMA (seed on the first real sample).
+        if (rsSeeded) rsGpuMs += (gpuMs - rsGpuMs) * 0.1;
+        else { rsGpuMs = gpuMs; rsSeeded = true; }
+        if (rsCooldown > 0) rsCooldown--;
+        // Sustain counters: consecutive samples over budget / within headroom. The
+        // 8–13ms deadband between them (plus the cooldown) prevents oscillation.
+        rsOverCount  = rsGpuMs > RS_BUDGET_MS   ? rsOverCount + 1  : 0;
+        rsUnderCount = rsGpuMs < RS_HEADROOM_MS ? rsUnderCount + 1 : 0;
+
+        if (rsOverCount >= RS_DOWN_SAMPLES && rsCooldown === 0 && rsIndex < RS_STEPS.length - 1) {
+          // Sustained over-budget → drop a step. On a capable GPU rsGpuMs is tiny
+          // (~1-3ms) ≪ RS_BUDGET_MS, so rsOverCount never climbs → this never fires
+          // → renderScale stays 1.0 → byte-identical output.
+          rsIndex++;
+          renderScale = RS_STEPS[rsIndex];
+          applyRenderScale();          // (also bumps rsSettle + clears the counters)
+          rsOverCount  = 0;
+          rsUnderCount = 0;
+          rsCooldown   = RS_COOLDOWN;
+        } else if (rsUnderCount >= RS_UP_SAMPLES && rsCooldown === 0 && rsIndex > 0) {
+          // Sustained measured headroom → reclaim a step. No probe/backoff needed:
+          // the headroom is directly measured, not inferred from the vsync interval.
+          rsIndex--;
+          renderScale = RS_STEPS[rsIndex];
+          applyRenderScale();
+          rsOverCount  = 0;
+          rsUnderCount = 0;
+          rsCooldown   = RS_COOLDOWN;
+        }
+      }
+    }
+  }
+
+  // Advance the reflector cadence counter once per rendered frame so the gated
+  // mirrors (makeBlurredReflector) refresh their RT every REFLECTION_EVERY-th
+  // frame. Do this immediately before rendering, where the reflectors' gated
+  // onBeforeRender callbacks read it.
+  reflectorFrame++;
+
+  // Wrap the frame's GPU render section in ONE timer query — only when the
+  // extension is supported AND no query is still pending (never nest; only one
+  // TIME_ELAPSED query may be active at a time). beginQuery immediately BEFORE the
+  // render, endQuery immediately AFTER. For this hero the render section is the
+  // single composer.render() call.
+  const rsTiming = rsExt !== null && rsQuery === null;
+  if (rsTiming) {
+    rsQuery = gl.createQuery();
+    gl.beginQuery(rsExt.TIME_ELAPSED_EXT, rsQuery);
+  }
   composer.render();
+  if (rsTiming) gl.endQuery(rsExt.TIME_ELAPSED_EXT);
 }
-animate();
+
+// Start the loop only when both signals are true. Idempotent: the running guard
+// prevents ever scheduling two concurrent rAF loops. Discard the stale delta
+// accrued while paused (clock.getDelta() once, thrown away) so the first resumed
+// frame doesn't get a huge dt → no visual jump / physics blowup.
+function startLoop() {
+  if (running) return;
+  running = true;
+  clock.getDelta();
+  // Reset the adaptive-resolution GPU-timer signal on resume. While paused the loop
+  // is fully stopped (nothing measured), and after a long idle the GPU timer state
+  // is untrustworthy, so discard any pending query and the EMA/counters and skip a
+  // couple of measured samples while timing re-settles — a post-pause spike (or a
+  // stale reading) then can't cause a spurious downscale.
+  if (rsQuery !== null) { gl.deleteQuery(rsQuery); rsQuery = null; }
+  rsGpuMs      = 0;
+  rsSeeded     = false;
+  rsOverCount  = 0;
+  rsUnderCount = 0;
+  rsSettle     = Math.max(rsSettle, RS_SETTLE);
+  rafId = requestAnimationFrame(animate);
+}
+
+// Fully stop the loop — cancel the pending frame so the GPU work actually ceases.
+function stopLoop() {
+  if (!running) return;
+  running = false;
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+}
+
+// Single source of truth: render only when on-screen AND the tab is foreground.
+function syncLoop() {
+  if (onscreen && pageVisible) startLoop();
+  else stopLoop();
+}
+
+// Observe the mount element; kept alive for the page lifetime (never disconnected).
+const loopObserver = new IntersectionObserver((entries) => {
+  onscreen = entries[entries.length - 1].isIntersecting;
+  syncLoop();
+});
+loopObserver.observe(appEl);
+
+document.addEventListener('visibilitychange', () => {
+  pageVisible = !document.hidden;
+  syncLoop();
+});
+
+syncLoop();
