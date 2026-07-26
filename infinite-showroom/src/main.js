@@ -1,32 +1,54 @@
 import * as THREE from 'three';
 
+// ─── Device tier ─────────────────────────────────────────────────────────────
+// Resolved FIRST because it picks which image set is downloaded (see below) and
+// how hard the renderer is allowed to push.
+const IS_MOBILE    = /Android|iPhone|iPad|iPod|webOS|BlackBerry|Mobile/i.test(navigator.userAgent);
+const SMALL_SCREEN = IS_MOBILE || window.innerWidth < 768;
+// Phones render the field at 1.25× CSS pixels rather than their native 3× — the
+// single largest fill-rate saving available here (a DPR-3 phone would otherwise
+// shade 5.8× as many pixels). 1.25 rather than 1.0 because this scene is cheap
+// enough to afford it and 1.0 is visibly soft on the big near-camera planes.
+const PIXEL_RATIO_CAP = SMALL_SCREEN ? 1.25 : 1.5;
+
 // ─── Auto-discovered images (bundled by Vite) ────────────────────────────────
-// Drop files into src/images/field/ and src/images/cards/ — they're picked up
-// here with no code change. Empty folders → procedural placeholders are used.
-const fieldMods = import.meta.glob('./images/field/*.{jpg,jpeg,png,webp,avif}', { eager: true, query: '?url', import: 'default' });
-const cardMods  = import.meta.glob('./images/cards/*.{jpg,jpeg,png,webp,avif}', { eager: true, query: '?url', import: 'default' });
-const FIELD_URLS = Object.keys(fieldMods).sort().map(k => fieldMods[k]);
-const CARD_URLS  = Object.keys(cardMods).sort().map(k => cardMods[k]);
+// Drop MASTERS into `masters/field/` + `masters/cards/` and run `npm run images`
+// — that writes the two sets read here (desktop + a smaller `mobile/` variant),
+// exactly like command-center-slider's `videos/mobile/`. The masters are 3840²
+// and are deliberately NOT bundled: nothing in this scene renders larger than a
+// few hundred px, and shipping them cost the page three times over (download,
+// decode, VRAM). Filenames match across the two sets, so the sorted-order
+// bijection lane→image below is identical on phones and desktop.
+// Empty folders → procedural placeholders are used.
+// (Vite requires the options to be an inline object literal — no shared const.)
+const fieldDesktopMods = import.meta.glob('./images/field/*.{jpg,jpeg,png,webp,avif}',         { eager: true, query: '?url', import: 'default' });
+const fieldMobileMods  = import.meta.glob('./images/field/mobile/*.{jpg,jpeg,png,webp,avif}',  { eager: true, query: '?url', import: 'default' });
+const cardDesktopMods  = import.meta.glob('./images/cards/*.{jpg,jpeg,png,webp,avif}',        { eager: true, query: '?url', import: 'default' });
+const cardMobileMods   = import.meta.glob('./images/cards/mobile/*.{jpg,jpeg,png,webp,avif}', { eager: true, query: '?url', import: 'default' });
+const sortedUrls = mods => Object.keys(mods).sort().map(k => mods[k]);
+// Phones take the small set when it exists; desktop always takes the full one.
+const pickSet = (desktop, mobile) =>
+  sortedUrls(SMALL_SCREEN && Object.keys(mobile).length ? mobile : desktop);
+const FIELD_URLS = pickSet(fieldDesktopMods, fieldMobileMods);
+const CARD_URLS  = pickSet(cardDesktopMods,  cardMobileMods);
 
 // ─── Config (Webflow-editable) ───────────────────────────────────────────────
 const CFG = Object.assign({
   transparent: false,
-  bg:          '#05060a',
+  bg:          '#000000',   // full black
   farOpacity:  0.10,        // opacity of the most-distant images
   nearOpacity: 1.0,         // opacity when an image is right in front of the camera
   count:       34,          // scattered background images
   driftSpeed:  9.0,         // idle travel speed (units/sec) — faster now
   scrollBoost: 1.1,         // how strongly scroll velocity adds to the speed
   parallax:    5.0,         // mouse-look camera offset in world units (0 = off)
-  maxTexture:  768,         // downscale cap for source images (perf — see loadEntry)
+  maxTexture:  768,         // safety downscale cap (the shipped sets are already under it)
+  preloadMargin: '150%',    // how early (in viewport heights) images start loading
   images:      [],          // optional real image URLs (overrides src/images/field)
 }, (window.SHOWROOM_CONFIG || {}));
 
 // Field image pool: Webflow config wins, else bundled files, else placeholders.
 const FIELD_POOL = CFG.images.length ? CFG.images : FIELD_URLS;
-
-const IS_MOBILE = /Android|iPhone|iPad|iPod|webOS|BlackBerry|Mobile/i.test(navigator.userAgent);
-const PIXEL_RATIO_CAP = IS_MOBILE ? 1.5 : 2;
 
 // ─── Mount + sizing ──────────────────────────────────────────────────────────
 // Canvas mounts into the PINNED (sticky) element so it fills the viewport while
@@ -39,12 +61,18 @@ const mountEl   = document.getElementById('showroom-canvas')
 const viewportW = () => mountEl.clientWidth  || window.innerWidth;
 const viewportH = () => mountEl.clientHeight || window.innerHeight;
 // The section that drives this scene's timeline (progress = how far scrolled
-// THROUGH it), so it behaves correctly as one scene among several on the page.
+// THROUGH it), so it behaves correctly as one scene among several.
 const sceneSection = document.querySelector('.channels-universe');
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: CFG.transparent, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
+// antialias is DESKTOP-ONLY: MSAA costs real fill rate and this scene has no hard
+// geometry edges to smooth (every surface is a photo quad), so on phones it buys
+// nothing measurable while charging for every sample.
+const renderer = new THREE.WebGLRenderer({
+  antialias: !SMALL_SCREEN, alpha: CFG.transparent, powerPreference: 'high-performance',
+});
+let basePR = Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP);
+renderer.setPixelRatio(basePR);
 renderer.setSize(viewportW(), viewportH(), false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 if (CFG.transparent) renderer.setClearAlpha(0);
@@ -61,9 +89,10 @@ mountEl.appendChild(renderer.domElement);
 // ─── Scene + camera ──────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 const bgColor = new THREE.Color(CFG.bg);
+const FOG_NEAR = 26, FOG_FAR = 90;
 if (!CFG.transparent) {
   scene.background = bgColor;
-  scene.fog = new THREE.Fog(bgColor, 26, 90);   // distant images dissolve into space
+  scene.fog = new THREE.Fog(bgColor, FOG_NEAR, FOG_FAR);   // distant images dissolve into space
 }
 
 const camera = new THREE.PerspectiveCamera(60, viewportW() / viewportH(), 0.1, 200);
@@ -79,7 +108,6 @@ camera.lookAt(0, 0, 0);   // fixed — planes on the XY plane always face it
 // Small/portrait screens see a much narrower slice of the field, so a wide
 // desktop spread reads as sparse. Condense the ring on mobile so the images
 // pack together and it feels like a dense "universe".
-const SMALL_SCREEN = IS_MOBILE || viewportW() < 768;
 const FIELD = {
   rKeep: SMALL_SCREEN ? 3.5 : 7,     // central keep-out radius (world units)
   rMax:  SMALL_SCREEN ? 20  : 46,    // outer radius (WIDE on desktop, tight on mobile)
@@ -91,16 +119,14 @@ const FIELD_DEPTH = FIELD.zNear - FIELD.zFar;
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));   // golden angle → even, non-clumping spread
 
 // ─── Loading overlay ─────────────────────────────────────────────────────────
-// Hides the pop-in while textures decode; fades out when they're ready (or after
-// a safety timeout). Absolute-fills the mount so it only covers the scene.
+// Hides the pop-in while textures decode; fades out once ENOUGH of them are up
+// (see READY_MIN — the rest stream in behind the running scene) or after a
+// safety timeout. Absolute-fills the mount so it only covers the scene.
 const overlay = document.createElement('div');
 overlay.style.cssText = 'position:absolute;inset:0;background:' + CFG.bg + ';transition:opacity .7s ease;z-index:3;pointer-events:none';
-if (getComputedStyle(mountEl).position === 'static') mountEl.style.position = 'relative';
 mountEl.appendChild(overlay);
-let toLoad = 0, loaded = 0, overlayGone = false;
+let overlayGone = false;
 function hideOverlay() { if (overlayGone) return; overlayGone = true; overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 800); }
-function onAssetLoaded() { if (++loaded >= toLoad) hideOverlay(); }
-setTimeout(() => hideOverlay(), 6000);   // safety: never trap the user behind it
 
 // ─── Texture helpers ─────────────────────────────────────────────────────────
 function placeholderTexture(index, label) {
@@ -121,55 +147,137 @@ function placeholderTexture(index, label) {
   return tex;
 }
 
-// Load a texture ONCE, DECODED OFF THE MAIN THREAD (createImageBitmap) and
-// DOWNSCALED to `CFG.maxTexture` — the source images are 3840², far larger than
-// they ever render, so capping them slashes decode time and GPU memory (the real
-// cause of the slow load). `.ar` fills in on arrival; `onReady` fires so
-// consumers can size their plane to the image aspect (contain = no crop).
-// Textures are created once and reused — no per-recycle GPU uploads.
-function loadEntry(url) {
-  const entry = { tex: new THREE.Texture(), ar: 1, loaded: false, onReady: [] };
+// ─── Progressive texture loader ──────────────────────────────────────────────
+// The old loader fired all ~34 fetches the instant the module ran and let every
+// decoded texture upload itself inside whichever render frame happened to come
+// next. Three things were wrong with that, and all three hurt the WHOLE page (two
+// other Three.js scenes share it):
+//   1. it competed with scene #1's hero videos for bandwidth at first paint,
+//      before this scene was anywhere near the viewport;
+//   2. 34 concurrent fetch→decode chains saturated the connection pool, so the
+//      FIRST image wasn't ready any sooner than the last;
+//   3. every finished texture uploaded to the GPU on its own arrival frame, so a
+//      burst of arrivals = a burst of multi-ms uploads in one frame = a hitch.
+// Now: nothing loads until the section is `CFG.preloadMargin` away (deferred),
+// at most MAX_PARALLEL requests are in flight, they run NEAREST-LANE-FIRST so
+// what the viewer actually sees arrives first, and GPU uploads are metered to a
+// few per frame. Each texture is still created ONCE and reused forever — recycling
+// a plane only moves its z, it never re-uploads.
+const MAX_PARALLEL     = SMALL_SCREEN ? 3 : 6;   // concurrent fetch+decode chains
+const UPLOADS_PER_TICK = SMALL_SCREEN ? 1 : 2;   // GPU uploads allowed per frame
+
+const usingReal = FIELD_POOL.length > 0;
+const COUNT = usingReal ? FIELD_POOL.length : CFG.count;
+// Reveal the scene once the nearest (largest, most visible) majority is up; the
+// faint far tail keeps streaming in behind the already-running field.
+const READY_MIN = Math.max(1, Math.ceil(COUNT * 0.6));
+
+let queue = [];          // entries not yet fetched (sorted nearest-lane-first)
+const pending = [];      // decoded bitmaps waiting for a metered GPU upload
+let inFlight = 0, ready = 0, drainRaf = 0, loadingStarted = false;
+
+function makeEntry(url) {
+  const entry = { url, tex: new THREE.Texture(), ar: 1, loaded: false, onReady: [], z: 0 };
   entry.tex.colorSpace = THREE.SRGBColorSpace;
-  const finish = () => { entry.loaded = true; entry.onReady.forEach(fn => fn()); entry.onReady.length = 0; onAssetLoaded(); };
-  toLoad++;
-  fetch(url).then(r => r.blob()).then(b => createImageBitmap(b)).then((bmp) => {
-    entry.ar = bmp.width / bmp.height;
-    const cap = CFG.maxTexture;
-    const longest = Math.max(bmp.width, bmp.height);
-    if (longest > cap) {
-      const s = cap / longest;
-      const c = document.createElement('canvas');
-      c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
-      const ctx = c.getContext('2d');
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(bmp, 0, 0, c.width, c.height);
-      bmp.close();
-      entry.tex.image = c;
-    } else {
-      entry.tex.image = bmp;
-    }
-    entry.tex.needsUpdate = true;
-    finish();
-  }).catch(finish);
+  queue.push(entry);
   return entry;
 }
 function placeholderEntry(index) {
-  return { tex: placeholderTexture(index), ar: 512 / 683, loaded: true, onReady: [] };
+  return { tex: placeholderTexture(index), ar: 512 / 683, loaded: true, onReady: [], z: 0 };
+}
+
+// Kicked by the preload IntersectionObserver at the bottom of this file.
+function beginLoading() {
+  if (loadingStarted) return;
+  loadingStarted = true;
+  queue.sort((a, b) => b.z - a.z);     // nearest the camera first
+  primeCardImages();
+  pump();
+  if (!queue.length && !inFlight) hideOverlay();   // placeholder mode: nothing to wait for
+  setTimeout(hideOverlay, 4000);                   // safety: never trap the viewer behind it
+}
+
+function pump() {
+  while (inFlight < MAX_PARALLEL && queue.length) fetchEntry(queue.shift());
+}
+
+function fetchEntry(entry) {
+  inFlight++;
+  const next = () => { inFlight--; pump(); };
+  const arrive = (source) => { entry.source = source; pending.push(entry); scheduleDrain(); next(); };
+  // A failure must never stall the overlay — count it as settled, but leave the
+  // lane's plane hidden rather than drawing an untextured quad.
+  const fail = () => { entry.failed = true; markReady(entry); next(); };
+
+  // Preferred path: createImageBitmap decodes OFF the main thread, leaving only the
+  // metered upload in uploadEntry() to pay for.
+  if (typeof createImageBitmap === 'function') {
+    fetch(entry.url).then(r => r.blob()).then(b => createImageBitmap(b)).then(arrive).catch(fail);
+    return;
+  }
+  // Fallback for browsers without createImageBitmap (Safari < 15). Decodes on the
+  // main thread, but the same queue + upload metering still applies, so it degrades
+  // in smoothness rather than failing outright. crossOrigin is required: a
+  // cross-origin <img> would TAINT the canvas below and make the WebGL upload throw
+  // (the CDN sends CORS headers, so this succeeds).
+  const im = new Image();
+  im.crossOrigin = 'anonymous';
+  im.onload  = () => arrive(im);
+  im.onerror = fail;
+  im.src = entry.url;
+}
+
+function scheduleDrain() { if (!drainRaf) drainRaf = requestAnimationFrame(drain); }
+function drain() {
+  drainRaf = 0;
+  for (let n = UPLOADS_PER_TICK; n > 0 && pending.length; n--) uploadEntry(pending.shift());
+  if (pending.length) scheduleDrain();
+}
+
+function uploadEntry(entry) {
+  const source = entry.source; entry.source = null;   // ImageBitmap or <img>
+  entry.ar = source.width / source.height;
+  // Drawn into a canvas rather than handed over as a raw ImageBitmap: three
+  // IGNORES Texture.flipY for ImageBitmap sources, and browsers disagree on
+  // createImageBitmap's `imageOrientation` support — the canvas is the one path
+  // that is orientation-identical everywhere. It also still honours maxTexture, so
+  // an oversized image dropped into masters/ (or a Webflow `images` URL) can never
+  // blow up VRAM.
+  const cap = CFG.maxTexture, longest = Math.max(source.width, source.height);
+  const s = longest > cap ? cap / longest : 1;
+  const c = document.createElement('canvas');
+  c.width  = Math.max(1, Math.round(source.width  * s));
+  c.height = Math.max(1, Math.round(source.height * s));
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, c.width, c.height);
+  if (typeof source.close === 'function') source.close();   // ImageBitmap only
+  entry.tex.image = c;
+  entry.tex.needsUpdate = true;
+  // Upload inside THIS metered tick instead of letting it land in an arbitrary
+  // render frame alongside every other new arrival.
+  try { renderer.initTexture(entry.tex); } catch { /* upload retries on next render */ }
+  markReady(entry);
+}
+
+function markReady(entry) {
+  entry.loaded = true;
+  entry.onReady.forEach(fn => fn());
+  entry.onReady.length = 0;
+  if (++ready >= READY_MIN) hideOverlay();
 }
 
 // ─── Texture pool (unique, loaded once, reused) ───────────────────────────────
 // One texture per image, never recreated. With real images we show each exactly
 // ONCE (a bijection lane→image), so there are no on-screen duplicates. Empty
 // folders fall back to a matching pool of placeholders.
-const usingReal = FIELD_POOL.length > 0;
-const COUNT = usingReal ? FIELD_POOL.length : CFG.count;
 const pool = usingReal
-  ? FIELD_POOL.map(loadEntry)
+  ? FIELD_POOL.map(makeEntry)
   : Array.from({ length: COUNT }, (_, i) => placeholderEntry((i * 179 + 31) % 997));
 
 // ─── Background image field ──────────────────────────────────────────────────
 const planeGeo = new THREE.PlaneGeometry(1, 1);
-const fieldItems = [];   // { mesh }
+const fieldItems = [];   // { mesh, entry }
 
 for (let i = 0; i < COUNT; i++) {
   // Phyllotaxis position on the annulus (fixed per lane).
@@ -190,8 +298,13 @@ for (let i = 0; i < COUNT; i++) {
   const mesh = new THREE.Mesh(planeGeo, mat);
   mesh.scale.set(baseSize, baseSize, 1);             // provisional (square) until aspect known
   mesh.position.set(baseX, baseY, FIELD.zFar + Math.random() * FIELD_DEPTH);
+  mesh.visible = entry.loaded;                       // no blank quad before its texture lands
   scene.add(mesh);
-  fieldItems.push({ mesh });
+  fieldItems.push({ mesh, entry });
+
+  // Load priority: this lane's spawn depth, so the nearest (biggest on screen)
+  // images are fetched first and the faint far tail arrives last.
+  entry.z = mesh.position.z;
 
   const fit = () => mesh.scale.set(baseSize * entry.ar, baseSize, 1);
   if (entry.loaded) fit(); else entry.onReady.push(fit);
@@ -245,14 +358,12 @@ if (rawCards.length) {
 }
 
 const cards = rawCards.map((card, i) => {
-  const src = CARD_URLS[i] || null;
-
   const slot  = document.createElement('div'); slot.className  = 'sc-slot';
   const box   = document.createElement('div'); box.className   = 'sc-box';
   const inner = document.createElement('div'); inner.className = 'sc-inner';
   const front = document.createElement('div'); front.className = 'sc-front';
   const img   = document.createElement('img');
-  if (src) img.src = src;
+  img.decoding = 'async';
   front.appendChild(img);
 
   // Wrap: .channels-cards > .sc-slot > .sc-box > .sc-inner > [.sc-front, .channel-card(back)]
@@ -261,15 +372,24 @@ const cards = rawCards.map((card, i) => {
   inner.appendChild(front); inner.appendChild(card);
   front.style.borderRadius = getComputedStyle(card).borderRadius;   // match the card's rounding
 
-  // Auto-fill the avatar (img inside the card) too, when its src is empty.
-  if (src) card.querySelectorAll('img').forEach(im => { if (!im.getAttribute('src')) im.src = src; });
-
   // Let the description scroll natively under Lenis smooth-scroll (otherwise
   // Lenis hijacks the wheel and scrolls the page instead of the card).
   const scroller = card.querySelector('.channel-card-bot') || card;
   scroller.setAttribute('data-lenis-prevent', '');
-  return { box, inner, scroller };
+  return { box, inner, scroller, card, img, index: i };
 });
+
+// Card `src` is assigned with the field preload, not at build time, so the three
+// card images don't download while the viewer is still on an earlier section.
+function primeCardImages() {
+  for (const c of cards) {
+    const src = CARD_URLS[c.index];
+    if (!src) continue;
+    c.img.src = src;
+    // Auto-fill the avatar (img inside the card) too, when its src is empty.
+    c.card.querySelectorAll('img').forEach(im => { if (!im.getAttribute('src')) im.src = src; });
+  }
+}
 
 // Each card owns a wide slice of scroll progress → it advances slowly.
 const CARD_WINDOWS = [
@@ -337,7 +457,40 @@ if (CFG.parallax > 0 && !IS_MOBILE) {
   window.addEventListener('pointermove', (e) => {
     ptx = (e.clientX / window.innerWidth)  * 2 - 1;
     pty = (e.clientY / window.innerHeight) * 2 - 1;
-  });
+  }, { passive: true });
+}
+
+// ─── Adaptive resolution (true GPU time) ─────────────────────────────────────
+// Ported from command-center-slider. renderScale multiplies the base pixel ratio;
+// 1.0 is byte-identical to the non-adaptive path. Load is judged on the TRUE GPU
+// frame time from an EXT_disjoint_timer_query_webgl2 query wrapped around the
+// render — NOT the rAF interval, which is floored by vsync (~16.7ms @60Hz) and so
+// can't tell a GPU coasting at 2ms from one barely coping. A capable GPU measures
+// its real ~1-2ms here and never downscales; a struggling phone measures its real
+// >10ms and steps down. Extension missing (Safari/iOS) → controller inert at 1.0.
+const gl    = renderer.getContext();
+const rsExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+
+const RS_STEPS        = [1, 0.85, 0.72, 0.6];
+const RS_BUDGET_MS    = 10;  // sustained EMA above this ⇒ over budget → downscale
+const RS_HEADROOM_MS  = 6;   // sustained EMA below this ⇒ headroom → upscale (deadband 6–10ms)
+const RS_DOWN_SAMPLES = 20;
+const RS_UP_SAMPLES   = 60;
+const RS_COOLDOWN     = 45;
+const RS_WARMUP       = 15;
+const RS_SETTLE       = 2;
+
+let renderScale = 1, rsIndex = 0;
+let rsGpuMs = 0, rsSeeded = false, rsQuery = null;
+let rsWarmup = RS_WARMUP, rsSettle = 0, rsOverCount = 0, rsUnderCount = 0, rsCooldown = 0;
+
+function applyRenderScale() {
+  renderer.setPixelRatio(basePR * renderScale);
+  renderer.setSize(viewportW(), viewportH(), false);
+  // The reallocation above perturbs the next couple of timings — skip them so the
+  // controller never reads its own resize hitch as over-budget frames.
+  rsSettle = Math.max(rsSettle, RS_SETTLE);
+  rsOverCount = 0; rsUnderCount = 0;
 }
 
 // ─── Animate ─────────────────────────────────────────────────────────────────
@@ -368,14 +521,21 @@ function animate() {
   camera.lookAt(camera.position.x, camera.position.y, camera.position.z - 100);
 
   for (let i = 0; i < fieldItems.length; i++) {
-    const m = fieldItems[i].mesh;
+    const item = fieldItems[i];
+    const m = item.mesh;
     m.position.z += speed * dt;
-    if (m.position.z > FIELD.zNear)      recycle(fieldItems[i], true);
-    else if (m.position.z < FIELD.zFar)  recycle(fieldItems[i], false);
+    if (m.position.z > FIELD.zNear)      recycle(item, true);
+    else if (m.position.z < FIELD.zFar)  recycle(item, false);
     // Depth-based opacity: faint far away → full (nearOpacity) in front of the
     // camera. Eased so images stay subtle until they're genuinely close.
     const d = clamp01((m.position.z - FIELD.zFar) / (CAM_Z - FIELD.zFar));
-    m.material.opacity = CFG.farOpacity + (CFG.nearOpacity - CFG.farOpacity) * d * d;
+    const op = CFG.farOpacity + (CFG.nearOpacity - CFG.farOpacity) * d * d;
+    m.material.opacity = op;
+    // Skip drawing what can't contribute: no texture yet, or so deep in the fog
+    // that the quad resolves to background-over-background. 34 blended quads is
+    // pure overdraw on a phone, so dropping the invisible tail is free fill rate.
+    const fogVis = CFG.transparent ? 1 : clamp01((FOG_FAR - (CAM_Z - m.position.z)) / (FOG_FAR - FOG_NEAR));
+    m.visible = item.entry.loaded && !item.entry.failed && op * fogVis > 0.012;
   }
 
   for (let i = 0; i < cards.length; i++) {
@@ -383,16 +543,61 @@ function animate() {
     if (w) driveCard(cards[i], clamp01((progress - w.start) / (w.end - w.start)));
   }
 
-  // Dev-only functional probe (harmless in prod).
-  window.__showroomDebug = { speed, travelDir, scrollVel, progress, camX: camera.position.x, camY: camera.position.y };
+  // ── Adaptive-resolution monitor ────────────────────────────────────────────
+  // Poll the query issued on a previous frame (only one is ever in flight), fold
+  // it into a slow EMA, and step the scale when either side sustains.
+  if (rsExt && rsQuery !== null) {
+    if (gl.getParameter(rsExt.GPU_DISJOINT_EXT)) {
+      gl.deleteQuery(rsQuery); rsQuery = null;         // timer disturbed → discard
+    } else if (gl.getQueryParameter(rsQuery, gl.QUERY_RESULT_AVAILABLE)) {
+      const gpuMs = gl.getQueryParameter(rsQuery, gl.QUERY_RESULT) / 1e6;   // ns → ms
+      gl.deleteQuery(rsQuery); rsQuery = null;
+      // Texture uploads are still landing → this frame's GPU cost isn't the
+      // steady state. Don't let the load-in hitch downscale the whole session.
+      if (pending.length || inFlight || queue.length) rsSettle = Math.max(rsSettle, RS_SETTLE);
 
+      if (rsWarmup > 0) rsWarmup--;
+      else if (rsSettle > 0) rsSettle--;
+      else {
+        if (rsSeeded) rsGpuMs += (gpuMs - rsGpuMs) * 0.1;
+        else { rsGpuMs = gpuMs; rsSeeded = true; }
+        if (rsCooldown > 0) rsCooldown--;
+        rsOverCount  = rsGpuMs > RS_BUDGET_MS   ? rsOverCount + 1  : 0;
+        rsUnderCount = rsGpuMs < RS_HEADROOM_MS ? rsUnderCount + 1 : 0;
+
+        if (rsOverCount >= RS_DOWN_SAMPLES && rsCooldown === 0 && rsIndex < RS_STEPS.length - 1) {
+          renderScale = RS_STEPS[++rsIndex];
+          applyRenderScale();
+          rsCooldown = RS_COOLDOWN;
+        } else if (rsUnderCount >= RS_UP_SAMPLES && rsCooldown === 0 && rsIndex > 0) {
+          renderScale = RS_STEPS[--rsIndex];
+          applyRenderScale();
+          rsCooldown = RS_COOLDOWN;
+        }
+      }
+    }
+  }
+
+  // Dev-only functional probe (harmless in prod).
+  window.__showroomDebug = {
+    speed, travelDir, scrollVel, progress, camX: camera.position.x, camY: camera.position.y,
+    ready, total: COUNT, queued: queue.length, inFlight, pending: pending.length,
+    renderScale, gpuMs: +rsGpuMs.toFixed(2), tier: SMALL_SCREEN ? 'small' : 'desktop',
+  };
+
+  // Wrap the render in ONE timer query (never nest — only one TIME_ELAPSED query
+  // may be active at a time).
+  const rsTiming = rsExt !== null && rsQuery === null;
+  if (rsTiming) { rsQuery = gl.createQuery(); gl.beginQuery(rsExt.TIME_ELAPSED_EXT, rsQuery); }
   renderer.render(scene, camera);
+  if (rsTiming) gl.endQuery(rsExt.TIME_ELAPSED_EXT);
 }
 
 function onResize() {
+  basePR = Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP);   // zoom / monitor change
   camera.aspect = viewportW() / viewportH();
   camera.updateProjectionMatrix();
-  renderer.setSize(viewportW(), viewportH(), false);
+  applyRenderScale();
 }
 window.addEventListener('resize', onResize);
 
@@ -412,6 +617,7 @@ function start() {
   clock.getDelta();                // discard the stale (huge) delta → no time jump
   lastScrollY = window.scrollY;    // reset scroll accumulator → no field lurch on resume
   scrollVel = 0;                   // resume from base drift, not a stale scroll boost
+  rsSettle = Math.max(rsSettle, RS_SETTLE);   // don't measure the resume frame
   rafId = requestAnimationFrame(animate);
 }
 function stop() {
@@ -430,8 +636,34 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Observe the scene's root section; kept alive for the page lifetime.
+const gateEl = sceneSection || mountEl;
 const io = new IntersectionObserver((entries) => {
   onscreen = entries[entries.length - 1].isIntersecting;
   updateRunning();
 }, { threshold: 0 });
-io.observe(sceneSection || mountEl);
+io.observe(gateEl);
+
+// ─── Preload gate ────────────────────────────────────────────────────────────
+// A SECOND observer with a generous rootMargin starts the image loading while the
+// section is still `CFG.preloadMargin` below the viewport — early enough that the
+// field is populated on arrival, late enough that it never competes with the hero
+// at first paint. Fires immediately if the section is already in range (reload
+// mid-page). No IntersectionObserver → just load.
+if ('IntersectionObserver' in window) {
+  // A bare number in the Webflow config ("preloadMargin: 150") would be an invalid
+  // rootMargin and throw, taking the whole scene down — so give it a unit.
+  const margin = typeof CFG.preloadMargin === 'number' ? `${CFG.preloadMargin}px` : String(CFG.preloadMargin);
+  try {
+    const pio = new IntersectionObserver((entries) => {
+      if (!entries.some(e => e.isIntersecting)) return;
+      pio.disconnect();
+      beginLoading();
+    }, { rootMargin: `${margin} 0px` });
+    pio.observe(gateEl);
+  } catch (e) {
+    console.warn('[infinite-showroom] bad preloadMargin', CFG.preloadMargin, '— loading immediately', e);
+    beginLoading();
+  }
+} else {
+  beginLoading();
+}

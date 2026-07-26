@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "images": "node scripts/optimize-images.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

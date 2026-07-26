@@ -27,7 +27,17 @@ export default defineConfig({
       output: {
         entryFileNames: 'assets/infinite-showroom.js',
         chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name][extname]',
+        // Keep the mobile image set in its own folder. Rollup flattens every asset
+        // into one directory by default, so `field/Caylus.webp` and
+        // `field/mobile/Caylus.webp` collide and the loser is renamed
+        // `Caylus2.webp` — the URLs still resolve (main.js reads them from the
+        // glob) but the published folder becomes unreadable, and you can't tell
+        // which tier a file belongs to. Mirroring the source split keeps
+        // docs/infinite-showroom/assets/ browsable.
+        assetFileNames: (info) => {
+          const src = info.originalFileNames?.[0] || info.originalFileName || info.name || '';
+          return src.includes('/mobile/') ? 'assets/mobile/[name][extname]' : 'assets/[name][extname]';
+        },
       },
     },
   },
