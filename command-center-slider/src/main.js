@@ -17,10 +17,14 @@ RectAreaLightUniformsLib.init();
 // render at 3× on phones.
 const IS_MOBILE = /Android|iPhone|iPad|iPod|webOS|BlackBerry|Mobile/i.test(navigator.userAgent);
 const PIXEL_RATIO_CAP    = IS_MOBILE ? 1   : 1.5;
-// MSAA smooths geometry edges (screen borders, logo silhouette). Enabled on
-// mobile too (4×) now that the RT is 8-bit there — the low-bandwidth RT keeps
-// the MSAA affordable, and it kills the "stairs" on the video/logo edges.
-const MSAA_SAMPLES       = IS_MOBILE ? 4   : 2;
+// MSAA smooths geometry edges (screen borders, logo silhouette). Mobile used to
+// ask for 4× — MORE than desktop's 2× — on the theory that the 8-bit RT made it
+// affordable. It doesn't: MSAA multiplies the framebuffer's BANDWIDTH by the
+// sample count regardless of bit depth. That is nearly free on Apple's tile-based
+// GPUs (MSAA resolves in on-chip tile memory) but costs real main-memory traffic
+// on the Adreno/Mali parts in Android phones — which is a large part of why the
+// same build ran acceptably on iOS and crawled on Android. 2× everywhere.
+const MSAA_SAMPLES       = 2;
 // Reflectors render the whole scene into a texture — the biggest GPU cost. On
 // mobile keep ONLY the floor mirror (so the videos still read as reflected) at a
 // lower RT scale (it only needs to look "reflective", not crisp), and drop the
@@ -106,6 +110,43 @@ const blackoutEl = document.createElement('div');
 blackoutEl.style.cssText = 'position:fixed;inset:0;background:#000;z-index:99999;pointer-events:none;opacity:0';
 document.body.appendChild(blackoutEl);
 
+// ─── Perf HUD (opt-in: add ?perf to the URL, or set window.CC_PERF) ──────────
+// There are no DevTools on a phone, so this is how the mobile tier gets VERIFIED
+// instead of guessed at. Off unless explicitly asked for — it creates no element
+// and costs nothing in production. Note `gpu` reads n/a on Safari/iOS: the
+// EXT_disjoint_timer_query_webgl2 extension isn't exposed there, which is also why
+// the adaptive-resolution controller is disabled on iOS (renderScale pinned 1.0).
+const PERF_HUD = /[?&]perf\b/.test(location.search) || !!window.CC_PERF;
+let hudEl = null;
+if (PERF_HUD) {
+  hudEl = document.createElement('div');
+  hudEl.style.cssText =
+    'position:fixed;top:0;left:0;z-index:100000;pointer-events:none;' +
+    'font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;' +
+    'background:rgba(0,0,0,.72);color:#0f0;padding:6px 8px;white-space:pre;' +
+    'border-bottom-right-radius:6px;text-shadow:0 0 2px #000';
+  document.body.appendChild(hudEl);
+}
+let hudFrames = 0, hudLast = 0, hudFps = 0;
+function updateHud() {
+  if (!hudEl) return;
+  hudFrames++;
+  const now = performance.now();
+  if (hudLast === 0) { hudLast = now; return; }
+  if (now - hudLast < 500) return;              // refresh twice a second, no more
+  hudFps    = (hudFrames * 1000) / (now - hudLast);
+  hudFrames = 0;
+  hudLast   = now;
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  hudEl.textContent =
+    `fps      ${hudFps.toFixed(1)}\n` +
+    `gpu      ${rsExt ? rsGpuMs.toFixed(2) + ' ms (budget ' + RS_BUDGET_MS + ')' : 'n/a — no timer ext'}\n` +
+    `rScale   ${renderScale.toFixed(2)}  (dpr ${renderer.getPixelRatio().toFixed(2)})\n` +
+    `buffer   ${size.x}x${size.y}\n` +
+    `tier     ${IS_MOBILE ? 'MOBILE' : 'desktop'}  msaa ${MSAA_SAMPLES}  outline ${outlinePass.enabled ? 'on/' + outlinePass.downSampleRatio : 'OFF'}\n` +
+    `smaa     ${IS_MOBILE ? 'off' : 'on'}   reflectorRT ${REFLECTOR_RT_SCALE}`;
+}
+
 const loadingState = {
   glb:    false,
   videos: [],    // sized after GLB ready
@@ -178,6 +219,12 @@ camera.layers.enable(LAYER_MAIN_ONLY);
 // aspect (pulled back on portrait so the ring fits). Used in animate().
 let camDistanceEff = 4;
 
+// World-space gap between the camera's optical axis and the resting logo at the
+// bottom of the descent. NOT a constant: updateFraming() recomputes it from the
+// current aspect so the logo lands at the SAME on-screen height on every
+// viewport (see params.logoRestNdcY). Used in animate().
+let logoRestGap = 0;
+
 // ─── Postprocessing (EffectComposer) ────────────────────────────────────────
 // EffectComposer renders into an offscreen RT, which bypasses the renderer's
 // own MSAA. Give the composer its own RT with MSAA (samples) so geometry edges
@@ -205,14 +252,35 @@ const outlinePass = new OutlinePass(
 outlinePass.edgeStrength    = 4.0;
 outlinePass.edgeGlow        = 0.8;
 outlinePass.edgeThickness   = 1.0;
-outlinePass.downSampleRatio = 1;  // full-res edge buffers everywhere — kills the neon-outline stairs on the logo (mobile included)
+// Desktop keeps full-res edge buffers (1) — that's what kills the neon-outline
+// stairs on the logo. Mobile uses 2 (half-res per axis = a QUARTER of the
+// pixels). This is the single biggest mobile win in the whole chain: three's
+// OutlinePass hardcodes HalfFloatType on 5 of its 7 internal buffers
+// (depth / maskDownSample / blur1 / edge1 at resx,resy + blur2 / edge2 at half),
+// so at downSampleRatio 1 it hands the GPU full-resolution FLOAT16 render
+// targets — exactly what composerRT's UnsignedByteType below is trying to avoid
+// on weak Android GPUs. Note three's own default is 2, and it is applied in the
+// CONSTRUCTOR, so on mobile this needs no RT reallocation at all.
+outlinePass.downSampleRatio = IS_MOBILE ? 2 : 1;
+// Start DISABLED — animate() turns it on the frame edgeStrength goes above 0.
+// Until the intro ramp begins there's no outline to draw, so the pass' two
+// full-scene re-renders + full-res HalfFloat blur chain would be pure waste
+// (it's the most expensive pass in the chain — see the gating in animate()).
+outlinePass.enabled = false;
 outlinePass.visibleEdgeColor.set('#f95921');
 outlinePass.hiddenEdgeColor.set('#f95921');
 composer.addPass(outlinePass);
-// SMAA smooths the outline's post-process edges (which MSAA can't touch
-// since they're drawn after the resolved render pass).
-const pr = renderer.getPixelRatio();
-composer.addPass(new SMAAPass(viewportW() * pr, viewportH() * pr));
+// SMAA smooths the outline's post-process edges (which MSAA can't touch since
+// they're drawn after the resolved render pass). DESKTOP ONLY: it's three more
+// full-resolution fullscreen passes, and on mobile the geometry edges are already
+// covered by the MSAA render target while the outline itself is now half-res
+// (downSampleRatio 2) — so SMAA was paying full-res bandwidth to sharpen
+// something that no longer has full-res detail to sharpen. On a phone the outline
+// glow edges ladder a touch without it; that is the trade for three passes.
+if (!IS_MOBILE) {
+  const pr = renderer.getPixelRatio();
+  composer.addPass(new SMAAPass(viewportW() * pr, viewportH() * pr));
+}
 composer.addPass(new OutputPass());
 
 // ─── Adaptive resolution controller ───────────────────────────────────────────
@@ -254,7 +322,7 @@ let rsCooldown   = 0;      // measured samples remaining before another scale ch
 function applyRenderScale() {
   const pr = BASE_PR * renderScale;
   renderer.setPixelRatio(pr);
-  composer.setPixelRatio(pr);   // cascades pr → composerRT + SMAAPass + OutputPass
+  composer.setPixelRatio(pr);   // cascades pr → composerRT + OutputPass (+ SMAAPass on desktop)
   const w = viewportW(), h = viewportH();
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
@@ -337,7 +405,19 @@ const params = {
   logoContinueDrop:   7.5,  // beyond logoExitEnd the logo eases DOWN by this many units total and SETTLES (bounded — it does not keep falling out of view). This is a LONG descent so the camera (which follows ~cameraContinueFollow of it) travels deep past the floor/ceiling into empty black space. Bigger = deeper journey / floor leaves the frame sooner.
   logoSpinDeg:        1300,  // degrees the logo spins (like a top) per unit of scroll beyond logoExitEnd — a touch faster
   cameraFollowExit:   1.0,  // how much the camera height follows the exiting logo (0..1)
-  cameraContinueFollow: 0.93, // in the empty space (continued descent past logoExitEnd) the camera follows this fraction of the logo's sink. High so the camera travels deep WITH the logo (surroundings leave the frame → pure black) while the small remainder (1 - this) × logoContinueDrop leaves the logo resting just BELOW frame centre. Higher → logo higher/more centred; lower → logo lower.
+  // Where the logo COMES TO REST on screen, in NDC Y (0 = frame centre, -1 =
+  // bottom edge). This is the single knob for the final position and it is
+  // resolution- and aspect-INDEPENDENT: updateFraming() converts it into the
+  // world-space camera/logo gap (logoRestGap) using the CURRENT camera distance,
+  // and animate() derives the camera's follow fraction from that. Previously this
+  // was a hardcoded world-space follow fraction (cameraContinueFollow), which
+  // drifted on every aspect ratio because the portrait pull-back changes
+  // camDistanceEff — perspective divides the world gap by that distance, so the
+  // same gap landed at a different screen height on each viewport (and had to be
+  // re-tuned by hand per device class). -0.1874 reproduces the previous DESKTOP
+  // resting height exactly (0.525 world units at distance 4, fov 70).
+  // Higher (toward 0) → logo more centred; lower (toward -1) → nearer the bottom.
+  logoRestNdcY:       -0.1874,
   logoExitMinScale:   0.3,  // the logo shrinks to this fraction of its rest size at the bottom of the continued descent (smaller when it's far down in the empty space)
 
   // Logo mouse parallax — very subtle, always active (does not wait for intro).
@@ -464,11 +544,12 @@ if (IS_MOBILE) {
   params.logoExitStart        = 0.5;  // delay the exit so all 3 screens are toured first
   params.logoExitEnd          = 0.68;
   // Descent: the portrait camera sits ~1.9× further back, so the same world-space
-  // sink reads about half as deep on screen. Push the logo down further and let it
-  // drift lower relative to the camera so it ends near the bottom edge (like
-  // desktop) and the camera dives deep enough that the floor leaves the frame.
+  // sink reads about half as deep on screen. Push the logo down further so the
+  // camera still dives deep enough for the floor to leave the frame (pure black).
+  // The logo's RESTING HEIGHT is no longer tuned here — params.logoRestNdcY fixes
+  // it in screen space for every aspect, so this value only sets how deep the
+  // journey through the empty space is.
   params.logoContinueDrop     = 14;   // was 7.5 — deeper sink for the further camera
-  params.cameraContinueFollow = 0.8;  // was 0.93 — logo sits lower in the frame
   // Spin: the final orientation is (1 − logoExitEnd) × logoSpinDeg. With mobile's
   // logoExitEnd (0.68) that span is 0.32, so 2250° lands on exactly 720° (2 full
   // turns) → the logo settles facing forward, same as its start (like desktop).
@@ -493,6 +574,53 @@ const TEST_VIDEOS = [
   `${ASSET_BASE}${VIDEO_DIR}Roblox.mp4`,
   `${ASSET_BASE}${VIDEO_DIR}Mrbeast-Ig.mp4`,
 ];
+
+// ─── Video pre-load — starts NOW, in parallel with the GLB ───────────────────
+// The <video> elements are created and their fetches kicked off here at module
+// scope. They used to be created inside the GLB's onLoad callback, which
+// SERIALISED every byte of video behind the whole model chain: the external
+// gstatic Draco-decoder round-trip, the GLB download, the Draco decode, then the
+// scene build. Nothing about a video fetch depends on the model, so both streams
+// now run at once and the videos are typically decoding their first frame by the
+// time the meshes exist. The mesh/texture wiring still happens after the GLB
+// (attachVideo below) because cover-fit needs userData.screenAspect from it.
+function startVideo(index, url) {
+  const video = document.createElement('video');
+  // crossOrigin must be set BEFORE src so the canvas isn't tainted later.
+  video.crossOrigin = 'anonymous';
+  video.muted       = true;
+  video.loop        = true;
+  video.playsInline = true;
+  video.autoplay    = true;
+  video.preload     = 'auto';
+
+  const label = `[plane ${index} ← ${url}]`;
+  const ready = new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+    video.addEventListener('loadeddata', () => {
+      // Start playback the moment data is available — independent of the GLB — so
+      // frames are already flowing when the texture gets attached (no frozen
+      // first frame on reveal).
+      video.play().catch((e) => console.warn(`${label} play() rejected:`, e));
+      finish(true);
+    });
+    video.addEventListener('error', () => {
+      const err = video.error;
+      console.warn(
+        `${label} FAILED — code ${err?.code} (${err?.message || 'unknown'}). ` +
+        `Most likely the browser can't decode this codec. Convert to .mp4 (H.264).`
+      );
+      finish(false);
+    });
+    video.addEventListener('stalled', () => console.warn(`${label} stalled`));
+  });
+
+  video.src = url;   // set LAST — the fetch starts with all handlers already attached
+  return { video, ready };
+}
+
+const videoLoads = TEST_VIDEOS.map((url, i) => startVideo(i, url));
 
 // Measurements pulled from the GLB after it loads.
 const layout = {
@@ -1095,6 +1223,16 @@ function updateFraming() {
   const pull    = Math.max(1, params.framingRefAspect / a); // >1 only when narrower than ref
   const factor  = 1 + (pull - 1) * params.portraitFit;
   camDistanceEff = params.cameraDistance * factor;
+  // Convert the TARGET SCREEN rest height (params.logoRestNdcY) into the world
+  // gap the logo must sit below the camera's level optical axis. The logo rests
+  // at horizontal distance camDistanceEff from the camera, so perspective gives
+  //   ndcY = -(gap / camDistanceEff) / tan(fov/2)
+  // Solving for gap and recomputing it here (updateFraming runs on every resize)
+  // is what makes the resting position identical on every aspect ratio: as the
+  // portrait pull-back pushes the camera further away, the gap grows to match.
+  logoRestGap = Math.abs(params.logoRestNdcY)
+    * Math.tan(params.fov * 0.5 * DEG_TO_RAD)
+    * camDistanceEff;
   camera.updateProjectionMatrix();
 }
 
@@ -1310,7 +1448,9 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
 
   loadingState.glb = true;
   loadingState.videos = TEST_VIDEOS.map(() => false);
-  attachVideos(TEST_VIDEOS).then((results) => {
+  // The fetches are already in flight (videoLoads, module scope) — this only
+  // wires the arrived videos onto the freshly-built planes.
+  attachVideos().then((results) => {
     results.forEach((ok, i) => { loadingState.videos[i] = true; });
     checkAllLoaded();
   });
@@ -1426,70 +1566,58 @@ _sampleCanvas.width = SAMPLE_SIZE;
 _sampleCanvas.height = SAMPLE_SIZE;
 const _sampleCtx = _sampleCanvas.getContext('2d', { willReadFrequently: true });
 
-function attachVideo(index, url) {
-  return new Promise((resolve) => {
-    const mesh = layout.videoMeshes[index];
-    if (!mesh) { console.warn('attachVideo: no plane at index', index); resolve(false); return; }
+// Wires an already-loading video (see startVideo / videoLoads above) onto its
+// GLB plane. Resolves once the texture is attached — or immediately false if the
+// video failed or the plane is missing.
+function attachVideo(index) {
+  const load = videoLoads[index];
+  if (!load) { console.warn('attachVideo: no video load at index', index); return Promise.resolve(false); }
+  return load.ready.then((ok) => {
+    if (!ok) return false;
+    const video = load.video;
+    const mesh  = layout.videoMeshes[index];
+    if (!mesh) { console.warn('attachVideo: no plane at index', index); return false; }
 
-    const video = document.createElement('video');
-    // crossOrigin must be set BEFORE src so the canvas isn't tainted later.
-    video.crossOrigin = 'anonymous';
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-    video.autoplay = true;
-    video.preload = 'auto';
-    video.src = url;
+    const tex = new THREE.VideoTexture(video);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = false; // GLB plane UVs expect non-flipped video
 
-    const label = `[plane ${index} ← ${url}]`;
-    let settled = false;
-    const finish = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+    // Cover-fit: fill the screen and crop the excess instead of stretching the
+    // video. Compares the video's aspect to the screen's and zooms the texture.
+    // videoWidth/videoHeight are the DISPLAY dimensions (the browser has already
+    // applied any pixel aspect ratio), so this is correct even for anamorphic
+    // sources — the files are square-pixel now, but the guarantee still holds.
+    const screenAspect = mesh.userData.screenAspect || 1;
+    const videoAspect  = (video.videoWidth || 16) / (video.videoHeight || 9);
+    let rx = 1, ry = 1;
+    if (videoAspect > screenAspect) rx = screenAspect / videoAspect; // crop sides
+    else                            ry = videoAspect / screenAspect; // crop top/bottom
+    const ox = (1 - rx) / 2, oy = (1 - ry) / 2;
+    tex.repeat.set(rx, ry);
+    tex.offset.set(ox, oy);
 
-    video.addEventListener('loadeddata', () => {
-      const tex = new THREE.VideoTexture(video);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.flipY = false; // GLB plane UVs expect non-flipped video
-
-      // Cover-fit: fill the screen and crop the excess instead of stretching the
-      // video. Compares the video's aspect to the screen's and zooms the texture.
-      const screenAspect = mesh.userData.screenAspect || 1;
-      const videoAspect  = (video.videoWidth || 16) / (video.videoHeight || 9);
-      let rx = 1, ry = 1;
-      if (videoAspect > screenAspect) rx = screenAspect / videoAspect; // crop sides
-      else                            ry = videoAspect / screenAspect; // crop top/bottom
-      const ox = (1 - rx) / 2, oy = (1 - ry) / 2;
-      tex.repeat.set(rx, ry);
-      tex.offset.set(ox, oy);
-
-      mesh.material.map = tex;
-      mesh.material.color.set(0xffffff);
-      mesh.material.needsUpdate = true;
-      // Feed the same texture + cover transform into the mask shader.
-      const mask = mesh.userData.maskMesh;
-      if (mask?.material?.uniforms) {
-        mask.material.uniforms.uVideo.value = tex;
-        mask.material.uniforms.uUvScale.value.set(rx, ry);
-        mask.material.uniforms.uUvOffset.value.set(ox, oy);
-      }
-      mesh.userData.videoElement = video;
-      mesh.userData.videoTexture = tex;
-      video.play().catch((e) => console.warn(`${label} play() rejected:`, e));
-      finish(true);
-    });
-    video.addEventListener('error', () => {
-      const err = video.error;
-      console.warn(
-        `${label} FAILED — code ${err?.code} (${err?.message || 'unknown'}). ` +
-        `Most likely the browser can't decode this .mkv codec. Convert to .mp4 (H.264).`
-      );
-      finish(false);
-    });
-    video.addEventListener('stalled', () => console.warn(`${label} stalled`));
+    mesh.material.map = tex;
+    mesh.material.color.set(0xffffff);
+    mesh.material.needsUpdate = true;
+    // Feed the same texture + cover transform into the mask shader.
+    const mask = mesh.userData.maskMesh;
+    if (mask?.material?.uniforms) {
+      mask.material.uniforms.uVideo.value = tex;
+      mask.material.uniforms.uUvScale.value.set(rx, ry);
+      mask.material.uniforms.uUvOffset.value.set(ox, oy);
+    }
+    mesh.userData.videoElement = video;
+    mesh.userData.videoTexture = tex;
+    // play() already fired in startVideo the moment data arrived; this is just a
+    // safety net for the case where that attempt was rejected (e.g. a policy
+    // change) and the element is sitting paused.
+    if (video.paused) video.play().catch(() => {});
+    return true;
   });
 }
 
-function attachVideos(urls) {
-  return Promise.all(urls.map((u, i) => attachVideo(i, u)));
+function attachVideos() {
+  return Promise.all(videoLoads.map((_, i) => attachVideo(i)));
 }
 
 
@@ -1630,12 +1758,21 @@ function animate() {
   // Camera stays fixed in its horizontal position; only its HEIGHT follows the
   // logo, and it keeps looking LEVEL (constant pitch) — it does NOT tilt to chase
   // the logo. It tracks the transition drop 1:1 (blackout works), but in the
-  // empty space follows only cameraContinueFollow of the continued sink. Both the
+  // empty space follows all of it EXCEPT logoRestGap world units. Both the
   // look target and the camera move by the same amount, so the logo — which sinks
   // the full distance — drifts DOWN toward the bottom of the frame. The logo
   // shrinks as it goes (see below), so it stays in view instead of exiting.
   const restLookY = logoBase.y + params.lookOffsetY;
-  const followY   = (transitionOffsetY - logoContinuedDamped * params.cameraContinueFollow) * params.cameraFollowExit;
+  // The camera follows the whole continued sink MINUS logoRestGap, so the logo
+  // ends exactly logoRestGap below the optical axis → at params.logoRestNdcY on
+  // screen. logoRestGap is aspect-derived (updateFraming), so this lands at the
+  // same screen height on a phone, a tall/narrow window and a desktop alike.
+  // Scaled by the descent's own progress so the gap opens up gradually instead of
+  // snapping in, and clamped in case logoRestGap ever exceeds the total drop.
+  const contFollow = params.logoContinueDrop > 0
+    ? Math.min(1, Math.max(0, 1 - logoRestGap / params.logoContinueDrop))
+    : 0;
+  const followY   = (transitionOffsetY - logoContinuedDamped * contFollow) * params.cameraFollowExit;
   lookTarget.set(
     logoBase.x + params.lookOffsetX,
     restLookY + followY,
@@ -1725,6 +1862,16 @@ function animate() {
     glassMaterial.transmission = params.logoGlassTransmission * (1 - gradT);
     gradientMaterial.uniforms.uOpacity.value = gradT;
     outlinePass.edgeStrength = params.outlineStrength * outlineRamp * (1 - gradT);
+    // SKIP the whole OutlinePass while it contributes nothing. At edgeStrength 0
+    // the pass is invisible, but it still costs TWO full-scene re-renders (its
+    // depth + mask buffers) plus ~7 fullscreen passes on FULL-RESOLUTION
+    // HalfFloat RTs every frame — three's OutlinePass hardcodes HalfFloatType on
+    // 5 of its 7 internal buffers, so with downSampleRatio = 1 this is by far the
+    // heaviest thing in the chain on a phone. It is genuinely invisible at 0:
+    // before the intro ramp starts (outlineRamp 0) and once the gradient shell has
+    // fully taken over (gradT 1, which on mobile is everything past scroll 0.68 —
+    // roughly a THIRD of the scroll). Free win, no visual change whatsoever.
+    outlinePass.enabled = outlinePass.edgeStrength > 0.001;
     if (logoSpot) logoSpot.intensity = params.ringIntensity * spotEased;
   }
 
@@ -1802,6 +1949,8 @@ function animate() {
   }
   composer.render();
   if (rsTiming) gl.endQuery(rsExt.TIME_ELAPSED_EXT);
+
+  updateHud();   // no-op unless ?perf is in the URL
 }
 
 // Start the loop only when both signals are true. Idempotent: the running guard
