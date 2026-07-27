@@ -26,15 +26,38 @@ const scrollSection = document.querySelector('.footer-universe');
 const ASSET_BASE = (typeof window !== 'undefined' && window.FOOTER_ASSET_BASE)
   || import.meta.env.BASE_URL;
 
+// ─── Device tier ──────────────────────────────────────────────────────────────
+// Most phones lack EXT_disjoint_timer_query_webgl2 (iOS Safari never shipped it;
+// many Android browsers disable it), so the GPU-timed adaptive controller further
+// down can't measure them and leaves renderScale pinned at 1.0 — i.e. the FULL
+// pipeline at full DPR on exactly the weakest GPUs. The fix is to not depend on an
+// adaptation that never runs there: detect a low-power tier up front from device
+// signals and pre-bias the heavy knobs (DPR cap, MSAA, blur taps, reflector RT,
+// half-rate cadence) so mobile starts cheap. Desktop keeps every value it had, so
+// its output stays byte-identical.
+const IS_MOBILE = !!(
+  (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+  || Math.min(window.innerWidth, window.innerHeight) < 700
+  || (typeof navigator !== 'undefined' && navigator.deviceMemory && navigator.deviceMemory <= 4)
+);
+const TIER = {
+  dprCap:       IS_MOBILE ? 1.25 : 1.75,  // fill-rate is the bottleneck; the single biggest lever
+  msaaSamples:  IS_MOBILE ? 2    : 4,     // 4× MSAA on a HalfFloat RT is heavy bandwidth on mobile
+  reflectorMax: IS_MOBILE ? 512  : 1024,  // mirror RT resolution cap
+  reflectEvery: IS_MOBILE ? 3    : 2,     // half-rate cadence for the mirror re-render
+  glassEvery:   IS_MOBILE ? 3    : 2,     // half-rate cadence for the glass sceneRT capture
+  blurTaps:     IS_MOBILE ? 1    : 2,     // radius of the NxN blur loops (1 → 3×3, 2 → 5×5)
+};
+
 // ─── Renderer + scene ────────────────────────────────────────────────────────
-// antialias:false — every draw lands in composerRT (samples:4, HalfFloat) and
-// OutputPass blits the resolved result to the default framebuffer as a single
-// fullscreen quad, so the renderer's own MSAA would only anti-alias that quad's
-// edges (i.e. nothing). Dropping it removes a redundant multisample resolve.
+// antialias:false — every draw lands in composerRT (samples:4 desktop / 2 mobile,
+// HalfFloat) and OutputPass blits the resolved result to the default framebuffer
+// as a single fullscreen quad, so the renderer's own MSAA would only anti-alias
+// that quad's edges (i.e. nothing). Dropping it removes a redundant resolve.
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-// Cap DPR a touch below the device max — keeps the heavy postpro pipeline
+// Cap DPR below the device max (TIER.dprCap) — keeps the heavy postpro pipeline
 // (planar reflection + sceneRT + composer) within budget on retina/mobile.
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, TIER.dprCap));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -182,7 +205,7 @@ const pr = renderer.getPixelRatio();
 const composerRT = new THREE.WebGLRenderTarget(
   window.innerWidth  * pr,
   window.innerHeight * pr,
-  { type: THREE.HalfFloatType, samples: 4 },
+  { type: THREE.HalfFloatType, samples: TIER.msaaSamples },
 );
 const composer = new EffectComposer(renderer, composerRT);
 composer.addPass(new RenderPass(scene, camera));
@@ -232,8 +255,8 @@ const stackedRingMeshes = [];
 // re-render is gated). Each RT is guaranteed to render on the first frame before
 // it is ever displayed (glassCaptured / reflectorRendered guards), so there is
 // no first-frame flicker. Tune via the *_EVERY constants (1 = every frame).
-const REFLECTION_EVERY     = 2;
-const GLASS_CAPTURE_EVERY  = 2;
+const REFLECTION_EVERY     = TIER.reflectEvery;
+const GLASS_CAPTURE_EVERY  = TIER.glassEvery;
 let frameCount        = 0;
 let glassCaptured     = false;
 let reflectorRendered = false;
@@ -242,7 +265,7 @@ let reflectorRendered = false;
 // CircleGeometry sized to the floor footprint. material.colorWrite/depthWrite
 // off means it contributes no pixels visually, but its onBeforeRender still
 // fires each frame and renders the scene from the mirrored virtual camera.
-const reflectorRTSize = Math.min(1024, Math.floor(window.innerWidth * pr));
+const reflectorRTSize = Math.min(TIER.reflectorMax, Math.floor(window.innerWidth * pr));
 const reflector = new Reflector(
   new THREE.CircleGeometry(params.floorRadius, 96),
   {
@@ -311,6 +334,7 @@ const logoFillMaterial = new THREE.ShaderMaterial({
     }
   `,
   fragmentShader: /* glsl */`
+    #define BLUR_R ${TIER.blurTaps}
     uniform sampler2D tScene;
     uniform vec2  uResolution;
     uniform float uTime, uTintAmount, uIor, uDistortion, uNoiseScale;
@@ -353,8 +377,8 @@ const logoFillMaterial = new THREE.ShaderMaterial({
 
       vec3 col = vec3(0.0);
       float wsum = 0.0;
-      for (int j = -2; j <= 2; j++) {
-        for (int i = -2; i <= 2; i++) {
+      for (int j = -BLUR_R; j <= BLUR_R; j++) {
+        for (int i = -BLUR_R; i <= BLUR_R; i++) {
           vec2 off = (aDir * float(i) * (uBlur + uAnisoBlur)
                     + aPerp * float(j) *  uBlur) / uResolution;
           float w = exp(-float(i*i + j*j) * 0.4);
@@ -484,6 +508,7 @@ function makeFloorCylinderMaterial(colorHex) {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
         `#include <common>
+         #define BLUR_R ${TIER.blurTaps}
          uniform sampler2D tReflection;
          uniform float uReflectionStrength, uReflectionFade, uReflectionBlur, uReflectionDistortion;
          uniform vec2  uReflTexSize, uFloorCenter;
@@ -507,8 +532,8 @@ function makeFloorCylinderMaterial(colorHex) {
          reflUV += floorDir * uReflectionDistortion * pow(floorR, 1.3) * 0.18;
          vec2 texel = uReflectionBlur / uReflTexSize;
          vec3 reflAcc = vec3(0.0); float wsum = 0.0;
-         for (int dy = -2; dy <= 2; dy++) {
-           for (int dx = -2; dx <= 2; dx++) {
+         for (int dy = -BLUR_R; dy <= BLUR_R; dy++) {
+           for (int dx = -BLUR_R; dx <= BLUR_R; dx++) {
              vec2 off = vec2(float(dx), float(dy)) * texel;
              float wt = exp(-float(dx*dx + dy*dy) * 0.35);
              reflAcc += texture2D(tReflection, reflUV + off).rgb * wt;
@@ -973,6 +998,16 @@ const RS_BUDGET_MS = 13;   // sustained EMA above this ⇒ over budget (targets 
 const RS_HEADROOM_MS = 8;  // sustained EMA below this ⇒ clear headroom (deadband 8-13ms suppresses oscillation)
 const RS_DOWN_HOLD = 20;   // consecutive over-budget samples before a downscale (short sustain window)
 const RS_UP_HOLD   = 60;   // consecutive clear-headroom samples before an upscale (longer window)
+// Entry-lag fix: for a short window after each activation, react to over-budget
+// frames FAST. The footer resumes at full renderScale every time it scrolls into
+// view, so a mid GPU spikes for the first frames of the reveal before the normal
+// 20-sample sustain window reacts — that's the "lag when it enters view". During
+// this window we downscale after just RS_DOWN_HOLD_FAST over-budget samples, then
+// the normal UP_HOLD reclaims quality once the reveal settles. A capable GPU stays
+// under budget throughout ⇒ rsOverCount never accrues ⇒ renderScale stays 1.0 ⇒
+// byte-identical output; this only ever engages on hardware that's actually late.
+const RS_DOWN_HOLD_FAST = 4;
+const RS_FAST_FRAMES    = 45;
 
 let rsQuery      = null;   // the single TIME_ELAPSED query currently in flight (null = none pending)
 let rsGpuMs      = 0;      // EMA of the measured GPU frame cost in milliseconds
@@ -982,6 +1017,7 @@ let rsCooldown   = 0;      // frames left before another scale change is allowed
 let rsSettle     = 0;      // measured samples still to skip after a scale change / resume / resize
 let rsOverCount  = 0;      // consecutive samples with rsGpuMs > RS_BUDGET_MS — the downscale sustain signal
 let rsUnderCount = 0;      // consecutive samples with rsGpuMs < RS_HEADROOM_MS — the upscale sustain signal
+let rsFastWindow = 0;      // post-activation samples still using the fast downscale hold (entry-lag fix)
 
 // Reset the decision signal — called on resume so the stale EMA/counters from
 // before the pause can't force a spurious scale change. The GPU-ms signal is
@@ -992,12 +1028,13 @@ function resetAdaptive() {
   rsOverCount = 0; rsUnderCount = 0;
   rsGpuMs = 0; rsGpuSeeded = false;
   rsSettle = RS_SETTLE;
+  rsFastWindow = RS_FAST_FRAMES;   // arm the fast-adapt window for this activation's reveal
 }
 
 function setRenderScale(next) {
   if (next === renderScale) return;
   renderScale = next;
-  const effPR = Math.min(window.devicePixelRatio, 1.75) * renderScale;
+  const effPR = Math.min(window.devicePixelRatio, TIER.dprCap) * renderScale;
   applyRenderTargets(window.innerWidth, window.innerHeight, effPR);
   rsCooldown   = RS_COOLDOWN;
   rsOverCount  = 0;
@@ -1016,6 +1053,11 @@ function decideRenderScale() {
   // / resize, whose timings are perturbed by the RT reallocation.
   if (rsSettle > 0) { rsSettle--; return; }
 
+  // Fast-adapt window: count down the post-activation samples that use the short
+  // downscale hold. Runs out to the normal hold once the reveal has settled.
+  if (rsFastWindow > 0) rsFastWindow--;
+  const downHold = rsFastWindow > 0 ? RS_DOWN_HOLD_FAST : RS_DOWN_HOLD;
+
   // Sustain counters against the deadband. rsGpuMs in [RS_HEADROOM_MS, RS_BUDGET_MS]
   // increments neither → the controller holds (no oscillation across the band).
   if (rsGpuMs > RS_BUDGET_MS)   rsOverCount++;  else rsOverCount  = 0;
@@ -1025,7 +1067,7 @@ function decideRenderScale() {
 
   // DOWNSCALE one step on a sustained over-budget window (weak GPU, or a real load
   // spike). Never fires on a capable GPU whose rsGpuMs stays well under budget.
-  if (rsOverCount >= RS_DOWN_HOLD && renderScale > RS_FLOOR) {
+  if (rsOverCount >= downHold && renderScale > RS_FLOOR) {
     setRenderScale(Math.max(RS_FLOOR, renderScale - RS_STEP));
     return;
   }
@@ -1073,10 +1115,26 @@ function onViewportResize() {
   const w = window.innerWidth, h = window.innerHeight;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  const effPR = Math.min(window.devicePixelRatio, 1.75) * renderScale;
+  const effPR = Math.min(window.devicePixelRatio, TIER.dprCap) * renderScale;
   applyRenderTargets(w, h, effPR);
   particleMat.uniforms.uPxScale.value = h / 2;
   rsSettle = RS_SETTLE;   // don't let the resize-frame RT reallocation spike bias the EMA
+}
+
+// ─── Debug HUD (opt-in via ?debug) ───────────────────────────────────────────
+// A tiny on-screen readout for on-device testing: which tier resolved, the live
+// renderScale + effective DPR, FPS, and measured GPU ms (when the timer query
+// exists). Gated on a URL param so it never appears in production — add ?debug to
+// the URL. Purely a measurement aid; touches nothing in the render path.
+const DEBUG = /(?:^|[?&#])debug\b/i.test(location.search + location.hash);
+let dbgEl = null, dbgFrames = 0, dbgAccum = 0, dbgFps = 0;
+if (DEBUG) {
+  dbgEl = document.createElement('div');
+  dbgEl.style.cssText =
+    'position:fixed;top:8px;left:8px;z-index:99999;font:12px/1.45 monospace;' +
+    'color:#ffc34b;background:rgba(0,0,0,.62);padding:7px 9px;border-radius:6px;' +
+    'pointer-events:none;white-space:pre;letter-spacing:.2px;';
+  document.body.appendChild(dbgEl);
 }
 
 // ─── Render loop ─────────────────────────────────────────────────────────────
@@ -1089,8 +1147,26 @@ let running  = false;
 
 function animate() {
   rafId = requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 1 / 30);
+  const rawDt = clock.getDelta();
+  const dt = Math.min(rawDt, 1 / 30);
   const t  = clock.getElapsedTime();
+
+  // Debug HUD: roll up FPS over ~0.5s of real (unclamped) frame time and print the
+  // resolved tier / scale so on-device smoothness is a number, not a guess.
+  if (DEBUG) {
+    dbgAccum += rawDt; dbgFrames++;
+    if (dbgAccum >= 0.5) {
+      dbgFps = dbgFrames / dbgAccum; dbgAccum = 0; dbgFrames = 0;
+      const effPR = Math.min(window.devicePixelRatio, TIER.dprCap) * renderScale;
+      dbgEl.textContent =
+        `tier:  ${IS_MOBILE ? 'MOBILE (low-power)' : 'desktop'}\n` +
+        `fps:   ${dbgFps.toFixed(0)}\n` +
+        `scale: ${renderScale.toFixed(3)}\n` +
+        `DPR:   ${effPR.toFixed(2)} (cap ${TIER.dprCap})\n` +
+        `gpuMs: ${rsExt ? rsGpuMs.toFixed(1) : 'n/a — no timer query'}\n` +
+        `blurR ${TIER.blurTaps}  msaa ${TIER.msaaSamples}  refl ${TIER.reflectorMax}`;
+    }
+  }
 
   // Scroll-driven camera reveal: high above the logo → resting front view.
   applyCameraProgress(getScrollProgress());
