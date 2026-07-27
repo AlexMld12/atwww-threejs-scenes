@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Command Center — no background</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        overscroll-behavior: none;
+      }
+      /* The scene is NOT scroll-driven any more — it's a static hero canvas that
+         fills its container. Locally that container is #app pinned to the
+         viewport; in Webflow it's #ccn-canvas absolute-filling its section.
+         Height is 100lvh (LARGE viewport height = URL bar retracted) with a
+         100vh fallback, so the canvas always spans the full screen on mobile. */
+      #app {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;   /* fallback for browsers without lvh */
+        height: 100lvh;
+        z-index: 0;
+      }
+      #app canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/command-center-nobg.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>
