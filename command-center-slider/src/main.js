@@ -29,7 +29,15 @@ const MSAA_SAMPLES       = 2;
 // mobile keep ONLY the floor mirror (so the videos still read as reflected) at a
 // lower RT scale (it only needs to look "reflective", not crisp), and drop the
 // ceiling mirror (a second full-scene render is too expensive on phones).
-const REFLECTOR_RT_SCALE   = IS_MOBILE ? 0.3 : 0.5;
+// The RT scale is also the mirrors' PRIMARY blur control, and the only one that
+// widens the blur without touching brightness or colour. A smaller RT bilinearly
+// upsampled is a true low-pass with no undersampling — unlike widening a sparse
+// fixed-tap kernel, which just ghosts. So softness comes from here plus a modest
+// texel-spaced kernel below, never from dimming or tinting the reflection.
+// Dropped 0.5→0.15 desktop / 0.3→0.14 mobile (also much cheaper to render).
+// Measured: at 0.5 the mirrored on-screen TEXT was legible in the floor; at 0.15
+// nothing in the reflection resolves as content, only soft glows.
+const REFLECTOR_RT_SCALE   = IS_MOBILE ? 0.14 : 0.15;
 const ENABLE_FLOOR_REFLECTOR = true;         // floor mirror on both (mobile at reduced RT)
 const ENABLE_ROOF_REFLECTOR  = !IS_MOBILE;   // ceiling mirror desktop-only
 // Reflectors re-render the WHOLE scene into a texture every frame — a big per-
@@ -92,6 +100,13 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.domElement.style.display = 'block';
 renderer.domElement.style.width   = '100%';
 renderer.domElement.style.height  = '100%';
+// REQUIRED for the touch-drag logo spin to work at all (review round 8). With the
+// default `touch-action: auto`, the browser claims a touch gesture for panning as soon
+// as the finger moves and STOPS delivering pointermove (it fires pointercancel instead),
+// so the drag handler never saw anything on a real phone. `pan-y` hands vertical
+// panning — the page scroll that drives this whole scene — to the browser while leaving
+// HORIZONTAL movement to us, which is exactly the split the drag needs.
+renderer.domElement.style.touchAction = 'pan-y';
 appEl.appendChild(renderer.domElement);
 
 // ─── Loader overlay (plain black, hides the canvas until assets are ready) ──
@@ -184,10 +199,12 @@ function startLogoAnimation() {
   logoAnim.phase      = 'run';
   logoAnim.phaseStart = performance.now() / 1000;
   logoAnim.currentY   = logoBase.y - params.logoAnimRise;
-  logoGroup.position.y      = logoAnim.currentY;
-  glassMaterial.transparent = true;
-  glassMaterial.opacity     = 0;
-  outlinePass.edgeStrength  = 0;
+  logoGroup.position.y     = logoAnim.currentY;
+  // Opaque from frame one — the intro is the rise only, no opacity fade (review 2).
+  // `transparent` stays true because the EXIT still fades this out under the shell.
+  logoMaterial.transparent = true;
+  logoMaterial.opacity     = 1;
+  outlinePass.edgeStrength = 0;
   if (logoSpot) logoSpot.intensity = 0;
 }
 
@@ -345,48 +362,162 @@ function applyRenderScale() {
 // ─── Tunable params ──────────────────────────────────────────────────────────
 const params = {
   // Background / colors
-  bg:             '#010101',
+  bg:             '#000000',
   gradientTop:    '#FFC34B',
   gradientBottom: '#F95921',
 
   floorColor1: '#a00d00',
-  floorColor2: '#010101',
-  floorColor3: '#010101',
-  floorColor4: '#010101',
+  floorColor2: '#000000',
+  floorColor3: '#000000',
+  floorColor4: '#000000',
   // Reflectivity / emission
-  floorMetalness: 0.6,
-  floorRoughness: 0.25,
-  videoEmission:  4,
+  floorMetalness: 0.5,
+  floorRoughness: 1,
+
+  // The "fantana" — the central well the logo dives through. It is part of the same
+  // `Circle` mesh as the floor, so splitFloorGeometry() cuts it out to give it this
+  // material of its own. (Named wellSurface* to avoid colliding with the disabled
+  // procedural `well*` params further down, which are a different thing entirely.)
+  // Review round 5: it read as "beton colorat" because it shared the floor's
+  // reddish, rough, half-metallic material. Metal needs THREE things here, and
+  // missing any one of them is what makes a metal look like painted concrete:
+  //   • a near-neutral, darker albedo (a saturated red albedo reads as paint),
+  //   • high metalness + low-ish roughness,
+  //   • something to REFLECT. This is the one that matters most and the easiest to
+  //     miss: with no environment map a metal has no diffuse term and nothing to
+  //     mirror, so it renders essentially BLACK. Hence wellEnv below.
+  //
+  // Review round 6 — "metal ca MATERIAL, nu culoare": the well must RESPOND to the
+  // video lights (visibly brighten when a screen is hovered and its RectAreaLight
+  // switches from the red mask tint to the live video colour), and it must stop
+  // reading as a red part pasted into a darker floor.
+  // Metalness is therefore NOT 1 any more. At metalness 1 a MeshStandardMaterial has
+  // NO diffuse term at all, and this well also has the area-light SPECULAR stripped
+  // (dropRectAreaSpecular, review round 4 — polished metal turns those lights into
+  // hard bright quads). Those two together meant the screens could not light the well
+  // by ANY path, so it was completely inert to hover and its whole appearance came
+  // from the static env map — which is exactly why it looked like flat red paint.
+  // Keeping metalness in the 0.6–0.8 range leaves a real diffuse term for the video
+  // lights to drive while the env map still supplies the metallic sheen.
+  wellSurfaceMetalness:    0.7,
+  wellSurfaceRoughness:    0.3,
+  // Near-neutral, slightly warm so it sits with the room without being "the red bit".
+  // At this metalness the albedo tints BOTH the diffuse and the reflection.
+  // MUST NOT be black (or near-black). The albedo tints the diffuse AND the metallic
+  // reflection, so #000000 gives a well that is both black and completely inert to
+  // the video lights — i.e. it defeats the two things review round 6 asked for. There
+  // is a runtime warning for this in makeWellMaterial(). Keep it a warm neutral and
+  // let the LIGHTS and wellEnv* supply the colour, so it changes on hover.
+  wellSurfaceColor:        '#9a9089',
+  wellSurfaceEnvIntensity: 0.85,  // how strongly it mirrors wellEnv
+  // Tiny synthetic environment the well metal reflects: a vertical gradient (dark
+  // floor → warm ring glow → near-black ceiling) matching the room's palette. Cheap
+  // enough to be free (one 64×32 canvas through PMREM, once) and it is what turns
+  // the well from a black hole into something that reads as brushed metal.
+  // Desaturated vs round 5: a strongly red env is what made the well read as a red
+  // object rather than as metal picking up a red room. The colour should come from
+  // the actual lights (so it changes on hover), not be baked in here.
+  wellEnvTop:    '#a00d00',
+  wellEnvMid:    '#000000',
+  wellEnvBottom: '#000000',
+  wellEnvHorizon: 0.42,   // 0..1 height of the warm band
+  videoEmission:  8,
 
   // Floor planar reflector (gives a real, curved mirror reflection of the
   // screens — ring shape so the inner well around the logo isn't covered).
+  //
+  // ── Reflection softness (review 2026-07-31, revised after round 2) ────────
+  // Two knobs, and which one to reach for matters — this took three rounds:
+  //   *Blur    — kernel tap spacing in TEXELS of the reflection RT (was raw UV,
+  //              which at ~5 screen px/tap under-sampled the moving video and was
+  //              itself the source of the shimmer). Keep it near 1–2.5: the WIDTH
+  //              should come from REFLECTOR_RT_SCALE above, because a wide sparse
+  //              kernel ghosts instead of blurring. Blur alone was NOT enough —
+  //              review round 3: "nu cred ca trebuie sa dai mai mult blur".
+  //   *Opacity — how strongly the mirror shows AT ALL. This is the intensity knob,
+  //              and the reason it works where round 1's *Strength failed is WHAT
+  //              shows through underneath. *Strength mixed toward the reflector's
+  //              flat tint — a mid-dark red — so it LIFTED every dark part of the
+  //              mirror to a flat mid-red and the floor/ceiling read far too bright
+  //              and too uniform. *Opacity instead makes the Reflector mesh
+  //              genuinely transparent, so what blends through is the REAL floor /
+  //              ceiling mesh (its own MeshStandardMaterial, lit by the video
+  //              RectAreaLights). The surface therefore keeps its own colour and
+  //              stops reading as a perfect mirror — it reads as a partly
+  //              reflective floor, which is what round 3 asked for.
+  //              1.0 = the original full mirror, 0 = the bare floor material.
   reflectorEnabled:    ENABLE_FLOOR_REFLECTOR,
+  // OBSOLETE since review round 5 — the reflector now uses the floor's own top-surface
+  // geometry, whose inner hole is the well opening, so there is nothing to configure.
+  // Only read by the fallback flat ring in rebuildFloorReflector (no clean flat level).
   reflectorInnerRadius: 2.0,
   reflectorTint:       '#850f0f',
-  reflectorLift:       0.001,
-  reflectorBlur:       0.0055,        // crisp mirror by default
+  // How far ABOVE the floor surface the mirror plane sits. This is NOT just a
+  // z-fighting nudge — it has to stay reasonably large or the reflection DIES, and
+  // that cost a long debugging session in review round 5, so: three's Reflector
+  // replaces the virtual camera's near plane with the mirror plane (oblique
+  // projection, `clipBias`). If the mirror plane is coincident with the floor MESH,
+  // the floor's own huge coplanar surface sits exactly on that clip boundary, leaks
+  // past it, and fills the reflection texture with the floor's dark underside — the
+  // floor then renders almost black with reflections surviving only in the nearest
+  // band. Was 0.001, which was fine only because the plane used to be placed at
+  // floorTargetY, and floorTargetY happens to sit ~0.066 ABOVE the true floor
+  // surface (yShift aligns the well collar's top, not the floor, to it). Now that the
+  // plane is derived from the floor's real surface, the clearance must be explicit.
+  // Symptom if set too low: floor goes black except right at the bottom of frame.
+  reflectorLift:       0.05,
+  reflectorBlur:       1.6,          // texels of tap spacing (was 0.0055 raw UV)
+  reflectorOpacity:    0.35,
 
-  // Roof planar reflector — same idea but flipped, with a touch of blur so
-  // the ceiling reads as a softer mirror.
+  // Roof planar reflector — same idea but flipped, and pushed further: the ceiling
+  // fills the top of frame right above the logo, so it was the louder of the two.
   roofReflectorEnabled:    ENABLE_ROOF_REFLECTOR,
   roofReflectorInnerRadius: 0,
   roofReflectorTint:       '#230505',
   roofReflectorLift:       0.008,  // offset DOWN from the ceiling underside
-  roofReflectorBlur:       0.0075,
+  roofReflectorBlur:       2.2,
+  roofReflectorOpacity:    0.25,
 
-  // Logo glass/ice (MeshPhysicalMaterial transmission)
-  logoGlassColor:        '#850f0f',  // base color of the glass
-  logoGlassTint:         '#850f0f',  // attenuation tint inside the volume
-  logoGlassTintDistance: 1.0,        // attenuation distance — smaller = more tint
-  logoGlassIor:          2.5,       // ~1 = no refraction, 1.5 = glass, 2.4 = diamond
-  logoGlassRoughness:    0.13,       // 0 = perfectly clear, 1 = fully diffuse
-  logoGlassThickness:    0,        // volume thickness for refraction depth
-  logoGlassTransmission: 1.0,        // 0 = opaque, 1 = fully see-through
+  // Logo surface (review 2026-07-31) — was a transmissive "glass/ice"
+  // MeshPhysicalMaterial; it is now the brand linear gradient on a MATTE metal,
+  // so the ring spotlight and the per-screen video RectAreaLights read as soft
+  // reflections sliding across the logo instead of refracting through it.
+  // The scene has NO ambient/key/fill light, so these three knobs together decide
+  // how much of the logo is gradient and how much is light response:
+  // Tuned by eye against the zoomed logo. The logo is an EXTRUSION: its big front
+  // face is flat and points at the camera, while the screens sit off to the sides.
+  // That geometry decides which knob does the work — a flat face aimed at the
+  // camera has a mirror direction pointing back at the camera (where there is
+  // nothing), so a high-metalness surface reflects black there and the face reads
+  // dead flat. The screens only reach it as broad DIFFUSE area-light response, so
+  // metalness is kept mid-range rather than high: the curved side walls still
+  // catch metallic sheens, and the front face still brightens and darkens with the
+  // video content. Raise metalness for harder, more localised glints.
+  logoMetalness: 0.45,
+  logoRoughness: 0.3,   // "mat": lights spread into broad sheens, not sharp glints.
+                        // Lower = shinier/harder.
+  // Emissive floor on the SAME gradient. 1.0 renders the authored brand colours
+  // exactly (the renderer does no tone mapping, and three converts the hex through
+  // linear and back out to sRGB), so this is really "how much of the pure brand
+  // gradient shows with no light on it". Set high on purpose: the scene has no
+  // ambient at all and the logo's flat front face catches only weak grazing light,
+  // so a LOW value does not reveal more light play — it just renders the brand gold
+  // as a muted olive. Kept just under 1 so the spotlight and the screens still have
+  // headroom to push visibly brighter (and clip toward white on a strong hit),
+  // which is what actually reads as the lights reflecting off it.
+  logoSelfLit:   0.8,
 
-  // Logo exit gradient (emissive) — the logo swaps to this while leaving, so it
-  // stays visible diving into the unlit well below the ring. Vertical gradient.
-  logoGradientTop:       '#6e0d0d',  // color at the top of the logo (darker)
-  logoGradientBottom:    '#ff7a1f',  // color at the bottom (bright)
+  // Logo gradient — the logo's own colour AND the emissive shell it crossfades to
+  // on the way out (one source of truth, so the crossfade is seamless). Brand
+  // linear: warm gold at the top → burnt orange at the bottom.
+  logoGradientTop:       '#FFC44B',  // color at the top of the logo
+  logoGradientBottom:    '#FA6827',  // color at the bottom
+  // Shifts the gradient DOWN the logo without touching either brand hex: the
+  // vertical ramp t is raised to this power, so >1 lets the orange climb higher and
+  // leaves the gold as a tip highlight. Review asked for "mai portocaliu" while the
+  // two colours above were the ones specified, so this biases the mix rather than
+  // inventing a third colour. 1 = pure linear ramp. Shared with the exit shell.
+  logoGradientBias:      1.9,
   logoGradientStart:     0.5,        // exit progress (0..1) where the gradient begins to crossfade (higher = later/deeper)
 
   // Logo orientation + intro animation
@@ -420,14 +551,34 @@ const params = {
   logoRestNdcY:       -0.1874,
   logoExitMinScale:   0.3,  // the logo shrinks to this fraction of its rest size at the bottom of the continued descent (smaller when it's far down in the empty space)
 
-  // Logo mouse parallax — very subtle, always active (does not wait for intro).
-  logoParallaxAmp:  0.08, // max positional offset (world units); keep small
-  logoParallaxRate: 8,    // easing rate toward the mouse target (higher = snappier)
+  // Logo mouse TILT — always active (does not wait for the intro). The logo leans
+  // AWAY from the cursor: the edge nearest the mouse rotates back, so it reads as
+  // an object you could grab and turn. Replaces the old positional parallax
+  // (logoParallaxAmp/Rate), which merely slid the logo sideways and read as a
+  // camera wobble rather than as the logo itself rotating.
+  // Split per axis in review round 3 — it was one shared amount, which made the
+  // logo rock forward/back as much as side to side. Wanted: mostly side to side.
+  logoTiltYawDeg:   20,  // LEFT/RIGHT lean (rotation about world Y, driven by mouse X)
+  logoTiltPitchDeg: 2.5, // FRONT/BACK lean (rotation about world X, driven by mouse Y)
+  logoTiltRate:     6,   // easing rate toward the cursor target (higher = snappier)
+  // Touch drag → yaw the logo (mobile only; see dragBegin/dragMove). A full
+  // screen-width horizontal swipe turns it logoDragYawDeg, capped at logoDragMaxDeg so
+  // it can never whip around. logoDragRate is the easing WHILE dragging and back to
+  // rest on release — deliberately lower than logoTiltRate for a smooth, heavy feel.
+  logoDragYawDeg: 150,
+  logoDragMaxDeg: 75,
+  logoDragRate:   3.5,
 
-  // Neon outline (OutlinePass)
-  outlineEnabled:   true,
+  // Neon outline (OutlinePass) — REMOVED in review round 2 ("poti sa te scapi de
+  // acel outline portocaliu"). Strength 0 is the real off switch, not a dead knob:
+  // animate() already skips the whole pass when edgeStrength rounds to 0, so this
+  // also drops 2 full-scene re-renders + ~7 float16 fullscreen passes per frame —
+  // by far the heaviest item in the chain on a phone. The pass is left wired into
+  // the composer (and outlineColor/Glow/Thickness kept) so raising this restores it.
+  // (outlineEnabled is vestigial — nothing reads it.)
+  outlineEnabled:   false,
   outlineColor:     '#f95921',       // gradient top by default
-  outlineStrength:  4.0,
+  outlineStrength:  0,
   outlineGlow:      2,
   outlineThickness: 1.0,
 
@@ -450,12 +601,23 @@ const params = {
   // Raise → smaller / more of the ring fits. Lower → bigger / more crop.
   framingRefAspect:  1.6,
   portraitFit:       0.35,
+  // Hide a video screen once its bounding sphere comes within this many world units of
+  // the camera — it is sweeping through the camera and only shows as an edge-on slab
+  // filling one side of the frame. See cullScreensNearCamera(). 0 disables.
+  screenCameraClearance: 1.0,
 
   // Scene layout
   sceneZ:           -5,
   floorTargetY:     -1.4,
   floorRadius:      7,
-  logoExtraScale:   1.0,
+  // Scales the logo about its base (logoYAdjust keeps it standing on the floor).
+  // 1.12 per review — "putin mai mare".
+  logoExtraScale:   1.12,
+  // Extra world-space lift of the logo's RESTING height, on top of the layout's own
+  // "stand it on the floor" placement. Review round 6: on mobile the logo's base was
+  // slightly clipped by the floor / well rim during the intro. Desktop is fine, so
+  // this stays 0 there and only the IS_MOBILE block raises it.
+  logoLiftY:        0,
 
   // Floor "concrete" blackout — the view fades to black while the camera passes
   // down through the floor, then clears below it to reveal the logo. World Y,
@@ -478,7 +640,7 @@ const params = {
   // above and the logo dipping below, it would also cover the logo.
   // Solid floor "concrete" occluder (disabled — using the blackout fade instead).
   occluderEnabled:     false,
-  occluderColor:       '#010101',
+  occluderColor:       '#00000',
   occluderInnerRadius: 2.0,
   occluderDepth:       1.0,
 
@@ -487,7 +649,7 @@ const params = {
   // Well — the central pit the logo dives into. (Disabled: only useful with the
   // camera-dive-into-well behavior, which we're not using.)
   wellEnabled:     false,
-  wellColor:       '#010101',
+  wellColor:       '#000000',
   wellRadius:      2.0,   // the well opening (≈ reflectorInnerRadius)
   wellDepth:       6.0,   // how deep the walls go
   wellShowMargin:  0.6,   // walls appear once the camera is within this of the well radius
@@ -505,6 +667,16 @@ const params = {
   maskColor:       '#2e0000',
   maskBaseOpacity: 0.95,
   maskFadeRate:    16,
+  // The mask shares the screen's exact geometry, so along the plane's silhouette the
+  // two land on the same edge pixels. The screen is opaque and gets full MSAA
+  // coverage there; the mask is transparent, so its alpha is scaled DOWN by the same
+  // partial coverage — the bright video then shows through as a thin rim. Desktop
+  // hides this because SMAA resolves the edge; mobile has SMAA off (see the perf
+  // table), which is why the videos looked like they "spilled out of the mask on the
+  // sides" there. Overscanning the mask a hair pushes its edge past the screen's so
+  // it covers those pixels outright. Scaled about the plane's own centre, so it stays
+  // aligned. 1 = exactly coincident (the old behaviour).
+  maskOverscan:    1.0,
   maskBlur:        0.005,
   maskNoiseAmount: 0.12,   // 0 = none, 1 = full TV static
   maskNoiseSpeed:  60,     // higher = faster scrambling
@@ -519,7 +691,7 @@ const params = {
   // Ring light under the logo. Multiple SpotLights are distributed around
   // the ring circumference, all aimed at the logo, so the ring emits upward.
   ringEnabled:        true,
-  ringIntensity:      20,
+  ringIntensity:      1,
   ringDistance:       2.7,
   ringDecay:          2.15,
   ringLiftY:          0.7,
@@ -540,7 +712,7 @@ if (IS_MOBILE) {
   // pull the first screen through the camera.
   params.ringStartRotationDeg = 0;    // first screen centered at scroll 0
   params.scrollMaxRotationDeg = 322;  // screen 2 @ scroll 0.22, screen 3 @ scroll 0.45
-  params.ringMaxRotationDeg   = 145;  // clamp: hold on screen 3, below the 148° intrusion
+  params.ringMaxRotationDeg   = 145;  // clamp: hold the tour on screen 3
   params.logoExitStart        = 0.5;  // delay the exit so all 3 screens are toured first
   params.logoExitEnd          = 0.68;
   // Descent: the portrait camera sits ~1.9× further back, so the same world-space
@@ -554,6 +726,27 @@ if (IS_MOBILE) {
   // logoExitEnd (0.68) that span is 0.32, so 2250° lands on exactly 720° (2 full
   // turns) → the logo settles facing forward, same as its start (like desktop).
   params.logoSpinDeg          = 2250;
+  // Review round 6: the logo's base was slightly clipped by the floor / well rim
+  // during the intro on portrait. Desktop frames it fine, so lift it only here.
+  params.logoLiftY            = 0.16;
+  // Review round 7: bigger logo on portrait, both at rest and once it has settled at
+  // the bottom of the descent. logoExitMinScale is a FRACTION of the rest size, so it
+  // has to be raised too or the larger rest size just shrinks back to the same pixels.
+  // logoLiftY is nudged up with it, since a taller logo re-approaches the floor.
+  params.logoExtraScale       = 1.32;
+  params.logoExitMinScale     = 0.45;
+  // Touch drag fully REPLACES the cursor tilt here — zero both cursor amounts so the
+  // gesture is the only thing that turns the logo. This is not just tidiness: a single
+  // tap still fires one pointermove, which would set ndcMouse and leave the logo stuck
+  // at a static tilt with nothing to bring it back (there is no hover on touch).
+  params.logoTiltYawDeg       = 0;
+  params.logoTiltPitchDeg     = 0;
+  // "smooth, deloc agresiv" — soften further than the default and shorten the throw.
+  params.logoDragYawDeg       = 110;
+  params.logoDragRate         = 2.6;
+  // SMAA is desktop-only, so the mask's silhouette pixels are not resolved here and
+  // the video fringes past the mask edge. Overscan the mask slightly to cover it.
+  params.maskOverscan         = 1.012;
 }
 
 // Asset base URL. Locally (npm run dev / the standalone page) this is
@@ -636,22 +829,65 @@ const layout = {
 };
 
 
-// ─── Logo glass / ice material (transmissive PBR) ───────────────────────────
-// Built-in MeshPhysicalMaterial with transmission: light passes through the
-// volume, refracts via IOR, blurs with roughness, and tints by attenuation.
-// (Drei's MeshTransmissionMaterial adds chromatic aberration / anisotropy /
-// noise flow on top of this — not included here.)
-const glassMaterial = new THREE.MeshPhysicalMaterial({
-  color:               new THREE.Color(params.logoGlassColor),
-  transmission:        params.logoGlassTransmission,
-  ior:                 params.logoGlassIor,
-  roughness:           params.logoGlassRoughness,
-  thickness:           params.logoGlassThickness,
-  attenuationColor:    new THREE.Color(params.logoGlassTint),
-  attenuationDistance: params.logoGlassTintDistance,
-  metalness:           0,
-  side:                THREE.DoubleSide,
+// ─── Logo material (matte gradient metal, lit by the scene) ─────────────────
+// Was a transmissive MeshPhysicalMaterial ("glass/ice"). Per review the logo is
+// now the brand linear gradient on a MATTE surface so the ring spotlight and the
+// per-screen video RectAreaLights show up as soft moving reflections on it.
+//
+// Why MeshStandardMaterial + a shader patch rather than glass or a texture:
+//  • Standard, not Physical: nothing here needs transmission/clearcoat/sheen, and
+//    dropping transmission also drops three's separate transmission render pass +
+//    framebuffer copy — one of the mobile costs flagged in CLAUDE.md. RectAreaLight
+//    is supported by Standard, which is what makes the screens visible on the logo.
+//  • A patch, not a gradient texture: the GLB's logo UVs are not vertically
+//    aligned, so a texture would smear. Driving the gradient off LOCAL position.y
+//    is also exactly the mapping the exit shell (gradientMaterial) uses, so the
+//    two stay in perfect register through the crossfade.
+// The gradient feeds BOTH the diffuse/specular colour and an emissive floor
+// (uSelfLit), because the scene has no ambient light at all — without it the logo
+// would be black wherever no spot/screen light lands.
+const logoGradientUniforms = {
+  uTop:     { value: new THREE.Color(params.logoGradientTop) },
+  uBottom:  { value: new THREE.Color(params.logoGradientBottom) },
+  uMinY:    { value: 0 },   // filled in from the logo bbox once the GLB loads
+  uMaxY:    { value: 1 },
+  uBias:    { value: params.logoGradientBias },
+  uSelfLit: { value: params.logoSelfLit },
+};
+
+const logoMaterial = new THREE.MeshStandardMaterial({
+  color:       0xffffff,   // the gradient multiplies into this
+  metalness:   params.logoMetalness,
+  roughness:   params.logoRoughness,
+  side:        THREE.DoubleSide,
+  transparent: true,       // the intro fades opacity 0→1, the exit fades it back out
 });
+
+logoMaterial.onBeforeCompile = (shader) => {
+  // Shared uniform objects (by reference) so uMinY/uMaxY can still be written
+  // after the GLB loads and after the shader has compiled.
+  Object.assign(shader.uniforms, logoGradientUniforms);
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying float vLogoY;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvLogoY = position.y;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', /* glsl */`#include <common>
+      uniform vec3  uTop;
+      uniform vec3  uBottom;
+      uniform float uMinY;
+      uniform float uMaxY;
+      uniform float uBias;
+      uniform float uSelfLit;
+      varying float vLogoY;
+      vec3 logoGradient() {
+        float t = clamp((vLogoY - uMinY) / max(uMaxY - uMinY, 1e-4), 0.0, 1.0);
+        return mix(uBottom, uTop, pow(t, uBias));
+      }`)
+    // Tint the base colour — with metalness this also tints the light reflections,
+    // which is what keeps the sheens gold/orange instead of white.
+    .replace('#include <color_fragment>', '#include <color_fragment>\n\tdiffuseColor.rgb *= logoGradient();')
+    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += logoGradient() * uSelfLit;');
+};
 
 // ─── Logo exit gradient material (unlit vertical gradient) ──────────────────
 // On its way out the logo dives into the unlit well below the ring, where the
@@ -667,6 +903,7 @@ const gradientMaterial = new THREE.ShaderMaterial({
     uBottom:  { value: new THREE.Color(params.logoGradientBottom) },
     uMinY:    { value: 0 },
     uMaxY:    { value: 1 },
+    uBias:    { value: params.logoGradientBias },
     uOpacity: { value: 0 },
   },
   vertexShader: /* glsl */`
@@ -674,6 +911,13 @@ const gradientMaterial = new THREE.ShaderMaterial({
     void main() {
       vY = position.y;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      // The shell is coincident with the lit logo mesh (same geometry), so bias ONLY
+      // the clip-space depth toward the near plane — leave x/y/w alone so it stays
+      // pixel-aligned with the logo. Angle-independent because the geometry is
+      // coincident, unlike polygonOffset. This is what lets depthTest/depthWrite stay
+      // ON (so the floor occludes it and its own faces resolve) without z-fighting
+      // against the logo underneath it.
+      gl_Position.z -= 0.0015 * gl_Position.w;
     }
   `,
   fragmentShader: /* glsl */`
@@ -681,25 +925,139 @@ const gradientMaterial = new THREE.ShaderMaterial({
     uniform vec3 uBottom;
     uniform float uMinY;
     uniform float uMaxY;
+    uniform float uBias;
     uniform float uOpacity;
     varying float vY;
     void main() {
+      // Same ramp + bias as the lit logo material, so the crossfade shows no shift.
       float t = clamp((vY - uMinY) / max(uMaxY - uMinY, 1e-4), 0.0, 1.0);
-      gl_FragColor = vec4(mix(uBottom, uTop, t), uOpacity);
+      gl_FragColor = vec4(mix(uBottom, uTop, pow(t, uBias)), uOpacity);
     }
   `,
   side:          THREE.DoubleSide,
-  transparent:   true,
-  depthWrite:    false,   // don't block; blends over the glass
-  // The shell shares the glass mesh's exact geometry, so a plain polygonOffset
-  // isn't enough on curved/grazing areas — the shell loses the depth test against
-  // the coincident glass there and shows z-fighting stripes. Disable depthTest so
-  // the shell always draws. Safe here: the gradient colour depends only on
-  // position.y, so DoubleSide front/back faces paint identically (no ordering
-  // artifact), and the shell is only visible (uOpacity>0) once the logo is alone
-  // in the empty well with nothing in front of it.
-  depthTest:     false,
+  transparent:   true,   // needed for the uOpacity crossfade
+  // Depth is ON for both test and write (review round 3 fixed this). It used to run
+  // with depthTest AND depthWrite off, on the assumption that "the shell is only
+  // visible once the logo is alone in the empty well with nothing in front of it".
+  // That assumption was wrong and caused two reported bugs at once:
+  //   • depthTest:false → the shell drew straight THROUGH the floor, so the logo was
+  //     visible over the "fantana" well instead of disappearing behind its near wall.
+  //   • depthWrite:false → with DoubleSide and no depth resolution, all of the
+  //     shell's own triangles simply blended in geometry order, so the last-drawn
+  //     BACK face won. Once the logo span around far enough to show its edges it
+  //     looked see-through — you were seeing its own far side.
+  // The original reason for turning depth off was real: the shell shares the logo
+  // mesh's exact geometry, so at grazing angles polygonOffset can't reliably keep
+  // the coincident surfaces apart and they z-fight. The fix is the same clip-space
+  // depth bias the hover mask already uses (see the vertex shader above) — biasing
+  // only gl_Position.z is angle-independent for coincident geometry.
+  depthWrite:    true,
+  depthTest:     true,
 });
+
+// ─── Well ("fantana") metal: tiny synthetic environment + material ──────────
+// A MeshStandardMaterial at metalness 1 has NO diffuse term, so with no envMap it
+// reflects nothing and renders black. This builds a 64×32 equirectangular gradient
+// in the room's palette and runs it through PMREMGenerator once, which gives the
+// correctly pre-blurred mip chain roughness needs. One-off cost, then disposed.
+let wellEnvMap = null;
+function buildWellEnv() {
+  if (wellEnvMap) return wellEnvMap;
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 32;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, c.height);
+  // Equirect: v=0 is UP. Top of the image = ceiling, bottom = floor.
+  g.addColorStop(0, params.wellEnvTop);
+  g.addColorStop(Math.min(0.99, Math.max(0.01, params.wellEnvHorizon)), params.wellEnvMid);
+  g.addColorStop(1, params.wellEnvBottom);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, c.width, c.height);
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping    = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  wellEnvMap = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose();
+  tex.dispose();
+  return wellEnvMap;
+}
+
+function makeWellMaterial() {
+  // Guard the one setting that silently defeats the whole material. A near-black
+  // albedo tints both the diffuse and the metallic reflection to nothing, so the well
+  // renders black and stops responding to the video lights entirely — which reads as
+  // "the metal isn't working" rather than as a colour choice.
+  const albedo = new THREE.Color(params.wellSurfaceColor);
+  if (Math.max(albedo.r, albedo.g, albedo.b) < 0.02) {
+    console.warn(
+      `wellSurfaceColor is ${params.wellSurfaceColor} (near-black): at metalness `
+      + `${params.wellSurfaceMetalness} the well will render black and will NOT react `
+      + 'to the video lights on hover. Use a warm neutral and tint via wellEnv* instead.'
+    );
+  }
+  const mat = new THREE.MeshStandardMaterial({
+    color:            new THREE.Color(params.wellSurfaceColor),
+    metalness:        params.wellSurfaceMetalness,
+    roughness:        params.wellSurfaceRoughness,
+    envMap:           buildWellEnv(),
+    envMapIntensity:  params.wellSurfaceEnvIntensity,
+    side:             THREE.DoubleSide,
+  });
+  // Same reason as the floor: the per-screen RectAreaLights would otherwise paint a
+  // hard bright rectangle each onto the well walls (review round 4). Polished metal
+  // makes that WORSE than on the floor, not better.
+  mat.onBeforeCompile = dropRectAreaSpecular;
+  return mat;
+}
+
+// ─── Floor / ceiling: RectAreaLight DIFFUSE only ────────────────────────────
+// Each screen drives a RectAreaLight sized to the screen. On a glossy or metallic
+// floor, three's LTC area-light SPECULAR term draws a mirror image of the light's
+// RECTANGLE — a hard-edged bright quad, one per screen. That is the "dreptunghi
+// alb / placeholder alb" from review round 4. It was always there; it only became
+// visible once the planar mirror went transparent (round 3) and stopped covering
+// the floor mesh. It is at its worst with floorMetalness near 1, because a metal
+// has no diffuse term at all, so the quads are ALL you see.
+//
+// It is also simply wrong here, not just ugly: the planar Reflector already puts
+// the TRUE mirror image of the screens on the floor. The area light's specular lobe
+// is a second, fake, hard-edged copy of the same screens, at the light's rectangle
+// rather than at the screen's real reflected position.
+//
+// So: keep the area lights' DIFFUSE contribution (that is the coloured spill from
+// the videos, the whole point of them) and drop their SPECULAR. Done by overriding
+// three's RE_Direct_RectArea macro rather than by detuning metalness/roughness, so
+// those two stay free to tune the floor's look without the quads coming back.
+// Only the floor/ceiling get this — the LOGO deliberately keeps area-light specular,
+// since "see the video lights reflected on the logo" was the round-1 request.
+function dropRectAreaSpecular(shader) {
+  const NEEDLE = '#include <lights_physical_pars_fragment>';
+  if (!shader.fragmentShader.includes(NEEDLE)) {
+    // Fail loudly rather than silently leaving the quads in.
+    console.error('dropRectAreaSpecular: shader chunk not found — white light quads will show on the floor/ceiling');
+    return;
+  }
+  shader.fragmentShader = shader.fragmentShader.replace(NEEDLE, /* glsl */`${NEEDLE}
+    void RE_Direct_RectArea_DiffuseOnly(
+      const in RectAreaLight rectAreaLight, const in vec3 geometryPosition,
+      const in vec3 geometryNormal, const in vec3 geometryViewDir,
+      const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material,
+      inout ReflectedLight reflectedLight
+    ) {
+      ReflectedLight tmp = ReflectedLight(vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0));
+      RE_Direct_RectArea_Physical(
+        rectAreaLight, geometryPosition, geometryNormal, geometryViewDir,
+        geometryClearcoatNormal, material, tmp
+      );
+      reflectedLight.directDiffuse += tmp.directDiffuse;  // keep the coloured spill
+      // tmp.directSpecular is discarded — that was the mirrored light QUAD.
+    }
+    #undef RE_Direct_RectArea
+    #define RE_Direct_RectArea RE_Direct_RectArea_DiffuseOnly
+  `);
+}
 
 // ─── Mask shader (frosted-glass blur of the video behind, plus red tint) ────
 function makeMaskMaterial() {
@@ -840,26 +1198,48 @@ function applyRingColor() {
 }
 
 // ─── Planar reflectors (floor + roof) ───────────────────────────────────────
-// makeBlurredReflector returns a THREE.Reflector with its fragment shader
-// patched to do a 5×5 multi-tap blur in projected UV space. blur === 0 keeps
-// it crisp; ~0.01+ gives a frosted-mirror look.
-function makeBlurredReflector(geom, tintHex, blur) {
+// makeBlurredReflector returns a THREE.Reflector with its FRAGMENT shader patched
+// to blur the reflection: a binomial-weighted (1,4,6,4,1)² 5×5 kernel sampled in
+// TEXELS, replacing the original box kernel at a fixed raw-UV step (~5 screen px
+// per tap, coarse enough to under-sample the moving video — that undersampling was
+// itself the shimmer). Everything after the blur is three's stock overlay blend,
+// untouched, so the reflection's own brightness and hue are exactly as they were.
+// Intensity is then dialled by making the mesh genuinely TRANSPARENT (opts.opacity)
+// so the real floor/ceiling material blends through — never by mixing toward the
+// flat tint, which is what made the surfaces read too bright in round 1. See the
+// reflector params block.
+function makeBlurredReflector(geom, opts) {
+  // Reflectors render the whole scene to a texture every frame — the biggest perf
+  // hit. Sub-resolution is invisible once blur is in the chain, and here it is
+  // actively wanted (see REFLECTOR_RT_SCALE).
+  const rtW = Math.max(1, Math.floor(viewportW() * REFLECTOR_RT_SCALE));
+  const rtH = Math.max(1, Math.floor(viewportH() * REFLECTOR_RT_SCALE));
   const r = new Reflector(geom, {
     clipBias:      0.003,
-    // Reflectors render the whole scene to a texture every frame — the
-    // biggest perf hit. Sub-resolution is invisible once blur is in the chain.
-    textureWidth:  Math.floor(viewportW() * REFLECTOR_RT_SCALE),
-    textureHeight: Math.floor(viewportH() * REFLECTOR_RT_SCALE),
-    color:         new THREE.Color(tintHex),
+    textureWidth:  rtW,
+    textureHeight: rtH,
+    color:         new THREE.Color(opts.tint),
   });
-  r.material.uniforms.uBlur = { value: blur };
-  // Three.js' stock Reflector overlay blend (preserves brightness so the
-  // mirror reads as a true mirror) — but with an optional 5×5 box blur on
-  // the reflection texture for the soft frosted-mirror look on the ceiling.
+  const u = r.material.uniforms;
+  u.uBlur    = { value: opts.blur };
+  u.uTexel   = { value: new THREE.Vector2(1 / rtW, 1 / rtH) };
+  u.uOpacity = { value: opts.opacity };
+
+  // Blend the mirror OVER the real floor/ceiling mesh (which is opaque, so it is
+  // already in the framebuffer by the time this transparent pass runs) rather than
+  // replacing it. depthWrite off because this is a coplanar overlay sitting
+  // reflectorLift above the surface — it must not occlude the logo descending
+  // through the well below it.
+  r.material.transparent = true;
+  r.material.depthWrite  = false;
+
+  // The vertex shader is left STOCK — the blur needs nothing from it.
   r.material.fragmentShader = /* glsl */`
     uniform vec3 color;
     uniform sampler2D tDiffuse;
     uniform float uBlur;
+    uniform vec2 uTexel;
+    uniform float uOpacity;
     varying vec4 vUv;
     #include <logdepthbuf_pars_fragment>
     float blendOverlay(float base, float blend) {
@@ -868,18 +1248,33 @@ function makeBlurredReflector(geom, tintHex, blur) {
     vec3 blendOverlay(vec3 base, vec3 blend) {
       return vec3(blendOverlay(base.r, blend.r), blendOverlay(base.g, blend.g), blendOverlay(base.b, blend.b));
     }
+    // Binomial 1,4,6,4,1 — a cheap separable Gaussian approximation. Written as a
+    // function rather than a const array because this material compiles as GLSL1
+    // (three's default for ShaderMaterial), where array constructors don't exist.
+    float kernelWeight(int i) {
+      if (i == -2 || i == 2) return 1.0;
+      if (i == -1 || i == 1) return 4.0;
+      return 6.0;
+    }
     void main() {
       #include <logdepthbuf_fragment>
       vec2 baseUv = vUv.xy / vUv.w;
       vec3 sum = vec3(0.0);
+      float wSum = 0.0;
       for (int x = -2; x <= 2; x++) {
         for (int y = -2; y <= 2; y++) {
-          vec2 off = vec2(float(x), float(y)) * uBlur;
-          sum += texture2D(tDiffuse, baseUv + off).rgb;
+          float w = kernelWeight(x) * kernelWeight(y);
+          vec2 off = vec2(float(x), float(y)) * uBlur * uTexel;
+          sum += texture2D(tDiffuse, baseUv + off).rgb * w;
+          wSum += w;
         }
       }
-      vec3 base = sum / 25.0;
-      gl_FragColor = vec4(blendOverlay(base, color), 1.0);
+      // Weighted mean → average brightness is preserved exactly, so blurring
+      // cannot brighten or darken the reflection. Then three's stock overlay blend,
+      // unmodified. uOpacity is the ALPHA, so the reflection is composited over the
+      // real floor/ceiling material instead of replacing it — the surface keeps its
+      // own colour and stops reading as a mirror.
+      gl_FragColor = vec4(blendOverlay(sum / wSum, color), uOpacity);
     }
   `;
   r.material.needsUpdate = true;
@@ -925,20 +1320,61 @@ let reflectorFrame = 0;
 
 function rebuildFloorReflector() {
   if (floorReflector) {
-    scene.remove(floorReflector);
+    if (floorReflector.parent) floorReflector.parent.remove(floorReflector);
     floorReflector.geometry.dispose();
     if (floorReflector.material) floorReflector.material.dispose();
     floorReflector = null;
   }
   if (!params.reflectorEnabled) return;
-  const inner = params.reflectorInnerRadius;
-  const outer = params.floorRadius;
-  if (outer <= inner) return;
-  const geom = new THREE.RingGeometry(inner, outer, 96);
-  floorReflector = makeBlurredReflector(geom, params.reflectorTint, params.reflectorBlur);
+
+  // Geometry = the floor's OWN flat top faces (splitFloorGeometry), so the mirror
+  // takes the floor's exact shape and the groove + well opening stay visible as real
+  // geometry instead of being covered by a flat plate (review round 5). Falls back to
+  // the old flat ring only if the split found nothing, so a re-exported GLB without a
+  // clean flat level still renders something rather than losing the mirror silently.
+  let geom = layout.floorTopGeometry;
+  let planeWorldY = 0;
+  if (!geom) {
+    console.warn('floor reflector: no flat top surface found — falling back to a flat ring');
+    const outer = params.floorRadius;
+    const inner = Math.min(2.0, outer * 0.28);
+    if (outer <= inner) return;
+    geom = new THREE.RingGeometry(inner, outer, 96);
+    planeWorldY = params.floorTargetY;
+  } else {
+    // Bake the FLOOR'S OWN world transform into the geometry so the reflector needs
+    // no parent transform at all — it is a plain scene child in world units, exactly
+    // like the flat ring it replaces. (Parenting it under the scaled floorGroup
+    // instead also places it correctly, but leaves Reflector's plane maths dependent
+    // on a scaled parent, which is a needless variable in something this fiddly.)
+    floorGroup.updateMatrixWorld(true);
+    geom = geom.clone().applyMatrix4(floorGroup.matrixWorld);
+    geom.computeBoundingBox();
+    // The extracted faces all lie on ONE horizontal plane — that is the whole point
+    // of picking only the modal level — so its world height is just the box's Y.
+    planeWorldY = geom.boundingBox.max.y;
+    // CRITICAL: Reflector reads a point on the mirror plane from the object's world
+    // POSITION (`setFromMatrixPosition(scope.matrixWorld)`), NOT from its geometry.
+    // So the plane has to pass through the object's origin; a centred RingGeometry
+    // satisfied that for free. Move it there, and put the height back on the object.
+    geom.translate(0, -planeWorldY, 0);
+    // Reflector also assumes the plane normal is LOCAL +Z, but these faces are
+    // horizontal (+Y). Pre-rotate the geometry +90° about X so its normal becomes +Z;
+    // the object's -90° below cancels it, so the faces land exactly where they were.
+    geom.rotateX(Math.PI / 2);
+  }
+  layout.floorReflectorPlaneY = planeWorldY;
+
+  floorReflector = makeBlurredReflector(geom, {
+    tint:    params.reflectorTint,
+    blur:    params.reflectorBlur,
+    opacity: params.reflectorOpacity,
+  });
   floorReflector.rotation.x = -Math.PI / 2;
+
   scene.add(floorReflector);
   positionFloorReflector();
+
 }
 
 function rebuildRoofReflector() {
@@ -955,7 +1391,11 @@ function rebuildRoofReflector() {
   const geom = inner > 0
     ? new THREE.RingGeometry(inner, outer, 96)
     : new THREE.CircleGeometry(outer, 96);
-  roofReflector = makeBlurredReflector(geom, params.roofReflectorTint, params.roofReflectorBlur);
+  roofReflector = makeBlurredReflector(geom, {
+    tint:    params.roofReflectorTint,
+    blur:    params.roofReflectorBlur,
+    opacity: params.roofReflectorOpacity,
+  });
   // Face DOWN so it reflects everything below the ceiling.
   roofReflector.rotation.x = Math.PI / 2;
   scene.add(roofReflector);
@@ -964,10 +1404,16 @@ function rebuildRoofReflector() {
 
 function positionFloorReflector() {
   if (!floorReflector) return;
+  // World space in both paths. The extracted-geometry path already carries the floor's
+  // exact XZ inside its vertices (floorGroup's transform is baked in), so X/Z stay 0
+  // there; only the flat-ring fallback needs centring on floorBase. Y restores the
+  // mirror plane's world height — rebuildFloorReflector moved the geometry onto the
+  // local origin because Reflector reads the plane point from the object's position.
+  const onFloorGeometry = !!layout.floorTopGeometry;
   floorReflector.position.set(
-    floorBase.x,
-    params.floorTargetY + params.reflectorLift,
-    floorBase.z,
+    onFloorGeometry ? 0 : floorBase.x,
+    (layout.floorReflectorPlaneY ?? params.floorTargetY) + params.reflectorLift,
+    onFloorGeometry ? 0 : floorBase.z,
   );
 }
 
@@ -1092,6 +1538,120 @@ function bakeIntoGroup(meshes, group, material) {
   return bbox;
 }
 
+// ─── Floor geometry split: flat top surface / well / the rest ───────────────
+// The floor (`Circle`) is ONE 13350-triangle mesh that contains the flat disc, a
+// narrow recessed groove, and the central "fantana" well. Two things need slices
+// of it, so both are cut here in one pass over the baked geometry:
+//
+//   topSurface — every upward-facing triangle sitting on the floor's MAIN level.
+//                Used as the planar reflector's geometry (review round 5): the old
+//                reflector was a flat RingGeometry plate laid over the floor, which
+//                covered the groove and flattened the floor's real outline. Using
+//                the floor's own top faces means the mirror IS the floor's top
+//                surface — the groove and the well opening stay as real geometry
+//                because they are simply not part of it.
+//                It is also strictly MORE correct: three's Reflector mirrors the
+//                camera about ONE plane, and every triangle kept here lies on that
+//                single plane, so the reflection is exact everywhere it is drawn.
+//   well       — the triangles inside the top surface's inner hole, i.e. the
+//                fantana. Split out so it can take its own metal material.
+//
+// Everything is measured from the geometry rather than hardcoded: the main level is
+// the area-weighted modal Y of the upward faces, and the well is bounded by the
+// radius of the hole in that surface. So it survives the GLB being re-exported.
+function splitFloorGeometry(geom, centerXZ) {
+  const pos = geom.attributes.position;
+  const idx = geom.index;
+  const triCount = idx ? idx.count / 3 : pos.count / 3;
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+  const ab = new THREE.Vector3(), ac = new THREE.Vector3(), nrm = new THREE.Vector3();
+  const vi = (t, k) => (idx ? idx.getX(t * 3 + k) : t * 3 + k);
+  const radius = (v) => Math.hypot(v.x - centerXZ.x, v.z - centerXZ.z);
+
+  // Pass 1: area-weighted histogram of upward-face Y → the main floor level.
+  const areaByY = new Map();
+  const tri = [];
+  for (let t = 0; t < triCount; t++) {
+    A.fromBufferAttribute(pos, vi(t, 0));
+    B.fromBufferAttribute(pos, vi(t, 1));
+    C.fromBufferAttribute(pos, vi(t, 2));
+    ab.subVectors(B, A); ac.subVectors(C, A); nrm.crossVectors(ab, ac);
+    const area = nrm.length() / 2;
+    if (area < 1e-12) { tri.push(null); continue; }
+    nrm.normalize();
+    const rec = {
+      up: nrm.y > 0.9,
+      y: (A.y + B.y + C.y) / 3,
+      rMin: Math.min(radius(A), radius(B), radius(C)),
+      rMax: Math.max(radius(A), radius(B), radius(C)),
+      area,
+    };
+    tri.push(rec);
+    if (rec.up) {
+      const k = rec.y.toFixed(3);
+      areaByY.set(k, (areaByY.get(k) || 0) + area);
+    }
+  }
+  let topY = 0, bestArea = -1;
+  for (const [k, a] of areaByY) if (a > bestArea) { bestArea = a; topY = parseFloat(k); }
+
+  // Pass 2: classify. EPS_Y is generous enough to absorb float noise on the main
+  // level but far tighter than the groove depth, so groove bottoms stay excluded.
+  const EPS_Y = 1e-3;
+  const isTop = (r) => r && r.up && Math.abs(r.y - topY) < EPS_Y;
+  let holeR = Infinity;
+  for (const r of tri) if (isTop(r)) holeR = Math.min(holeR, r.rMin);
+  if (!isFinite(holeR)) holeR = 0;
+  // Anything strictly inside the hole is the well. The margin keeps the hole's own
+  // boundary ring out of the well slice.
+  const wellR = holeR * 1.02;
+
+  const topIdx = [], wellIdx = [], restIdx = [];
+  for (let t = 0; t < triCount; t++) {
+    const r = tri[t];
+    if (!r) { restIdx.push(t); continue; }
+    if (isTop(r)) topIdx.push(t);
+    else if (r.rMax <= wellR) wellIdx.push(t);
+    else restIdx.push(t);
+  }
+
+  // Non-indexed extraction — simplest and these are one-off static buffers.
+  const extract = (list) => {
+    const out = new THREE.BufferGeometry();
+    const n = list.length * 3;
+    const p = new Float32Array(n * 3);
+    const hasN = !!geom.attributes.normal;
+    const nn = hasN ? new Float32Array(n * 3) : null;
+    let w = 0;
+    for (const t of list) {
+      for (let k = 0; k < 3; k++) {
+        const s = vi(t, k);
+        p[w * 3] = pos.getX(s); p[w * 3 + 1] = pos.getY(s); p[w * 3 + 2] = pos.getZ(s);
+        if (hasN) {
+          const na = geom.attributes.normal;
+          nn[w * 3] = na.getX(s); nn[w * 3 + 1] = na.getY(s); nn[w * 3 + 2] = na.getZ(s);
+        }
+        w++;
+      }
+    }
+    out.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    if (hasN) out.setAttribute('normal', new THREE.BufferAttribute(nn, 3));
+    out.computeBoundingBox();
+    return out;
+  };
+
+  return {
+    topY,
+    holeR,
+    topSurface: topIdx.length ? extract(topIdx) : null,
+    well:       wellIdx.length ? extract(wellIdx) : null,
+    // The floor keeps its top surface (the reflector only blends OVER it) — the
+    // well is the sole slice removed, so it can be shaded as metal.
+    floorRest:  wellIdx.length ? extract(topIdx.concat(restIdx)) : null,
+    counts: { top: topIdx.length, well: wellIdx.length, rest: restIdx.length },
+  };
+}
+
 // Build a single RectAreaLight that matches each screen's actual width/height
 // along its local axes (not its arbitrarily-oriented bbox), oriented to the
 // mesh's average normal so it emits inward toward the camera.
@@ -1186,7 +1746,7 @@ function applyLayout() {
   );
   logoBase.set(
     -layout.floorCenter.x * glbScale * params.logoExtraScale,
-    yShift + logoYAdjust,
+    yShift + logoYAdjust + params.logoLiftY,
     params.sceneZ - layout.floorCenter.z * glbScale * params.logoExtraScale
   );
 
@@ -1216,6 +1776,42 @@ function applyLayout() {
 // Keeps the aspect correct and, on narrow (portrait/tablet) viewports, pulls the
 // camera back so the wide ring of screens still fits — full composition visible,
 // just smaller, with no wide-angle distortion. Landscape/desktop keep the base.
+// ─── Cull screens that sweep past the camera ─────────────────────────────────
+// The ring keeps turning with scroll, so a screen eventually comes all the way round
+// to the camera's own side. The portrait pull-back leaves the camera almost exactly ON
+// the ring (measured: ring radius 7.5 vs camDistanceEff 7.45 at 390×844), so instead
+// of passing safely behind it, that screen sweeps THROUGH the camera and you catch its
+// surface edge-on filling one side of the frame — review round 7.
+//
+// Fixed here rather than by lowering ringMaxRotationDeg, because the intrusion begins
+// ~10-13° before the tour's end, so clamping it away would leave the final screen
+// visibly off-centre. A screen you are effectively inside of carries no information, so
+// just stop drawing it: no composition change, and it self-corrects for any aspect.
+//
+// Hidden via material.visible, NOT mesh.visible: each screen's RectAreaLight is a CHILD
+// of the mesh, and three's projectObject() bails out early on an invisible object, so
+// mesh.visible = false would drop that light too and pop the floor/ceiling lighting.
+// material.visible only removes the draw. Masks are per-mesh materials, so they pair up.
+const _cullSphere = new THREE.Sphere();
+function cullScreensNearCamera() {
+  const clearance = params.screenCameraClearance;
+  if (!(clearance > 0) || !layout.videoMeshes.length) return;
+  // World matrices for the freshly-applied ring rotation (the pivot subtree only).
+  videosPivot.updateMatrixWorld(true);
+  for (const m of layout.videoMeshes) {
+    const bs = m.geometry.boundingSphere;
+    if (!bs) continue;
+    _cullSphere.copy(bs).applyMatrix4(m.matrixWorld);
+    const gap = _cullSphere.center.distanceTo(camera.position) - _cullSphere.radius;
+    const visible = gap > clearance;
+    if (m.material.visible !== visible) {
+      m.material.visible = visible;
+      const mask = m.userData.maskMesh;
+      if (mask) mask.material.visible = visible;
+    }
+  }
+}
+
 function updateFraming() {
   const a = viewportW() / viewportH();
   camera.aspect = a;
@@ -1317,6 +1913,7 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
         roughness: params.floorRoughness,
         side: THREE.DoubleSide,
       });
+      m.material.onBeforeCompile = dropRectAreaSpecular;
     }
   });
 
@@ -1330,12 +1927,45 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   layout.videoMeshes = videoMeshes;
   layout.logoMeshes  = logoMeshes;
 
-  const logoBbox  = bakeIntoGroup(logoMeshes,  logoGroup,  glassMaterial);
+  const logoBbox  = bakeIntoGroup(logoMeshes,  logoGroup,  logoMaterial);
   const floorBbox = bakeIntoGroup(floorMeshes, floorGroup, null);
   bakeIntoGroup(videoMeshes, videosGroup, null);
 
   // TEST: hide the floor dish (floorMeshes[0]) — the reflector mirror stays.
   if (!params.floorMeshVisible && floorMeshes[0]) floorMeshes[0].visible = false;
+
+  // Cut the baked floor into its flat top surface (→ reflector geometry) and the
+  // central well (→ its own metal material). See splitFloorGeometry.
+  if (floorMeshes[0]) {
+    const floorMesh = floorMeshes[0];
+    const c = new THREE.Vector3();
+    floorMesh.geometry.computeBoundingBox();
+    floorMesh.geometry.boundingBox.getCenter(c);
+    const split = splitFloorGeometry(floorMesh.geometry, c);
+    layout.floorTopGeometry = split.topSurface;
+    layout.floorTopY        = split.topY;
+    if (split.well) {
+      // Re-point the floor at everything-but-the-well, and add the well back as its
+      // own mesh so it can be metal. Kept OUT of layout.floorMeshes on purpose: the
+      // floorColorN keys and the "highest piece is the ceiling" rule both index that
+      // array, so appending to it would silently shift both.
+      const oldGeom = floorMesh.geometry;
+      floorMesh.geometry = split.floorRest;
+      // Carry the ORIGINAL full-floor bounding box across. Downstream layout reads
+      // floorMeshes[0].geometry.boundingBox to derive measuredFloorRadius, floorCenter
+      // and floorBboxMaxY — and yShift positions the whole floor from that maxY. If
+      // the box shrank to "floor minus well" those would all shift and move the floor
+      // vertically, so this keeps the split provably layout-neutral.
+      split.floorRest.boundingBox = oldGeom.boundingBox.clone();
+      oldGeom.dispose();
+      const wellMesh = new THREE.Mesh(split.well, makeWellMaterial());
+      wellMesh.name = 'FantanaWell';
+      wellMesh.updateMatrix();          // identity — geometry is already in baked space
+      wellMesh.matrixAutoUpdate = false;
+      floorGroup.add(wellMesh);
+      layout.wellMesh = wellMesh;
+    }
+  }
 
   // Per-screen area lights so the screens illuminate the floor and ceiling.
   // Lights are children of their plane mesh, so they inherit the group's
@@ -1366,6 +1996,18 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
       // Render mask only into the main camera, not into the reflectors —
       // so the floor/ceiling mirrors see the bare video plane behind it.
       mask.layers.set(LAYER_MAIN_ONLY);
+      // Overscan slightly (mobile) so the mask's edge covers the screen's silhouette
+      // pixels instead of landing on them — see params.maskOverscan. Scaled about the
+      // plane's own bbox centre: the geometry is baked into world space, so scaling
+      // about the mesh origin instead would translate the mask right off the screen.
+      const s = params.maskOverscan;
+      if (s !== 1) {
+        const mc = new THREE.Vector3();
+        maskGeom.computeBoundingBox();
+        maskGeom.boundingBox.getCenter(mc);
+        mask.scale.setScalar(s);
+        mask.position.copy(mc).multiplyScalar(1 - s);
+      }
       m.add(mask);
       m.userData.maskMesh = mask;
       m.userData.hovered  = false;
@@ -1374,9 +2016,13 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
 
   if (!logoBbox.isEmpty()) {
     layout.logoBboxMinY = logoBbox.min.y;
-    // Feed the logo's local Y bounds to the exit gradient shader.
+    // Feed the logo's local Y bounds to BOTH gradient shaders — the lit logo
+    // material and the emissive exit shell — so they share one mapping and the
+    // crossfade between them shows no shift in the gradient.
     gradientMaterial.uniforms.uMinY.value = logoBbox.min.y;
     gradientMaterial.uniforms.uMaxY.value = logoBbox.max.y;
+    logoGradientUniforms.uMinY.value      = logoBbox.min.y;
+    logoGradientUniforms.uMaxY.value      = logoBbox.max.y;
   }
   if (!floorBbox.isEmpty()) {
     // Use the lowest shell piece (the actual floor) for the floor-surface Y so
@@ -1403,6 +2049,11 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   layout.ready = true;
 
   applyLayout();
+
+  // Bounding spheres for the near-camera screen cull (see cullScreensNearCamera).
+  if (layout.videoMeshes.length) {
+    layout.videoMeshes.forEach((m) => m.geometry.computeBoundingSphere());
+  }
   rebuildFloorReflector();
   rebuildRoofReflector();
   rebuildFloorOccluder();
@@ -1425,14 +2076,16 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
 
   outlinePass.selectedObjects = logoGroup.children.slice();
 
-  // Gradient "shells": one per logo mesh, same geometry, coincident with the
-  // glass. They ride along inside logoGroup and crossfade in (uOpacity) as the
-  // logo exits, giving a smooth glass→gradient transition with no hard swap.
-  // Added AFTER selectedObjects so the outline stays keyed to the glass only.
+  // Emissive gradient "shells": one per logo mesh, same geometry, coincident with
+  // the logo. They ride along inside logoGroup and crossfade in (uOpacity) as the
+  // logo exits, so it stays readable diving into the unlit well where the LIT logo
+  // material has no light left to catch. Same gradient colours and same local-Y
+  // mapping as the logo material, so the crossfade only swaps lit → self-lit.
+  // Added AFTER selectedObjects so the outline stays keyed to the logo only.
   layout.logoGradientMeshes = layout.logoMeshes.map((m) => {
     const shell = new THREE.Mesh(m.geometry, gradientMaterial);
-    shell.renderOrder = 1;   // draw over the glass during the crossfade
-    // Identity local transform, coincident with the glass; it rides logoGroup, so
+    shell.renderOrder = 1;   // draw over the logo during the crossfade
+    // Identity local transform, coincident with the logo; it rides logoGroup, so
     // its world is force-updated by the animated parent — freeze the local matrix.
     shell.updateMatrix();
     shell.matrixAutoUpdate = false;
@@ -1440,11 +2093,13 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
     return shell;
   });
 
-  // Hide the logo offscreen until the intro plays so the loader doesn't
-  // flash a static logo for a frame before the rise animation kicks in.
+  // Park the logo below its rest position until the intro plays so the loader
+  // doesn't flash a static logo for a frame before the rise animation kicks in.
+  // (It used to also be held at opacity 0 here; the intro opacity fade was dropped
+  // in review round 2, so the position alone plus the loader overlay does this now.)
   logoGroup.position.y = logoBase.y - params.logoAnimRise;
-  glassMaterial.transparent = true;
-  glassMaterial.opacity     = 0;
+  logoMaterial.transparent = true;
+  logoMaterial.opacity     = 1;
 
   loadingState.glb = true;
   loadingState.videos = TEST_VIDEOS.map(() => false);
@@ -1464,8 +2119,14 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
 // sticky section's scroll produces the same 0→1 progress.
 let scrollProgress = 0;
 let videosRotY     = params.ringStartRotationDeg * DEG_TO_RAD;  // start already framed
-let logoParallaxX  = 0;   // damped mouse-parallax offset (always active)
-let logoParallaxY  = 0;
+let logoTiltX      = 0;   // damped mouse tilt, radians about the WORLD X axis
+let logoTiltY      = 0;   // damped mouse tilt, radians about the WORLD Y axis
+// Scratch objects for composing the logo's orientation (allocated once — animate
+// runs every frame).
+const AXIS_Y        = new THREE.Vector3(0, 1, 0);
+const logoSpinQuat  = new THREE.Quaternion();
+const logoTiltQuat  = new THREE.Quaternion();
+const logoTiltEuler = new THREE.Euler();
 let logoExitDamped = 0;   // damped scroll-exit amount — smooths the intro→scroll handoff
 let logoContinuedDamped = 0;  // damped extra descent beyond the exit (logo keeps going down)
 let logoSpinAngle       = 0;  // damped spin (like a top) after the gradient transition
@@ -1487,13 +2148,35 @@ const scrollTrackEl = document.getElementById('cc-hero');
 let trackAbsTop   = 0;
 let trackRange    = 0;
 let pageScrollMax = 0;
+// STABLE viewport height for the scroll maths — deliberately NOT window.innerHeight.
+//
+// On mobile the browser's URL bar collapses on scroll-down and returns on scroll-up,
+// which changes window.innerHeight by ~60-120px mid-scroll. Feeding that live value
+// into trackRange below means the SAME scrollY maps to a DIFFERENT scrollProgress
+// before and after the bar moves, so the whole scene jumps — which is the "cateodata
+// da snap la alta sectiune / comportament weird" from review round 6. It also fights
+// the page: our jump changes nothing about scrollY, but the user reads it as the page
+// having moved.
+//
+// Only ever GROW it. The tall value (URL bar hidden) is the one that matches CSS `vh`
+// / `lvh` units, which is what the Webflow section heights and our own #app use — so
+// the maximum is the height the layout was actually built against. Growing-only makes
+// it converge to that within the first scroll gesture and then stay put forever.
+// Orientation change legitimately changes the viewport, so reset there.
+let stableViewportH = window.innerHeight;
+function noteViewportHeight() {
+  if (window.innerHeight > stableViewportH) stableViewportH = window.innerHeight;
+}
+function resetStableViewportH() { stableViewportH = window.innerHeight; }
+
 function recomputeScrollMetrics() {
+  noteViewportHeight();
   if (scrollTrackEl) {
     const rect = scrollTrackEl.getBoundingClientRect();
     trackAbsTop = rect.top + window.scrollY;
-    trackRange  = rect.height - window.innerHeight;
+    trackRange  = rect.height - stableViewportH;
   } else {
-    pageScrollMax = document.documentElement.scrollHeight - window.innerHeight;
+    pageScrollMax = document.documentElement.scrollHeight - stableViewportH;
   }
 }
 function updateScrollProgress() {
@@ -1531,24 +2214,87 @@ window.addEventListener('pointermove', (e) => {
   if (hits.length > 0) hits[0].object.userData.hovered = true;
 });
 
+// ─── Touch drag → spin the logo (mobile) ─────────────────────────────────────
+// The mouse TILT can't work on touch (there is no hover, so ndcMouse stays at 0,0),
+// so give phones the equivalent gesture: drag and hold to turn the logo.
+//
+// HORIZONTAL drag only, and deliberately NOT preventDefault'd. A vertical drag is the
+// page scroll — which is what drives this whole scene — so consuming it would break the
+// hero, and even tracking it would fight the scroll. Horizontal movement is free.
+// The delta feeds the same damped yaw the desktop tilt uses (logoTiltY), so it inherits
+// the smooth easing rather than snapping to the finger, and it eases back to rest on
+// release. logoDragRate is separate from logoTiltRate and lower on purpose: "smooth, nu
+// agresiv".
+let dragYawTarget = 0;      // radians, added onto the tilt's yaw target
+let dragPointerId = null;
+let dragStartX    = 0;
+let dragStartYaw  = 0;
+
+function dragBegin(e) {
+  if (dragPointerId !== null) return;
+  if (e.pointerType === 'mouse') return;   // desktop already has the cursor tilt
+  dragPointerId = e.pointerId;
+  dragStartX    = e.clientX;
+  dragStartYaw  = dragYawTarget;           // continue from where it currently sits
+}
+function dragMove(e) {
+  if (e.pointerId !== dragPointerId) return;
+  // Normalise by viewport width so the gesture feels the same on any screen: a full
+  // screen-width swipe is logoDragYawDeg of turn.
+  const frac = (e.clientX - dragStartX) / Math.max(1, window.innerWidth);
+  const max  = params.logoDragMaxDeg * DEG_TO_RAD;
+  dragYawTarget = Math.max(-max, Math.min(max,
+    dragStartYaw + frac * params.logoDragYawDeg * DEG_TO_RAD));
+}
+function dragEnd(e) {
+  if (e.pointerId !== dragPointerId) return;
+  dragPointerId = null;
+  dragYawTarget = 0;        // ease back to rest (animate() damps it, so no snap)
+}
+window.addEventListener('pointerdown',   dragBegin, { passive: true });
+window.addEventListener('pointermove',   dragMove,  { passive: true });
+window.addEventListener('pointerup',     dragEnd,   { passive: true });
+window.addEventListener('pointercancel', dragEnd,   { passive: true });
+
 // (Comet trail removed — no longer used on desktop or mobile.)
 // (Camera orbit dial removed — the camera is fixed now; scroll drives the ring.)
 
 // ─── Resize ──────────────────────────────────────────────────────────────────
+// Last size the renderer was actually configured for. The mobile URL-bar show/hide
+// fires resize + visualViewport resize constantly during a scroll, but #app is sized
+// in stable large-viewport units, so its client size usually has NOT changed. Doing
+// the full reframe + RT reallocation on every one of those events is what made the
+// scene feel like it was "resizing aggressively" (review round 6) — each realloc is a
+// hitch, and updateFraming() nudges the camera. So do the expensive work only when the
+// mount element's size genuinely changed.
+let lastResizeW = 0;
+let lastResizeH = 0;
 function onResize() {
-  updateFraming();  // aspect + responsive pull-back for portrait/tablet
-  // Re-apply the CURRENT renderScale at the new viewport size (updateStyle=false —
-  // CSS keeps the canvas at 100% of #app). Routing through applyRenderScale rather
-  // than hardcoding the base pixel ratio is essential: this handler also fires on
-  // the mobile URL-bar show/hide (via visualViewport), and hardcoding BASE_PR
-  // would snap resolution back to full mid-session, undoing an adaptive downscale.
-  applyRenderScale();
-  // The track's cached position/size can change on resize/layout — refresh them
-  // (scrollProgress is recomputed from the live scrollY next frame regardless).
+  const w = viewportW(), h = viewportH();
+  if (w !== lastResizeW || h !== lastResizeH) {
+    lastResizeW = w;
+    lastResizeH = h;
+    updateFraming();  // aspect + responsive pull-back for portrait/tablet
+    // Re-apply the CURRENT renderScale at the new viewport size (updateStyle=false —
+    // CSS keeps the canvas at 100% of #app). Routing through applyRenderScale rather
+    // than hardcoding the base pixel ratio is essential: this handler also fires on
+    // the mobile URL-bar show/hide (via visualViewport), and hardcoding BASE_PR
+    // would snap resolution back to full mid-session, undoing an adaptive downscale.
+    applyRenderScale();
+  }
+  // Always refresh the cached track metrics — the section's box can move even when
+  // our canvas size did not. These now key off stableViewportH, so a URL-bar nudge
+  // no longer shifts scrollProgress (see recomputeScrollMetrics).
   recomputeScrollMetrics();
 }
 window.addEventListener('resize', onResize);
-window.addEventListener('orientationchange', onResize);
+window.addEventListener('orientationchange', () => {
+  // A real viewport change — the stable height must be re-learned, not kept at the
+  // previous orientation's (much larger) value, or trackRange goes negative.
+  resetStableViewportH();
+  lastResizeW = lastResizeH = 0;   // force the full reframe below
+  onResize();
+});
 // visualViewport fires on mobile URL-bar show/hide and rotation, where the plain
 // resize event is unreliable — keeps the canvas/aspect locked to the real screen.
 if (window.visualViewport) {
@@ -1750,10 +2496,26 @@ function animate() {
   logoSpinAngle       = damp(logoSpinAngle, beyondExit * params.logoSpinDeg * DEG_TO_RAD, params.logoExitFollowRate, dt);
   const logoExitOffsetY = transitionOffsetY - logoContinuedDamped;
 
-  // Mouse parallax runs constantly (does not wait for the intro) — very subtle.
-  // ndcMouse is kept up to date by the pointermove handler.
-  logoParallaxX = damp(logoParallaxX, ndcMouse.x * params.logoParallaxAmp, params.logoParallaxRate, dt);
-  logoParallaxY = damp(logoParallaxY, ndcMouse.y * params.logoParallaxAmp, params.logoParallaxRate, dt);
+  // Mouse tilt runs constantly (does not wait for the intro). ndcMouse is kept up
+  // to date by the pointermove handler. The logo leans AWAY from the cursor:
+  //   cursor right (+x) → +Y rotation, which swings the logo's +X edge to −Z, i.e.
+  //                       the right edge goes back and the left comes forward;
+  //   cursor high  (+y) → −X rotation, which sends the top edge back the same way.
+  // On touch there is no pointermove, so ndcMouse stays (0,0) and this is inert.
+  // Separate amounts per axis: the yaw (side to side) carries the effect, the pitch
+  // (front/back) is kept small on purpose so the logo doesn't rock toward the camera.
+  // The touch drag adds onto the same yaw the cursor tilt drives, so both paths share
+  // one damped value and can never fight each other. While a finger is down (or easing
+  // back after release) use the gentler logoDragRate.
+  const yawRate = (dragPointerId !== null || Math.abs(dragYawTarget - logoTiltY) > 1e-4)
+    ? params.logoDragRate
+    : params.logoTiltRate;
+  logoTiltX = damp(logoTiltX, -ndcMouse.y * params.logoTiltPitchDeg * DEG_TO_RAD, params.logoTiltRate, dt);
+  logoTiltY = damp(
+    logoTiltY,
+    ndcMouse.x * params.logoTiltYawDeg * DEG_TO_RAD + dragYawTarget,
+    yawRate, dt,
+  );
 
   // Camera stays fixed in its horizontal position; only its HEIGHT follows the
   // logo, and it keeps looking LEVEL (constant pitch) — it does NOT tilt to chase
@@ -1784,6 +2546,10 @@ function animate() {
     lookTarget.z + camDistanceEff,
   );
   camera.lookAt(lookTarget);
+
+  // Now that the camera pose and the ring rotation are both final for this frame, drop
+  // any screen that is sweeping through the camera (review round 7).
+  cullScreensNearCamera();
 
   // "Concrete" blackout: fade the whole view to black while the camera crosses
   // the floor, then clear below it. Driven by camera height vs the floor surface.
@@ -1826,14 +2592,19 @@ function animate() {
     // Vertical = rise offset (intro) + exit offset (scroll), both continuous.
     const riseOffsetY = -(1 - introEased) * params.logoAnimRise;
     logoAnim.currentY = logoBase.y + riseOffsetY + logoExitOffsetY;
-    logoGroup.position.set(
-      logoBase.x + logoParallaxX,
-      logoAnim.currentY + logoParallaxY,
-      logoBase.z,
-    );
-    // Spin like a top around Y (gentle, one direction) once past the exit — this
-    // kicks in right as the gradient transition finishes.
-    logoGroup.rotation.y = params.logoRotationY * DEG_TO_RAD + logoSpinAngle;
+    logoGroup.position.set(logoBase.x, logoAnim.currentY, logoBase.z);
+    // Orientation = mouse tilt ∘ (base facing + top-spin). The spin around Y is
+    // gentle and one-directional, and kicks in right as the gradient transition
+    // finishes. The tilt is composed on the LEFT so it applies in PARENT space:
+    // logoGroup's parent is the untransformed scene root, so parent space is world
+    // space and the tilt axes line up with the screen. Writing the tilt into
+    // logoGroup.rotation instead would tilt around the logo's already-rotated
+    // LOCAL axes — the lean direction would be skewed by logoRotationY and would
+    // then swing right around as soon as the top-spin started.
+    logoSpinQuat.setFromAxisAngle(AXIS_Y, params.logoRotationY * DEG_TO_RAD + logoSpinAngle);
+    logoTiltEuler.set(logoTiltX, logoTiltY, 0);
+    logoTiltQuat.setFromEuler(logoTiltEuler);
+    logoGroup.quaternion.copy(logoTiltQuat).multiply(logoSpinQuat);
     // Shrink the logo as it sinks into the empty space — smaller the further it
     // goes down. Normalised against the continued descent → eases to
     // logoExitMinScale at full scroll. Uses the damped descent value → smooth.
@@ -1842,24 +2613,27 @@ function animate() {
       : 0;
     const logoScale = logoBaseScale * (1 - shrinkT * (1 - params.logoExitMinScale));
     logoGroup.scale.setScalar(logoScale);
-    // Glass fades in during the intro; the gradient shell crossfades in over it
-    // as the logo exits, but only AFTER logoGradientStart (so it kicks in once
-    // the camera is down in the floor, not the moment the exit begins). Remap
-    // exitEased into [logoGradientStart..1] → [0..1]. The neon outline fades out
-    // as the gradient takes over, leaving the pure gradient shape.
+    // The logo fades in during the intro; the emissive gradient shell crossfades
+    // in over it as the logo exits, but only AFTER logoGradientStart (so it kicks
+    // in once the camera is down in the floor, not the moment the exit begins).
+    // Remap exitEased into [logoGradientStart..1] → [0..1]. The neon outline fades
+    // out as the gradient takes over, leaving the pure gradient shape.
     const gStart = params.logoGradientStart;
     const gradT = gStart < 1
       ? Math.min(1, Math.max(0, (exitEased - gStart) / (1 - gStart)))
       : (exitEased > 0 ? 1 : 0);
-    // True crossfade: fade the GLASS OUT (opacity + transmission) as the gradient
-    // fades IN. This is essential because a transmissive MeshPhysicalMaterial is
-    // drawn in a SEPARATE, LAST render pass — it always draws on top of the
-    // transparent gradient shell regardless of renderOrder, so leaving the glass
-    // fully opaque made it fight/flicker over the gradient during the transition.
-    // Driving transmission → 0 also drops the glass out of that transmission pass
-    // by the time the gradient is full, so nothing renders over the gradient.
-    glassMaterial.opacity      = introEased * (1 - gradT);
-    glassMaterial.transmission = params.logoGlassTransmission * (1 - gradT);
+    // True crossfade on the way OUT: fade the LIT logo out as the self-lit shell
+    // fades in. Both carry the same gradient, so this reads as the lighting dropping
+    // away rather than as a material swap. (Under the old transmissive glass this
+    // also had to drive transmission→0, because a transmissive material is drawn in
+    // a separate, LAST pass that ignored renderOrder and fought the shell. No longer
+    // an issue — the logo is a plain MeshStandardMaterial and obeys renderOrder.)
+    //
+    // No `introEased` factor: review round 2 asked to drop the intro opacity fade,
+    // so the logo is fully opaque from its first frame and the intro is the RISE
+    // alone. It still starts below the floor and the loader overlay is still up, so
+    // nothing pops into view — introEased continues to drive the rise and the spot.
+    logoMaterial.opacity = 1 - gradT;
     gradientMaterial.uniforms.uOpacity.value = gradT;
     outlinePass.edgeStrength = params.outlineStrength * outlineRamp * (1 - gradT);
     // SKIP the whole OutlinePass while it contributes nothing. At edgeStrength 0
