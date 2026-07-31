@@ -63,6 +63,13 @@ const viewportH = () => mountEl.clientHeight || window.innerHeight;
 // The section that drives this scene's timeline (progress = how far scrolled
 // THROUGH it), so it behaves correctly as one scene among several.
 const sceneSection = document.querySelector('.channels-universe');
+// The pinned box. Its height is this scene's "one screen": the sticky travels
+// exactly `section.height − sticky.height` before it unpins, so that is the full
+// scroll timeline. It is measured from the ELEMENT and never from
+// `window.innerHeight` — see the timeline-height note in the scroll section for
+// why that distinction decides whether the scene is steady on a phone.
+const stickyEl = document.querySelector('.channels-sticky')
+  || (mountEl !== document.body && mountEl !== sceneSection ? mountEl : null);
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
 // antialias is DESKTOP-ONLY: MSAA costs real fill rate and this scene has no hard
@@ -335,23 +342,43 @@ if (!rawCards.length) console.warn('[infinite-showroom] No ".channels-cards .cha
 if (rawCards.length) {
   // Structural + flip CSS, injected so it works in Webflow regardless of the CSS
   // applied there. Visual styling (bg, size, padding, fonts) stays on .channel-card.
+  // The perspective lives INSIDE .sc-inner's own transform rather than as a
+  // `perspective` property on .sc-box. Measured both ways in Chrome 151 and
+  // Firefox 153 and they are pixel-identical today, so this is not what made the
+  // flip differ between them — but .sc-box carries `opacity` and `will-change`,
+  // and the Transforms spec calls both "grouping" properties, which oblige the UA
+  // to flatten the descendants before applying them. Engines have historically
+  // read that rule strictly and thrown the perspective away (Safari most
+  // recently). Folding perspective() into the SAME transform as the rotation puts
+  // both in one matrix on one element, where no ancestor's grouping property can
+  // reach them, so it cannot regress. Same vanishing point either way: .sc-inner
+  // exactly fills .sc-box and both origins default to the centre.
   const st = document.createElement('style');
   st.textContent = `
     .channels-cards { position:absolute; inset:0; z-index:10; pointer-events:none; }
     .sc-slot  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
-    .sc-box   { perspective:1200px; opacity:0; visibility:hidden; will-change:transform,opacity; }
-    .sc-inner { position:relative; transform-style:preserve-3d; }
-    .sc-front { position:absolute; inset:0; overflow:hidden; backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+    .sc-box   { opacity:0; visibility:hidden; will-change:transform,opacity; }
+    .sc-inner { position:relative; transform-style:preserve-3d; transform:perspective(1200px) rotateY(0deg); }
+    /* rotateY(0deg) makes the front face a 3D-transformed element in its own
+       right. Firefox 153 honours backface-visibility here without it (checked),
+       but engines have needed it on an otherwise untransformed child, and it
+       costs nothing. */
+    .sc-front { position:absolute; inset:0; overflow:hidden; transform:rotateY(0deg);
+                backface-visibility:hidden; -webkit-backface-visibility:hidden; }
     .sc-front img { width:100%; height:100%; object-fit:cover; display:block; }
     .channels-cards .channel-card {
       position:relative !important; inset:auto !important; margin:0 !important; opacity:1 !important;
       transform:rotateY(180deg); backface-visibility:hidden; -webkit-backface-visibility:hidden; pointer-events:auto;
       display:flex !important; flex-direction:column !important; overflow:hidden !important;
     }
-    /* Description scrolls INSIDE the card (no visible scrollbar); the rest clips. */
+    /* Description scrolls INSIDE the card (no visible scrollbar); the rest clips.
+       overflow-anchor:none keeps Chrome's scroll anchoring from nudging scrollTop
+       when the card's layout changes underneath it, and touch-action:pan-y keeps
+       the gesture a vertical scroll instead of something the UA may reinterpret. */
     .channels-cards .channel-card-bot {
       flex:1 1 auto !important; min-height:0 !important; overflow-y:auto !important;
       -webkit-overflow-scrolling:touch; scrollbar-width:none; -ms-overflow-style:none;
+      overflow-anchor:none; touch-action:pan-y;
     }
     .channels-cards .channel-card-bot::-webkit-scrollbar { display:none !important; }`;
   document.head.appendChild(st);
@@ -425,7 +452,10 @@ function driveCard(c, lp) {
   }
   c.box.style.opacity   = op;
   c.box.style.transform = `scale(${scale})`;
-  c.inner.style.transform = `rotateY(${rotY}deg)`;
+  // perspective() belongs in this string, not on an ancestor — see the note on
+  // the injected CSS for why keeping it in the same matrix as the rotation is
+  // the flattening-proof arrangement.
+  c.inner.style.transform = `perspective(1200px) rotateY(${rotY}deg)`;
 }
 
 // ─── Scroll tracking ─────────────────────────────────────────────────────────
@@ -433,16 +463,59 @@ function driveCard(c, lp) {
 // away. Scrolling flips it (down → toward camera, up → recede) and it holds
 // through idle, so the field keeps drifting the way you last scrolled.
 let progress = 0, lastScrollY = window.scrollY, scrollVel = 0, travelDir = 1;
+// Time constant of the card-timeline follow (seconds): ~63% of the gap closed in
+// 70ms, ~95% in 210ms. Small enough to still feel scroll-locked, large enough to
+// swallow one coarse Firefox wheel step or a URL-bar-induced hop.
+const PROGRESS_TAU = 0.07;
+let progressPrimed = false;   // false → next frame snaps instead of easing
+
+// ─── Stable timeline height ──────────────────────────────────────────────────
+// `window.innerHeight` is NOT a constant on a phone: Android and iOS grow and
+// shrink it every time the URL bar retracts or returns, which is continuously
+// while you scroll up and down. It used to be the denominator below, so a bar
+// sliding by ~90px moved the ENTIRE card timeline by ~1% of the section — enough
+// to jerk a card mid-flip or pop one in and out at a window edge. That is what
+// reads as the page "snapping" somewhere else.
+// The section and its sticky pin are sized in `vh` (= the LARGE viewport, bar
+// retracted) and deliberately never in `dvh`, so the sticky's own measured height
+// is both the CORRECT denominator (it is exactly how far the pin travels) and a
+// constant. It is re-measured only on a genuine layout change — see onResize.
+let vpFallbackH = window.innerHeight;   // only used on a page with no sticky pin
+function measureTimelineH() {
+  const h = stickyEl ? stickyEl.clientHeight : 0;
+  // Reject a nonsense measurement (mount collapsed, or it turned out to be the
+  // tall section itself) rather than dividing the timeline by it.
+  return h > 0 && (!sceneSection || h < sceneSection.clientHeight) ? h : vpFallbackH;
+}
+let timelineH = measureTimelineH();
+
+// Diagnostic, not a fix: CSS scroll snapping is a PAGE-level setting this scene
+// cannot see or override from inside its own section, and it is the one thing
+// that will genuinely throw the viewer to a different section when a phone's URL
+// bar resizes the scroll port mid-gesture (the resize forces the browser to
+// re-snap). If it is switched on anywhere up the tree, say so once so it can be
+// found in Webflow instead of being blamed on the scene.
+for (const el of [document.documentElement, document.body, sceneSection]) {
+  if (!el) continue;
+  const snap = getComputedStyle(el).scrollSnapType;
+  if (snap && snap !== 'none') {
+    console.warn('[infinite-showroom] CSS scroll-snap is active on', el,
+      `(scroll-snap-type: ${snap}). On phones the URL bar resizes the scroll port mid-scroll, ` +
+      'which makes the browser re-snap and jump to a neighbouring section. Remove it in Webflow ' +
+      'if the page is jumping — this scene drives itself from scroll position and does not need it.');
+    break;
+  }
+}
 
 function scrollProgress() {
   // Section-relative when embedded (works as one scene among several); the tall
   // `.channels-universe` provides the range while its sticky child stays pinned.
   if (sceneSection) {
     const rect = sceneSection.getBoundingClientRect();
-    const range = rect.height - window.innerHeight;
+    const range = rect.height - timelineH;
     return range > 0 ? clamp01(-rect.top / range) : 0;
   }
-  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const max = document.documentElement.scrollHeight - timelineH;
   return max > 0 ? clamp01(window.scrollY / max) : 0;
 }
 
@@ -502,14 +575,41 @@ function animate() {
 
   // Scroll flips the persistent travel direction; its magnitude adds speed.
   // Idle → the field keeps drifting in `travelDir` at the (faster) base speed.
-  const dy = window.scrollY - lastScrollY;
+  const rawDy = window.scrollY - lastScrollY;
   lastScrollY = window.scrollY;
+  // Not every change in scrollY came from a finger. A URL-bar slide, the
+  // browser's scroll anchoring or an in-page anchor jump can all report one
+  // enormous frame delta; letting that through flips travelDir and slams the
+  // whole field in the opposite direction for no reason the viewer can see.
+  // 25 viewports/second is far past anything a thumb or a wheel produces, so
+  // anything beyond it is an artefact, not a scroll.
+  const dy = Math.abs(rawDy) > timelineH * 25 * dt ? 0 : rawDy;
   scrollVel += (Math.abs(dy) - scrollVel) * 0.15;
   if (Math.abs(dy) < 0.01) scrollVel *= 0.88;          // ease boost back to 0 when idle
   if (dy > 0.5)       travelDir =  1;                  // scroll down → toward camera
   else if (dy < -0.5) travelDir = -1;                  // scroll up   → recede
   const speed = travelDir * (CFG.driftSpeed + scrollVel * CFG.scrollBoost);
-  progress = scrollProgress();
+
+  // The cards run off a TIME-SMOOTHED progress rather than the raw scroll offset.
+  // No two browsers hand you scroll the same way: Firefox reports wheel deltas in
+  // LINES and animates each step on its own easing, Chrome reports pixels on a
+  // different curve, phones add momentum, and Lenis replaces the lot again. Fed
+  // straight into a 3D rotation that makes one identical flick of the wheel look
+  // like a different animation per browser — which is what the client sees
+  // between Firefox and Chrome, since the flip rig itself was measured
+  // pixel-identical in both. An exponential follow on a fixed TIME constant
+  // removes the input's fingerprint: whatever granularity arrives, the card
+  // always takes the same ~0.2s to catch up. Being dt-based it is frame-rate
+  // independent too, so 60Hz and 120Hz converge at the same rate.
+  const targetProgress = scrollProgress();
+  if (!progressPrimed || Math.abs(targetProgress - progress) > 0.2) {
+    // First frame, a resume, or a teleport (anchor link, back/forward restore):
+    // snap, or the cards would visibly slide across half the timeline to catch up.
+    progress = targetProgress;
+    progressPrimed = true;
+  } else {
+    progress += (targetProgress - progress) * (1 - Math.exp(-dt / PROGRESS_TAU));
+  }
 
   // Mouse-look parallax (smoothed). Slide the camera, keep looking straight
   // ahead (parallel) so nearer images shift more than farther ones. Computed
@@ -580,7 +680,8 @@ function animate() {
 
   // Dev-only functional probe (harmless in prod).
   window.__showroomDebug = {
-    speed, travelDir, scrollVel, progress, camX: camera.position.x, camY: camera.position.y,
+    speed, travelDir, scrollVel, progress, targetProgress, timelineH,
+    camX: camera.position.x, camY: camera.position.y,
     ready, total: COUNT, queued: queue.length, inFlight, pending: pending.length,
     renderScale, gpuMs: +rsGpuMs.toFixed(2), tier: SMALL_SCREEN ? 'small' : 'desktop',
   };
@@ -593,9 +694,30 @@ function animate() {
   if (rsTiming) gl.endQuery(rsExt.TIME_ELAPSED_EXT);
 }
 
+let lastWinW = window.innerWidth, lastMountW = viewportW(), lastMountH = viewportH();
+
 function onResize() {
-  basePR = Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP);   // zoom / monitor change
-  camera.aspect = viewportW() / viewportH();
+  // A phone fires `resize` on every single URL-bar slide. Because the section and
+  // its pin are sized in `vh`, NOTHING on the page actually changed size — but
+  // the old handler still re-allocated the drawing buffer (a visible hitch, and
+  // `setSize` reallocates even for identical dimensions) and re-read the timeline
+  // from a height that had moved. Both are now gated on real measurements.
+  //
+  // Width is the only trustworthy signal that a phone genuinely re-laid out
+  // (rotation, or a desktop window resize), so the no-sticky fallback height only
+  // follows that. When there IS a sticky, its measured height is used directly,
+  // so a page that does react to the bar (dvh) still tracks correctly.
+  if (window.innerWidth !== lastWinW) {
+    lastWinW = window.innerWidth;
+    vpFallbackH = window.innerHeight;
+  }
+  timelineH = measureTimelineH();
+
+  const w = viewportW(), h = viewportH();
+  const dpr = Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP);   // zoom / monitor change
+  if (w === lastMountW && h === lastMountH && dpr === basePR) return;   // nothing to re-allocate
+  lastMountW = w; lastMountH = h; basePR = dpr;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
   applyRenderScale();
 }
@@ -617,6 +739,7 @@ function start() {
   clock.getDelta();                // discard the stale (huge) delta → no time jump
   lastScrollY = window.scrollY;    // reset scroll accumulator → no field lurch on resume
   scrollVel = 0;                   // resume from base drift, not a stale scroll boost
+  progressPrimed = false;          // snap the cards to where scroll actually is now
   rsSettle = Math.max(rsSettle, RS_SETTLE);   // don't measure the resume frame
   rafId = requestAnimationFrame(animate);
 }

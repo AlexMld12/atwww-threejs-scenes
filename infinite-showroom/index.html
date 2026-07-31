@@ -22,8 +22,12 @@
       .channels-sticky {
         position: sticky; top: 0;
         width: 100%;
-        height: 100vh;                /* fallback */
-        height: 100lvh;               /* large viewport = URL bar retracted */
+        /* `vh`, never `dvh` — and this mirrors Webflow, which is also vh-only.
+           `vh` resolves to the LARGE viewport (URL bar retracted) and does not
+           move when the bar slides, so the pin, the canvas and the scroll
+           timeline all stay a fixed size while you scroll up and down on a
+           phone. `dvh` would re-lay-out the section on every bar animation. */
+        height: 100vh;
         overflow: hidden;
         background: #000000;
       }
@@ -74,6 +78,8 @@
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;                        /* Firefox */
         -ms-overflow-style: none;                     /* old Edge */
+        overflow-anchor: none;                        /* no scroll-anchor nudges */
+        touch-action: pan-y;                          /* plain vertical scroll */
       }
       .channel-card-bot::-webkit-scrollbar { display: none; }   /* Chrome / Safari */
       .channel-card-description { color: #333; text-align: center; font-size: 12px; line-height: 1.5; }
