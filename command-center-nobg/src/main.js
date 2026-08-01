@@ -21,7 +21,9 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 //     emissive gradient crossfade, the DOM blackout overlay, the canvas
 //     transparency fade
 // What is left: a black background, the floor dish, the logo, the lights that
-// make the logo readable, the intro animation and the mouse parallax.
+// make the logo readable, the intro animation and the logo interaction (cursor
+// tilt on desktop, drag-and-hold on touch) — all three ported 1:1 from the
+// sibling, per review 2026-08-01.
 //
 // The sibling scene is deployed and live — nothing here writes to it.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +77,18 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.domElement.style.display = 'block';
 renderer.domElement.style.width   = '100%';
 renderer.domElement.style.height  = '100%';
+// REQUIRED for the touch-drag logo spin to work at all (learned the hard way in
+// the sibling scene, review round 8). With the default `touch-action: auto` the
+// browser claims a touch gesture for panning as soon as the finger moves and
+// STOPS delivering pointermove (it fires pointercancel instead), so the drag
+// handler never sees anything on a real phone. `pan-y` hands VERTICAL panning —
+// the host page's scroll — to the browser while leaving HORIZONTAL movement to
+// us. The drag itself no longer DEPENDS on this (it runs on touch events, which
+// survive a browser pan — see the drag section), but keeping it declared means the
+// browser doesn't start a horizontal pan/overscroll under the gesture on hosts
+// where these elements ARE the hit target.
+renderer.domElement.style.touchAction = 'pan-y';
+appEl.style.touchAction = 'pan-y';
 appEl.appendChild(renderer.domElement);
 
 // ─── Loader overlay (plain black, hides the canvas until the GLB is ready) ──
@@ -124,9 +138,11 @@ function updateHud() {
     `smaa     ${IS_MOBILE ? 'off' : 'on'}`;
 }
 
-// Single-phase intro: rises the logo, fades opacity 0→1, ramps the OutlinePass
-// strength 0→params.outlineStrength and the spotlights 0→full. Once it has run
-// the scene is static apart from the mouse parallax.
+// Single-phase intro: rises the logo and ramps the spotlights 0→full. There is
+// NO opacity fade (review 2026-08-01: "aceeasi animatie de intro, dar fara
+// opacitate") — the logo is opaque from frame one, exactly like the sibling,
+// which dropped its own fade in its review round 2. Once the intro has run the
+// scene is static apart from the logo tilt / drag.
 const logoAnim = { phase: 'idle', phaseStart: 0, currentY: 0 };
 
 let revealed = false;
@@ -144,7 +160,11 @@ function revealScene() {
 // syncLoop), but logoAnim.phaseStart is wall-clock, so starting the timeline at
 // load time would burn the whole 3s rise before the user ever scrolled down and
 // they would arrive to a logo that is already just… there. Gating on visibility
-// means the rise/fade/outline/spot ramp always runs in front of them.
+// means the rise + spot ramp always runs in front of them.
+// It also means the parked-below-the-floor logo is never RENDERED: the observer
+// callback starts the loop and the intro together, and the load callback parks
+// the logo and calls startLogoAnimation in the same tick — which matters now that
+// the logo is opaque while it waits down there.
 function maybeStartIntro() {
   if (logoAnim.phase !== 'idle') return;   // already played
   if (!layout.ready || !onscreen) return;
@@ -165,10 +185,8 @@ function startLogoAnimation() {
   logoAnim.phase      = 'run';
   logoAnim.phaseStart = performance.now() / 1000;
   logoAnim.currentY   = logoBase.y - params.logoAnimRise;
-  logoGroup.position.y      = logoAnim.currentY;
-  glassMaterial.transparent = true;
-  glassMaterial.opacity     = 0;
-  outlinePass.edgeStrength  = 0;
+  logoGroup.position.y     = logoAnim.currentY;
+  outlinePass.edgeStrength = 0;
   if (logoSpot)  logoSpot.intensity  = 0;
   if (floorSpot) floorSpot.intensity = 0;
   if (fillSpot)  fillSpot.intensity  = 0;
@@ -231,16 +249,17 @@ outlinePass.edgeThickness = 1.0;
 // Android GPUs. 2 is also three's own constructor default, so no reallocation.
 outlinePass.downSampleRatio = IS_MOBILE ? 2 : 1;
 // Start DISABLED — animate() turns it on the frame edgeStrength goes above 0.
-// Until the intro ramp begins there's no outline to draw, so the pass' two
-// full-scene re-renders + HalfFloat blur chain would be pure waste.
+// With params.outlineStrength at 0 (review 2026-08-01) that never happens, so the
+// pass' two full-scene re-renders + HalfFloat blur chain never run at all. It
+// stays wired in so raising outlineStrength brings the outline straight back.
 outlinePass.enabled = false;
 composer.addPass(outlinePass);
-// SMAA smooths the outline's post-process edges (which MSAA can't touch, since
-// they're drawn after the resolved render pass). DESKTOP ONLY: it's three more
-// full-resolution fullscreen passes, and on mobile the geometry edges are
-// already covered by the MSAA render target while the outline itself is
-// half-res — so SMAA would pay full-res bandwidth to sharpen something that no
-// longer has full-res detail to sharpen.
+// SMAA. Its original job was the outline's post-process edges (which MSAA can't
+// touch, since they're drawn after the resolved render pass); with the outline
+// off it now smooths the logo's own silhouette, which MSAA_SAMPLES 2 leaves a
+// little steppy on a high-contrast orange-on-black edge. DESKTOP ONLY: it's three
+// more full-resolution fullscreen passes, and on mobile the higher device pixel
+// ratio already hides the stepping.
 if (!IS_MOBILE) {
   const pr = renderer.getPixelRatio();
   composer.addPass(new SMAAPass(viewportW() * pr, viewportH() * pr));
@@ -300,9 +319,9 @@ const params = {
   // well so a page-wide background canvas shows through; here the brief is a
   // plain black backdrop, so the clear stays opaque.
   bg:          '#000000',
-  // The one warm accent in the scene: every spotlight and the neon outline use
-  // it. (The sibling scene calls this `gradientBottom` because it also drove the
-  // logo's exit gradient — there is no gradient here.)
+  // The colour of the LIGHTS — all three spotlights (and the outline, if it is
+  // ever switched back on). Distinct from the logo's own gradient colours below:
+  // this is what the floor pool and the sheens on the logo are tinted with.
   accentColor: '#F95921',
 
   // Floor (the single lowest `Circle` piece of the GLB — the ceiling piece is
@@ -316,48 +335,65 @@ const params = {
   floorMetalness: 0.6,
   floorRoughness: 0.25,
 
-  // Logo glass/ice (MeshPhysicalMaterial transmission)
-  logoGlassColor:        '#850f0f',  // base color of the glass
-  logoGlassTint:         '#850f0f',  // attenuation tint inside the volume
-  logoGlassTintDistance: 1.0,        // attenuation distance — smaller = more tint
-  logoGlassIor:          2.5,        // ~1 = no refraction, 1.5 = glass, 2.4 = diamond
-  // Rougher than the sibling's 0.13. That value was tuned for a TRANSMISSIVE
-  // surface, where roughness blurs what shows through rather than sharpening a
-  // highlight. With transmission off and a fill light near the camera axis, 0.13
-  // put a blown-out white specular dot on the flame's flat front face. 0.42
-  // spreads that lobe into a soft sheen.
-  logoGlassRoughness:    0.42,       // 0 = perfectly clear, 1 = fully diffuse
-  logoGlassThickness:    0,          // volume thickness for refraction depth
-  // TRANSMISSION IS 0 HERE (the sibling scene runs it at 1.0). Transmission
-  // replaces the surface's diffuse with whatever is BEHIND it — in the sibling
-  // that's three bright video screens, so the glass glows. Here the backdrop is
-  // pure black, so transmitted black = a black logo, and only the neon outline
-  // would survive. At 0 the same MeshPhysicalMaterial shades like a normal PBR
-  // surface: the up-spot lights it bright orange at the bottom and it falls off
-  // to dark red at the top, with the self-overlapping curl reading darker —
-  // which is the look in the reference. Bonus: it drops three's separate
-  // transmission render pass + framebuffer copy from every frame.
-  logoGlassTransmission: 0.0,        // 0 = opaque, 1 = fully see-through
-  // Small self-lit floor so the unlit upper wisps never go fully black.
-  logoEmissive:          '#2a0705',
-  logoEmissiveIntensity: 1.0,
+  // ── Logo surface (review 2026-08-01) ─────────────────────────────────────
+  // Was a transmissive "glass/ice" MeshPhysicalMaterial in dark red. The review
+  // asked for the SAME colours as the sibling scene, so this is now that
+  // scene's material verbatim: the brand linear gradient on a MATTE metal, fed
+  // to both the diffuse and an emissive floor (logoSelfLit) by a small shader
+  // patch on MeshStandardMaterial. See the logoMaterial block below for why a
+  // patch rather than a texture, and why Standard rather than Physical.
+  //
+  // The self-lit floor is what makes the brand colours survive here: this scene
+  // has no ambient light and no video screens, so with logoSelfLit at 0 the
+  // logo would only be the three spotlights' orange wash. At 0.8 the authored
+  // gold→orange ramp reads on its own and the spots add the light play on top.
+  logoMetalness:      0.45,
+  logoRoughness:      0.3,        // "mat": lights spread into broad sheens, not sharp glints
+  logoSelfLit:        0.8,        // how much of the pure brand gradient shows with no light on it
+  logoGradientTop:    '#FFC44B',  // brand warm gold — top of the logo
+  logoGradientBottom: '#FA6827',  // brand burnt orange — bottom
+  // Shifts the gradient DOWN the logo without touching either brand hex: the
+  // vertical ramp t is raised to this power, so >1 lets the orange climb higher
+  // and leaves the gold as a tip highlight. 1 = pure linear ramp.
+  logoGradientBias:   1.9,
 
   // Logo orientation + intro animation
   logoRotationY:    90,   // degrees around Y so the logo faces the camera
   logoAnimRise:     2,    // start this far BELOW logoBase, then rise to it
-  logoAnimDuration: 3,    // rise + opacity fade + outline ramp all share this
+  logoAnimDuration: 3,    // the rise (no opacity fade — see startLogoAnimation)
   spotAnimDuration: 6,    // spotlights ramp independently over this duration
 
-  // Logo mouse parallax — the only interaction left. Very subtle, always active
-  // (it does not wait for the intro to finish).
-  logoParallaxAmp:  0.08, // max positional offset (world units); keep small
-  logoParallaxRate: 8,    // easing rate toward the mouse target (higher = snappier)
+  // ── Logo interaction (ported from the sibling, review 2026-08-01) ─────────
+  // Mouse TILT — always active (does not wait for the intro). The logo leans
+  // AWAY from the cursor: the edge nearest the mouse rotates back, so it reads
+  // as an object you could grab and turn. Replaces the positional parallax this
+  // scene used to have, which merely slid the logo sideways and read as a camera
+  // wobble rather than as the logo itself rotating.
+  // Split per axis: the yaw (side to side) carries the effect, the pitch is kept
+  // small on purpose so the logo doesn't rock toward the camera.
+  logoTiltYawDeg:   20,   // LEFT/RIGHT lean (rotation about world Y, from mouse X)
+  logoTiltPitchDeg: 2.5,  // FRONT/BACK lean (rotation about world X, from mouse Y)
+  logoTiltRate:     6,    // easing rate toward the cursor target (higher = snappier)
+  // Touch drag → yaw the logo (mobile only; see dragBegin/dragMove). A full
+  // screen-width horizontal swipe turns it logoDragYawDeg, capped at
+  // logoDragMaxDeg so it can never whip around. logoDragRate is the easing WHILE
+  // dragging and back to rest on release — deliberately lower than logoTiltRate
+  // for a smooth, heavy feel.
+  logoDragYawDeg: 150,
+  logoDragMaxDeg: 75,
+  logoDragRate:   3.5,
 
-  // Neon outline (OutlinePass). Unlike the sibling scene these are all actually
-  // read — there the hardcoded pass values had drifted away from the params.
-  outlineEnabled:   true,
+  // Neon outline (OutlinePass) — REMOVED per review 2026-08-01 ("putem sa
+  // scoatem si outline-ul de pe logo"), matching the sibling, which dropped it
+  // in its own round 2. Strength 0 is the real off switch, not a dead knob:
+  // animate() only enables the pass once edgeStrength rises above 0, so at 0 the
+  // pass never runs and the scene drops 2 full-scene re-renders + ~7 float16
+  // fullscreen passes per frame — by far the heaviest item in the chain. The
+  // pass stays wired into the composer (and the colour/glow/thickness knobs
+  // stay) so raising this restores it.
+  outlineEnabled:   false,
   outlineColor:     '#f95921',
-  outlineStrength:  4.0,
+  outlineStrength:  0,
   outlineGlow:      0.8,
   outlineThickness: 1.0,
 
@@ -379,18 +415,31 @@ const params = {
   sceneZ:         -5,
   floorTargetY:   -1.4,
   floorRadius:    7,
-  logoExtraScale: 1.0,
+  // Scales the logo about its base (logoYAdjust keeps it standing on the floor).
+  // Matches the sibling scene exactly per review 2026-08-01 ("marimea trebuie sa
+  // fie la fel"): 1.12 on desktop, 1.32 on portrait (see the IS_MOBILE block).
+  logoExtraScale: 1.12,
+  // Extra world-space lift of the logo's RESTING height, on top of the layout's
+  // own "stand it on the floor" placement. Review 2026-08-01: the logo's base was
+  // clipped by the floor dish on mobile. The sibling hit the same thing (its round
+  // 6) and fixed it the same way — desktop frames it fine, so the lift is small
+  // there and the IS_MOBILE block raises it.
+  logoLiftY:      0.06,
 
   // ── Lights ────────────────────────────────────────────────────────────────
   // "Legendary drop" SpotLight: one cone shining UP from the floor center at the
-  // logo. This is the light that makes the logo readable.
-  // Reach is much longer than the sibling's (2.7 @ decay 2.15). There the logo
-  // also caught fill from the three screens' RectAreaLights, so the up-spot only
-  // had to add the hot bottom. Those lights are gone with the screens, so this
-  // cone now has to carry the whole logo: a longer distance and gentler decay
-  // let it climb the flame and fade out near the top wisp.
+  // logo. Reach is much longer than the sibling's (2.7 @ decay 2.15) because
+  // there the logo also caught fill from the three screens' RectAreaLights.
+  //
+  // INTENSITY DROPPED 26 → 8 with the gradient material (review 2026-08-01).
+  // Both logo-facing spots were tuned against the old dark-red glass, which had
+  // almost no colour of its own — they had to CREATE the logo's brightness. The
+  // gradient material carries its own colour (logoSelfLit 0.8), so the same 26
+  // stacked on top of it and clipped the flame's lower body to near-white. These
+  // two now only add light play; changing them does NOT darken the floor (this
+  // cone points up and away from it — floorSpot owns the floor).
   ringEnabled:       true,
-  ringIntensity:     26,
+  ringIntensity:     8,
   ringDistance:      7.0,
   ringDecay:         1.25,
   ringLiftY:         0.7,
@@ -401,11 +450,16 @@ const params = {
   // Front fill. The up-spot sits directly under the logo, so it only grazes the
   // flame's camera-facing faces — they stayed nearly black while the curved
   // edges glowed. This cone comes from low and in FRONT (camera side) to light
-  // those faces, and its own distance falloff is what makes the flame read
-  // bright orange at the bottom and dark red at the top, as in the reference.
-  // It is aimed slightly upward, so the floor only catches its outer edge.
+  // those faces.
+  //
+  // CUT HARDEST (26 → 3.5): it sits almost exactly ON the camera axis, so at the
+  // gradient material's roughness (0.3, sibling parity — the old glass ran 0.42
+  // for exactly this reason) its specular lobe lands as a mirror-bright blob dead
+  // centre on the flame's flat front face. The sibling never has this problem
+  // because its only lights are the screens, off to the sides. Low enough that
+  // the front face reads as the brand gradient with a soft sheen, not a hotspot.
   fillEnabled:      true,
-  fillIntensity:    26,
+  fillIntensity:    3.5,
   fillDistance:     9,
   fillDecay:        1.35,
   fillHeight:       1.0,    // above the floor surface
@@ -428,6 +482,28 @@ const params = {
   floorSpotPenumbra:  0.8,
 };
 
+// ─── Mobile-only overrides ──────────────────────────────────────────────────
+// Same values the sibling scene uses, for the same reasons. DESKTOP keeps every
+// value above untouched.
+if (IS_MOBILE) {
+  // Bigger logo on portrait: the camera pulls back there (portraitFit), so the
+  // desktop scale renders small on a phone.
+  params.logoExtraScale   = 1.32;
+  // …and a taller logo re-approaches the floor, so the lift goes up with it.
+  // This is the review's "pe mobil e taiat de podea".
+  params.logoLiftY        = 0.22;
+  // Touch drag fully REPLACES the cursor tilt here — zero both cursor amounts so
+  // the gesture is the only thing that turns the logo. This is not just tidiness:
+  // a single tap still fires one pointermove, which would set ndcMouse and leave
+  // the logo stuck at a static tilt with nothing to bring it back (there is no
+  // hover on touch).
+  params.logoTiltYawDeg   = 0;
+  params.logoTiltPitchDeg = 0;
+  // "smooth, deloc agresiv" — soften further than the default and shorten the throw.
+  params.logoDragYawDeg   = 110;
+  params.logoDragRate     = 2.6;
+}
+
 // Asset base URL. Locally (npm run dev / the standalone page) this is
 // import.meta.env.BASE_URL so the GLB resolves relative to the deployed page.
 // When embedded in Webflow the relative path is wrong, so the host page sets
@@ -446,22 +522,66 @@ const layout = {
   logoMeshes:          [],     // `Curve`
 };
 
-// ─── Logo glass / ice material (transmissive PBR) ───────────────────────────
-// Built-in MeshPhysicalMaterial with transmission: light passes through the
-// volume, refracts via IOR, blurs with roughness, and tints by attenuation.
-const glassMaterial = new THREE.MeshPhysicalMaterial({
-  color:               new THREE.Color(params.logoGlassColor),
-  transmission:        params.logoGlassTransmission,
-  ior:                 params.logoGlassIor,
-  roughness:           params.logoGlassRoughness,
-  thickness:           params.logoGlassThickness,
-  attenuationColor:    new THREE.Color(params.logoGlassTint),
-  attenuationDistance: params.logoGlassTintDistance,
-  emissive:            new THREE.Color(params.logoEmissive),
-  emissiveIntensity:   params.logoEmissiveIntensity,
-  metalness:           0,
-  side:                THREE.DoubleSide,
+// ─── Logo material (matte gradient metal, lit by the scene) ─────────────────
+// Ported verbatim from the sibling scene (review 2026-08-01 asked for the same
+// colours). Was a transmissive MeshPhysicalMaterial in dark red here.
+//
+// Why MeshStandardMaterial + a shader patch rather than glass or a texture:
+//  • Standard, not Physical: nothing needs transmission/clearcoat/sheen, and
+//    dropping transmission also drops three's separate transmission render pass
+//    + framebuffer copy — one of the mobile costs flagged in CLAUDE.md.
+//  • A patch, not a gradient texture: the GLB's logo UVs are not vertically
+//    aligned, so a texture would smear. Driving the gradient off LOCAL position.y
+//    is exact and free.
+// The gradient feeds BOTH the diffuse/specular colour and an emissive floor
+// (uSelfLit), because this scene has no ambient light at all — without it the
+// logo would be black wherever no spot lands.
+const logoGradientUniforms = {
+  uTop:     { value: new THREE.Color(params.logoGradientTop) },
+  uBottom:  { value: new THREE.Color(params.logoGradientBottom) },
+  uMinY:    { value: 0 },   // filled in from the logo bbox once the GLB loads
+  uMaxY:    { value: 1 },
+  uBias:    { value: params.logoGradientBias },
+  uSelfLit: { value: params.logoSelfLit },
+};
+
+const logoMaterial = new THREE.MeshStandardMaterial({
+  color:     0xffffff,   // the gradient multiplies into this
+  metalness: params.logoMetalness,
+  roughness: params.logoRoughness,
+  side:      THREE.DoubleSide,
+  // Opaque, unlike the sibling: that scene keeps `transparent` on because its
+  // scroll exit fades the logo out under a gradient shell. There is no exit here
+  // and the intro no longer fades opacity, so nothing ever writes opacity — an
+  // opaque material renders identically and skips the blend + the transparent
+  // render list.
 });
+
+logoMaterial.onBeforeCompile = (shader) => {
+  // Shared uniform objects (by reference) so uMinY/uMaxY can still be written
+  // after the GLB loads and after the shader has compiled.
+  Object.assign(shader.uniforms, logoGradientUniforms);
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying float vLogoY;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvLogoY = position.y;');
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', /* glsl */`#include <common>
+      uniform vec3  uTop;
+      uniform vec3  uBottom;
+      uniform float uMinY;
+      uniform float uMaxY;
+      uniform float uBias;
+      uniform float uSelfLit;
+      varying float vLogoY;
+      vec3 logoGradient() {
+        float t = clamp((vLogoY - uMinY) / max(uMaxY - uMinY, 1e-4), 0.0, 1.0);
+        return mix(uBottom, uTop, pow(t, uBias));
+      }`)
+    // Tint the base colour — with metalness this also tints the light reflections,
+    // which is what keeps the sheens gold/orange instead of white.
+    .replace('#include <color_fragment>', '#include <color_fragment>\n\tdiffuseColor.rgb *= logoGradient();')
+    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += logoGradient() * uSelfLit;');
+};
 
 // ─── Groups ──────────────────────────────────────────────────────────────────
 const logoGroup  = new THREE.Group();
@@ -624,7 +744,7 @@ function applyLayout() {
   );
   logoBase.set(
     -layout.floorCenter.x * glbScale * params.logoExtraScale,
-    yShift + logoYAdjust,
+    yShift + logoYAdjust + params.logoLiftY,
     params.sceneZ - layout.floorCenter.z * glbScale * params.logoExtraScale,
   );
 
@@ -749,10 +869,17 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   layout.floorMesh  = floorMesh;
   layout.logoMeshes = logoMeshes;
 
-  const logoBbox = bakeIntoGroup(logoMeshes, logoGroup, glassMaterial);
+  const logoBbox = bakeIntoGroup(logoMeshes, logoGroup, logoMaterial);
   if (floorMesh) bakeIntoGroup([floorMesh], floorGroup, null);
 
-  if (!logoBbox.isEmpty()) layout.logoBboxMinY = logoBbox.min.y;
+  if (!logoBbox.isEmpty()) {
+    layout.logoBboxMinY = logoBbox.min.y;
+    // Feed the logo's local Y bounds to the gradient shader. bakeIntoGroup has
+    // already baked matrixWorld into the geometry, so these bounds are in exactly
+    // the space the vertex shader's `position.y` reads.
+    logoGradientUniforms.uMinY.value = logoBbox.min.y;
+    logoGradientUniforms.uMaxY.value = logoBbox.max.y;
+  }
 
   if (floorMesh) {
     const floorOnly = floorMesh.geometry.boundingBox;
@@ -781,27 +908,114 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
 
   outlinePass.selectedObjects = logoGroup.children.slice();
 
-  // Hide the logo below the floor until the intro plays so the loader doesn't
-  // flash a static logo for a frame before the rise animation kicks in.
+  // Park the logo below the floor until the intro plays, so the loader doesn't
+  // lift and reveal a logo that is already sitting at its resting height. It is
+  // opaque down there (no opacity fade any more) but out of frame — the floor dish
+  // is between it and the camera.
   logoGroup.position.y = logoBase.y - params.logoAnimRise;
-  glassMaterial.transparent = true;
-  glassMaterial.opacity     = 0;
 
   revealScene();
 }, undefined, (err) => console.error('GLB load failed:', err));
 
-// ─── Mouse parallax ──────────────────────────────────────────────────────────
-// The only interaction in this scene: the logo drifts very slightly toward the
-// pointer. ndcMouse is normalised device coords over the WINDOW (not the mount
-// element) so the drift tracks the cursor across the whole page.
+// ─── Logo interaction ────────────────────────────────────────────────────────
+// The only interaction in this scene. Desktop: the logo leans away from the
+// cursor. Touch: drag and hold to turn it. Both ported from the sibling scene per
+// review 2026-08-01, and both feed the SAME damped yaw so they can never fight.
+// ndcMouse is normalised device coords over the WINDOW (not the mount element) so
+// the tilt tracks the cursor across the whole page.
 const ndcMouse = new THREE.Vector2();
-let logoParallaxX = 0;
-let logoParallaxY = 0;
+let logoTiltX = 0;   // damped tilt, radians about the WORLD X axis
+let logoTiltY = 0;   // damped tilt, radians about the WORLD Y axis
+// Scratch objects for composing the logo's orientation (allocated once — animate
+// runs every frame).
+const AXIS_Y        = new THREE.Vector3(0, 1, 0);
+const logoFaceQuat  = new THREE.Quaternion();
+const logoTiltQuat  = new THREE.Quaternion();
+const logoTiltEuler = new THREE.Euler();
 
 window.addEventListener('pointermove', (e) => {
   ndcMouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
   ndcMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 }, { passive: true });
+
+// ─── Touch drag → spin the logo (mobile) ─────────────────────────────────────
+// The mouse TILT can't work on touch (there is no hover, so ndcMouse stays 0,0),
+// so phones get the equivalent gesture: drag and hold to turn the logo. Same feel
+// and same params as the sibling — a horizontal swipe yaws the logo, it eases
+// rather than snapping to the finger, and it returns to rest on release.
+//
+// TOUCH events, not POINTER events — this is the one place this scene deliberately
+// diverges from the sibling's implementation, and it is not a preference:
+//   • The sibling drives the drag off pointerdown/pointermove and relies on
+//     `touch-action: pan-y` to stop the browser claiming the gesture for panning
+//     (which fires pointercancel and kills the pointer stream mid-drag).
+//   • touch-action is read off the element the touch HIT. This scene's Webflow
+//     markup gives #ccn-canvas `pointer-events:none` so the canvas can't swallow
+//     clicks on overlaid buttons — and pointer-events inherits, so neither the
+//     mount nor the canvas is ever the hit target and their `pan-y` never applies.
+//     Verified: with that markup the pointer-based drag does nothing at all.
+//   • touchmove keeps firing right through a browser pan. Driving off touch events
+//     therefore needs no cooperation from the host page's CSS at all.
+// The trade-off is that we no longer get the browser's scroll/pan axis lock for
+// free, so dragAxis below reimplements it — which also makes a diagonal scroll
+// swipe leave the logo alone instead of wobbling it.
+let dragYawTarget = 0;         // radians, added onto the tilt's yaw target
+let dragTouchId   = null;      // identifier of the tracked touch (null = idle)
+let dragStartX    = 0;
+let dragStartY    = 0;
+let dragStartYaw  = 0;
+let dragAxis      = 'idle';    // 'idle' | 'undecided' | 'x' (ours) | 'y' (page scroll)
+const DRAG_AXIS_LOCK_PX = 8;   // travel before the gesture's axis is decided
+
+function findTouch(list, id) {
+  for (let i = 0; i < list.length; i++) if (list[i].identifier === id) return list[i];
+  return null;
+}
+
+function dragBegin(e) {
+  if (dragTouchId !== null) return;        // already tracking a finger
+  const t = e.changedTouches[0];
+  if (!t) return;
+  dragTouchId  = t.identifier;
+  dragStartX   = t.clientX;
+  dragStartY   = t.clientY;
+  dragStartYaw = dragYawTarget;            // continue from where it currently sits
+  dragAxis     = 'undecided';
+}
+function dragMove(e) {
+  if (dragTouchId === null) return;
+  const t = findTouch(e.touches, dragTouchId);
+  if (!t) return;
+  if (dragAxis === 'undecided') {
+    const dx = Math.abs(t.clientX - dragStartX);
+    const dy = Math.abs(t.clientY - dragStartY);
+    if (Math.max(dx, dy) < DRAG_AXIS_LOCK_PX) return;   // too early to tell
+    dragAxis = dx > dy ? 'x' : 'y';
+    if (dragAxis !== 'x') return;          // vertical: it's the page's scroll, not ours
+    // Re-anchor to where the axis was decided so the yaw starts from 0 and the
+    // logo doesn't jump by the lock distance.
+    dragStartX = t.clientX;
+    return;
+  }
+  if (dragAxis !== 'x') return;
+  // Normalise by viewport width so the gesture feels the same on any screen: a
+  // full screen-width swipe is logoDragYawDeg of turn.
+  const frac = (t.clientX - dragStartX) / Math.max(1, window.innerWidth);
+  const max  = params.logoDragMaxDeg * DEG_TO_RAD;
+  dragYawTarget = Math.max(-max, Math.min(max,
+    dragStartYaw + frac * params.logoDragYawDeg * DEG_TO_RAD));
+}
+function dragEnd(e) {
+  if (dragTouchId === null) return;
+  if (findTouch(e.touches, dragTouchId)) return;   // that finger is still down
+  dragTouchId   = null;
+  dragAxis      = 'idle';
+  dragYawTarget = 0;        // ease back to rest (animate() damps it, so no snap)
+}
+window.addEventListener('touchstart',  dragBegin, { passive: true });
+window.addEventListener('touchmove',   dragMove,  { passive: true });
+window.addEventListener('touchend',    dragEnd,   { passive: true });
+window.addEventListener('touchcancel', dragEnd,   { passive: true });
 
 // ─── Resize ──────────────────────────────────────────────────────────────────
 function onResize() {
@@ -838,8 +1052,9 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 1 / 30);
 
   // ── Intro (time-based, plays once) ───────────────────────────────────────
-  // Rise + glass fade-in share one timeline; the outline kicks in at the
-  // halfway point and the spotlights ramp over their own longer duration.
+  // The rise is the whole intro (no opacity fade); the outline — if it is ever
+  // switched back on — kicks in at the halfway point, and the spotlights ramp
+  // over their own longer duration.
   let introEased = 0, outlineRamp = 0, spotEased = 0;
   if (logoAnim.phase === 'run') {
     const elapsed       = performance.now() / 1000 - logoAnim.phaseStart;
@@ -851,19 +1066,39 @@ function animate() {
     spotEased   = 1 - Math.pow(1 - spotProgress, 3);
   }
 
-  // Mouse parallax runs constantly (it does not wait for the intro).
-  logoParallaxX = damp(logoParallaxX, ndcMouse.x * params.logoParallaxAmp, params.logoParallaxRate, dt);
-  logoParallaxY = damp(logoParallaxY, ndcMouse.y * params.logoParallaxAmp, params.logoParallaxRate, dt);
+  // Tilt runs constantly (it does not wait for the intro). The logo leans AWAY
+  // from the cursor:
+  //   cursor right (+x) → +Y rotation, swinging the logo's +X edge to −Z, i.e.
+  //                       the right edge goes back and the left comes forward;
+  //   cursor high  (+y) → −X rotation, sending the top edge back the same way.
+  // On touch there is no hover, so ndcMouse stays (0,0) and the mobile params zero
+  // both amounts — the drag is the only thing that moves it there. The drag adds
+  // onto the same yaw, so both paths share one damped value. While a finger is
+  // down (or easing back after release) use the gentler logoDragRate.
+  const yawRate = (dragTouchId !== null || Math.abs(dragYawTarget - logoTiltY) > 1e-4)
+    ? params.logoDragRate
+    : params.logoTiltRate;
+  logoTiltX = damp(logoTiltX, -ndcMouse.y * params.logoTiltPitchDeg * DEG_TO_RAD, params.logoTiltRate, dt);
+  logoTiltY = damp(
+    logoTiltY,
+    ndcMouse.x * params.logoTiltYawDeg * DEG_TO_RAD + dragYawTarget,
+    yawRate, dt,
+  );
 
   if (logoAnim.phase === 'run') {
     const riseOffsetY = -(1 - introEased) * params.logoAnimRise;
     logoAnim.currentY = logoBase.y + riseOffsetY;
-    logoGroup.position.set(
-      logoBase.x + logoParallaxX,
-      logoAnim.currentY + logoParallaxY,
-      logoBase.z,
-    );
-    glassMaterial.opacity    = introEased;
+    logoGroup.position.set(logoBase.x, logoAnim.currentY, logoBase.z);
+    // Orientation = tilt ∘ base facing. The tilt is composed on the LEFT so it
+    // applies in PARENT space: logoGroup's parent is the untransformed scene root,
+    // so parent space IS world space and the tilt axes line up with the screen.
+    // Writing the tilt into logoGroup.rotation instead would tilt around the
+    // logo's already-rotated LOCAL axes (logoRotationY = 90°), which turns the
+    // intended left/right lean into a forward/back rock.
+    logoFaceQuat.setFromAxisAngle(AXIS_Y, params.logoRotationY * DEG_TO_RAD);
+    logoTiltEuler.set(logoTiltX, logoTiltY, 0);
+    logoTiltQuat.setFromEuler(logoTiltEuler);
+    logoGroup.quaternion.copy(logoTiltQuat).multiply(logoFaceQuat);
     outlinePass.edgeStrength = params.outlineStrength * outlineRamp;
     // SKIP the whole OutlinePass while it contributes nothing. At edgeStrength 0
     // the pass is invisible, but it still costs TWO full-scene re-renders plus
