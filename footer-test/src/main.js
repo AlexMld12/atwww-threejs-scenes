@@ -18,6 +18,63 @@ const mountEl = document.getElementById('footer-canvas')
   || document.getElementById('app')
   || document.body;
 const scrollSection = document.querySelector('.footer-universe');
+// The PINNED BOX. Everything that needs a viewport size is measured from this
+// element, never from window.innerHeight — see the note below.
+const stickyEl = document.querySelector('.footer-sticky')
+  || (mountEl !== document.body && mountEl !== scrollSection ? mountEl : null);
+
+// ─── Stable viewport metrics (URL-bar-proof) ─────────────────────────────────
+// `window.innerHeight` is NOT a constant on a phone. Android puts the URL bar on
+// top, iOS at the bottom, and BOTH grow and shrink innerHeight every time that bar
+// retracts or returns — which is continuously while you scroll down and then back
+// up. Reading it caused two distinct bugs, and this is the fix for both:
+//
+//   • `renderer.setSize(innerWidth, innerHeight)` writes the canvas's CSS size in
+//     PIXELS (inline style). Whenever the canvas takes part in page layout, a canvas
+//     whose height changes mid-gesture changes the DOCUMENT height, and the browser
+//     then re-resolves the scroll offset against a page that just moved under it.
+//     That is the "scroll down, scroll straight back up, land in a different
+//     section" report. With a stable height the inline style never changes during a
+//     bar slide, so the scene can no longer move the page.
+//   • `getScrollProgress()` divided by `rect.height - innerHeight`, so a bar sliding
+//     ~90px shifted the WHOLE camera timeline by a few percent — twice per gesture.
+//
+// Both now measure `.footer-sticky`. The section and its pin are sized in `vh`
+// (= the LARGE viewport, bar retracted) and deliberately never in `dvh`, so the
+// pin's measured height is both the CORRECT scroll denominator (it is exactly how
+// far the pin travels) and a constant across URL-bar slides. It is re-measured only
+// on a genuine layout change — see onViewportResize.
+let vpFallbackH = window.innerHeight;   // only used when there is no pinned box to measure
+function viewportW() {
+  const w = stickyEl ? stickyEl.clientWidth : 0;
+  return w > 0 ? w : window.innerWidth;
+}
+function viewportH() {
+  const h = stickyEl ? stickyEl.clientHeight : 0;
+  // Reject a nonsense measurement (mount collapsed, or stickyEl turned out to be
+  // the tall section itself) rather than sizing the whole scene from it.
+  return h > 0 && (!scrollSection || h < scrollSection.clientHeight) ? h : vpFallbackH;
+}
+// Cached because getScrollProgress() runs every frame and clientHeight forces layout.
+let timelineH = viewportH();
+
+// Diagnostic, not a fix: CSS scroll-snapping is a PAGE-level setting this scene
+// cannot see or override from inside its own section, and it is the one remaining
+// thing that will genuinely throw the viewer into a neighbouring section when a
+// phone's URL bar resizes the scroll port mid-gesture (the resize makes the browser
+// re-snap). If it is on anywhere up the tree, say so once so it can be found in
+// Webflow instead of being blamed on the scene.
+for (const el of [document.documentElement, document.body, scrollSection]) {
+  if (!el) continue;
+  const snap = getComputedStyle(el).scrollSnapType;
+  if (snap && snap !== 'none') {
+    console.warn('[footer-test] CSS scroll-snap is active on', el,
+      `(scroll-snap-type: ${snap}). On phones the URL bar resizes the scroll port mid-scroll, ` +
+      'which makes the browser re-snap and jump to a neighbouring section. Remove it in Webflow ' +
+      'if the page is jumping — this scene drives itself from scroll position and does not need it.');
+    break;
+  }
+}
 
 // Asset base for the GLB. Locally / on GitHub Pages the relative path resolves
 // against the page; embedded on Webflow it must point at the CDN folder that
@@ -58,7 +115,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'h
 // Cap DPR below the device max (TIER.dprCap) — keeps the heavy postpro pipeline
 // (planar reflection + sceneRT + composer) within budget on retina/mobile.
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, TIER.dprCap));
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(viewportW(), viewportH());
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -67,14 +124,14 @@ mountEl.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(55, viewportW() / viewportH(), 0.1, 100);
 scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 // Auto-scale particle count by viewport area + DPR. A 1920×1080 desktop hits
 // the default 350; a phone at 390×844 lands around 70.
 const VIEWPORT_FACTOR = Math.min(1,
-  (window.innerWidth * window.innerHeight) / (1920 * 1080));
+  (viewportW() * viewportH()) / (1920 * 1080));
 
 const params = {
   fov: 55,
@@ -98,11 +155,27 @@ const params = {
   camStartRollDeg:  0,
   camStartFov:      60,     // a touch wider up top to fit the whole spread of rings
   scrollCamEase:    1.0,    // 0 = linear, 1 = full smoothstep on the reveal
+  // Temporal smoothing ON TOP of the scroll mapping: the camera eases TOWARD the
+  // scroll-derived progress at this rate (1/s) instead of snapping to it, so the
+  // reveal reads slower and keeps settling for a beat after the scroll stops.
+  // Exponential damp ⇒ frame-rate independent, so desktop and mobile travel at the
+  // same speed; it also absorbs the mobile URL-bar progress jump. Lower = slower.
+  // 0 disables it (camera tracks scroll exactly — the previous behaviour).
+  // The OTHER slowdown lever is the height of .footer-universe: a taller section
+  // spends more scroll on the same travel. Both are in play (section is 400vh).
+  scrollCamFollow:  1.5,
 
   sceneZ:         -5,
   floorTargetY:   -1.4,
   floorRadius:    7,
-  logoExtraScale: 2,
+  // The review's "slightly bigger logo" is applied where there is room for it. At
+  // the resting front view a desktop frame has margin around the logo; PORTRAIT does
+  // not — the logo already spans nearly the full width there (the known mobile
+  // framing issue), so scaling it up on a phone would crop it. Mobile therefore
+  // keeps the previous 2.0 and desktop takes the +12.5%. Making mobile bigger too
+  // means pulling the resting camera back / widening its fov, which is a framing
+  // change rather than a scale change.
+  logoExtraScale: IS_MOBILE ? 2 : 2.25,
   logoYawDeg:     -90,
 
   // Stadium-shaped neon rings stacked above the logo. tiltSpeed/tiltAmp drive
@@ -150,8 +223,28 @@ const params = {
 
   // Logo body — screen-space refraction glass (transmission-style):
   // sceneRT capture + IOR-based UV bend + anisotropic blur + chromatic split.
-  logoGlassTint:        '#ffffff',
-  logoGlassTintAmount:  0.08,
+  // The colour is the BRAND LINEAR GRADIENT, not a flat tint: the same two hexes and
+  // the same bias curve as command-center-slider's logo (see logoGradientTop/Bottom/
+  // Bias there), mapped over the logo's local Y so gold sits at the tip and burnt
+  // orange at the base. Driving it off local position.y — not a texture — because the
+  // GLB's logo UVs are not vertically aligned and a texture would smear; it is also
+  // exactly the mapping the slider uses, so the two scenes read as the same object.
+  //
+  // A purely MULTIPLICATIVE tint would be invisible here: what the logo refracts is
+  // mostly the black background, and black × gradient is still black. So the gradient
+  // reaches the pixel through four terms, each of which is pure uniform maths (no
+  // extra texture taps ⇒ mobile cost unchanged):
+  //   uTintAmount — multiplicative; warms the light that DOES pass through
+  //                 (ring sweeps, particles) toward the gradient;
+  //   uMetal      — the metallic term, see the env note below;
+  //   uFresnel    — additive rim, strongest on the edge-on extrusion walls;
+  //   uBody       — a faint constant floor so dark refraction still reads coloured.
+  // These stay under bloomThreshold (0.4) so the logo glows via the OutlinePass
+  // rather than smearing through the bloom pass.
+  logoGradientTop:      '#FFC44B',   // gold at the top of the logo   (brand, = slider)
+  logoGradientBottom:   '#FA6827',   // burnt orange at the bottom    (brand, = slider)
+  logoGradientBias:     1.9,         // >1 lets the orange climb, leaving gold as a tip highlight
+  logoGlassTintAmount:  0.55,
   logoGlassIor:         1.0,
   logoGlassDistortion:  0.025,
   logoGlassNoiseScale:  3.0,
@@ -159,8 +252,25 @@ const params = {
   logoGlassAnisoBlur:   16.0,
   logoGlassAnisoAngle:  0.0,
   logoGlassChroma:      0.012,
-  logoGlassFresnel:     0.0,
+  logoGlassFresnel:     0.14,
+  logoGlassBody:        0.035,
   logoGlassFlow:        0.15,
+
+  // Metallic response. A screen-space refraction shader has no lighting model at all,
+  // so a flat colour reads as painted plastic no matter which hex you pick — what
+  // makes a surface read as METAL is that its brightness changes with ORIENTATION.
+  // Hence a tiny synthetic environment, the same idea as the slider's 64×32 equirect
+  // gradient env map but with no texture: reflect the view vector off the surface and
+  // ramp the result's Y (reflecting "up" = bright, "down" = dark). Because it is
+  // driven by the reflected vector it moves as the reveal camera travels and as the
+  // mouse tilts the logo, which is what sells it. On top of that a tight glint gives
+  // the specular pin-highlight a polished edge catches.
+  logoGlassMetal:       0.30,        // strength of the env ramp (0 = flat colour, no metal)
+  logoGlassMetalBias:   1.6,         // >1 keeps the dark half dark → higher contrast metal
+  logoGlassGlint:       0.30,        // tight specular highlight strength
+  logoGlassGlintPower:  22.0,        // higher = smaller, harder glint
+  logoGlassGlintColor:  '#fff3d8',   // warm white, so the glint reads as a highlight not more gold
+  logoGlassGlintDir:    [0.35, 0.85, 0.40],   // world-space direction the glint comes from
 
   bloomStrength:  0.3,
   bloomRadius:    0.8,
@@ -202,16 +312,19 @@ const params = {
 // Custom RT with MSAA so the bright thin tubes don't staircase, + HalfFloat
 // so the bloom pass has headroom for the HDR neon highlights.
 const pr = renderer.getPixelRatio();
+// Every render-target dimension is derived from the pinned box (viewportW/H), not
+// window.innerHeight — so a URL-bar slide can never trigger a reallocation.
+const vw0 = viewportW(), vh0 = viewportH();
 const composerRT = new THREE.WebGLRenderTarget(
-  window.innerWidth  * pr,
-  window.innerHeight * pr,
+  vw0 * pr,
+  vh0 * pr,
   { type: THREE.HalfFloatType, samples: TIER.msaaSamples },
 );
 const composer = new EffectComposer(renderer, composerRT);
 composer.addPass(new RenderPass(scene, camera));
 
 const outlinePass = new OutlinePass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera,
+  new THREE.Vector2(vw0, vh0), scene, camera,
 );
 outlinePass.edgeStrength  = params.outlineStrength;
 outlinePass.edgeGlow      = params.outlineGlow;
@@ -221,7 +334,7 @@ outlinePass.hiddenEdgeColor.set(params.outlineColor);
 composer.addPass(outlinePass);
 
 const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  new THREE.Vector2(vw0, vh0),
   params.bloomStrength, params.bloomRadius, params.bloomThreshold,
 );
 composer.addPass(bloomPass);
@@ -230,8 +343,8 @@ composer.addPass(new OutputPass());
 // sceneRT — captured each frame with the logo / floor / pedestal hidden.
 // The logo's glass shader samples this to refract everything behind it.
 const sceneRT = new THREE.WebGLRenderTarget(
-  Math.floor(window.innerWidth  * pr),
-  Math.floor(window.innerHeight * pr),
+  Math.floor(vw0 * pr),
+  Math.floor(vh0 * pr),
   { type: THREE.HalfFloatType },
 );
 
@@ -261,11 +374,26 @@ let frameCount        = 0;
 let glassCaptured     = false;
 let reflectorRendered = false;
 
+// Entry ramp — the "site stutters when you arrive at the scene" fix. The first frames
+// of each activation are the worst ones: the page is usually still scrolling, the
+// driver is re-warming, and this frame does THREE full-scene renders. Two of those
+// (the glass sceneRT capture and the mirror RT) only feed heavily blurred textures,
+// so widening their cadence to every 4th frame for ~20 frames buys back most of a
+// frame's cost with no visible change — and unlike lowering renderScale it
+// reallocates nothing, which is the whole point (a reallocation IS a hitch).
+// Self-clearing; armed in start().
+const ENTRY_RAMP_FRAMES = 20;
+const ENTRY_RAMP_EVERY  = 4;
+let entryRamp    = 0;
+// Cadences actually used this frame — widened while the entry ramp is counting down.
+let reflectEvery = REFLECTION_EVERY;
+let glassEvery   = GLASS_CAPTURE_EVERY;
+
 // ─── Reflector (hidden — used only for its RT) ───────────────────────────────
 // CircleGeometry sized to the floor footprint. material.colorWrite/depthWrite
 // off means it contributes no pixels visually, but its onBeforeRender still
 // fires each frame and renders the scene from the mirrored virtual camera.
-const reflectorRTSize = Math.min(TIER.reflectorMax, Math.floor(window.innerWidth * pr));
+const reflectorRTSize = Math.min(TIER.reflectorMax, Math.floor(vw0 * pr));
 const reflector = new Reflector(
   new THREE.CircleGeometry(params.floorRadius, 96),
   {
@@ -295,7 +423,7 @@ reflector.onBeforeRender = function (r, s, c) {
   // textureMatrix — the floor shader samples the last mirror, one frame stale
   // and imperceptible. Always render the first frame (reflectorRendered guard)
   // so the RT is initialised before it is ever displayed.
-  if (reflectorRendered && (frameCount % REFLECTION_EVERY) !== 0) return;
+  if (reflectorRendered && (frameCount % reflectEvery) !== 0) return;
   const wasLogo = logoGroup.visible, wasFloor = floorGroup.visible, wasPed = pedestalGroup.visible;
   logoGroup.visible = floorGroup.visible = pedestalGroup.visible = false;
   _reflectorBefore(r, s, c);
@@ -309,8 +437,20 @@ const logoFillMaterial = new THREE.ShaderMaterial({
     tScene:      { value: sceneRT.texture },
     uResolution: { value: new THREE.Vector2(sceneRT.width, sceneRT.height) },
     uTime:       { value: 0 },
-    uTint:       { value: new THREE.Color(params.logoGlassTint) },
+    // Gradient over the logo's LOCAL Y. uMinY/uMaxY are filled in from the logo's
+    // baked bbox once the GLB loads (see the loader), which is why they start 0/1.
+    uTop:        { value: new THREE.Color(params.logoGradientTop) },
+    uBottom:     { value: new THREE.Color(params.logoGradientBottom) },
+    uMinY:       { value: 0 },
+    uMaxY:       { value: 1 },
+    uGradBias:   { value: params.logoGradientBias },
     uTintAmount: { value: params.logoGlassTintAmount },
+    uMetal:      { value: params.logoGlassMetal },
+    uMetalBias:  { value: params.logoGlassMetalBias },
+    uGlint:      { value: params.logoGlassGlint },
+    uGlintPower: { value: params.logoGlassGlintPower },
+    uGlintColor: { value: new THREE.Color(params.logoGlassGlintColor) },
+    uGlintDir:   { value: new THREE.Vector3(...params.logoGlassGlintDir).normalize() },
     uIor:        { value: params.logoGlassIor },
     uDistortion: { value: params.logoGlassDistortion },
     uNoiseScale: { value: params.logoGlassNoiseScale },
@@ -319,16 +459,26 @@ const logoFillMaterial = new THREE.ShaderMaterial({
     uAnisoAngle: { value: params.logoGlassAnisoAngle * Math.PI / 180 },
     uChroma:     { value: params.logoGlassChroma },
     uFresnel:    { value: params.logoGlassFresnel },
+    uBody:       { value: params.logoGlassBody },
     uFlow:       { value: params.logoGlassFlow },
   },
   vertexShader: /* glsl */`
     varying vec3 vViewNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vWorldPos;
     varying vec4 vClip;
+    varying float vLogoY;
     void main() {
       vec4 wp = modelMatrix * vec4(position, 1.0);
       vWorldPos   = wp.xyz;
       vViewNormal = normalize(normalMatrix * normal);
+      // World normal for the metallic reflection ramp. mat3(modelMatrix) is enough
+      // here because the logo group is only ever uniformly scaled + rotated (no shear),
+      // so no inverse-transpose is needed.
+      vWorldNormal = normalize(mat3(modelMatrix) * normal);
+      // LOCAL y drives the vertical gradient, so it stays locked to the logo through
+      // the group's yaw and the mouse-parallax tilt instead of sliding around.
+      vLogoY = position.y;
       vClip = projectionMatrix * viewMatrix * wp;
       gl_Position = vClip;
     }
@@ -338,11 +488,22 @@ const logoFillMaterial = new THREE.ShaderMaterial({
     uniform sampler2D tScene;
     uniform vec2  uResolution;
     uniform float uTime, uTintAmount, uIor, uDistortion, uNoiseScale;
-    uniform float uBlur, uAnisoBlur, uAnisoAngle, uChroma, uFresnel, uFlow;
-    uniform vec3  uTint;
+    uniform float uBlur, uAnisoBlur, uAnisoAngle, uChroma, uFresnel, uBody, uFlow;
+    uniform vec3  uTop, uBottom, uGlintColor, uGlintDir;
+    uniform float uMinY, uMaxY, uGradBias;
+    uniform float uMetal, uMetalBias, uGlint, uGlintPower;
     varying vec3 vViewNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vWorldPos;
     varying vec4 vClip;
+    varying float vLogoY;
+
+    // Brand linear gradient over the logo's height — identical mapping to
+    // command-center-slider's logoGradient() so both scenes read as one object.
+    vec3 logoGradient() {
+      float t = clamp((vLogoY - uMinY) / max(uMaxY - uMinY, 1e-4), 0.0, 1.0);
+      return mix(uBottom, uTop, pow(t, uGradBias));
+    }
 
     float gHash(vec3 p) {
       p = fract(p * 0.3183099 + 0.1); p *= 17.0;
@@ -390,9 +551,31 @@ const logoFillMaterial = new THREE.ShaderMaterial({
         }
       }
       col /= wsum;
-      col = mix(col, col * uTint, uTintAmount);
+
+      vec3 grad = logoGradient();
+      // Multiplicative: warms the light that actually passes through the glass.
+      col = mix(col, col * grad, uTintAmount);
+
+      // ── Metallic response ────────────────────────────────────────────────────
+      // Reflect the view vector off the surface and ramp the result's Y: a facet
+      // reflecting "up" is bright, one reflecting "down" is dark. That is a one-line
+      // stand-in for an environment map, and because it depends on the reflected
+      // vector it changes as the reveal camera travels and as the parallax tilts the
+      // logo — orientation-dependent brightness is what reads as metal rather than
+      // paint. uMetalBias >1 keeps the dark half dark, raising the contrast.
+      vec3  V = normalize(cameraPosition - vWorldPos);
+      vec3  R = reflect(-V, normalize(vWorldNormal));
+      float env = pow(clamp(R.y * 0.5 + 0.5, 0.0, 1.0), uMetalBias);
+      // Tight specular glint from a fixed world direction — the pin-highlight a
+      // polished edge catches. Warm white, so it reads as a highlight, not more gold.
+      float glint = pow(clamp(dot(R, uGlintDir), 0.0, 1.0), uGlintPower);
+      // Additive rim: fres peaks on the extrusion walls (normal perpendicular to the
+      // view), so it lights the logo's thickness. uBody is the constant floor that
+      // keeps the glass coloured where it refracts nothing but black.
       float fres = pow(1.0 - abs(vViewNormal.z), 3.0);
-      col += fres * uFresnel;
+
+      col += grad * (uMetal * env + uFresnel * fres + uBody);
+      col += uGlintColor * (uGlint * glint);
       gl_FragColor = vec4(col, 1.0);
     }
   `,
@@ -626,7 +809,7 @@ const particleMat = new THREE.ShaderMaterial({
     uColorMid:   { value: new THREE.Color(params.particleColorMid) },
     uColorBot:   { value: new THREE.Color(params.particleColorBot) },
     uBaseSize:   { value: params.particleSize },
-    uPxScale:    { value: window.innerHeight / 2 },
+    uPxScale:    { value: viewportH() / 2 },
     uBrightness: { value: params.particleBrightness },
   },
   vertexShader: /* glsl */`
@@ -748,13 +931,16 @@ function applyCameraProgress(p) {
 // Section-relative progress (0 → footer entering, 1 → fully revealed at rest),
 // so this works as one scene among several on the page. Falls back to whole-page
 // scroll when the .footer-universe section isn't present.
+// The denominator is `timelineH` (the measured pinned box), NOT window.innerHeight:
+// the pin travels exactly `section.height − sticky.height`, and that number stays
+// put while a phone's URL bar slides. See the stable-viewport note at the top.
 function getScrollProgress() {
   if (scrollSection) {
     const rect = scrollSection.getBoundingClientRect();
-    const range = rect.height - window.innerHeight;
+    const range = rect.height - timelineH;
     return range > 0 ? Math.min(1, Math.max(0, -rect.top / range)) : 0;
   }
-  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const max = document.documentElement.scrollHeight - timelineH;
   return max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
 }
 
@@ -818,8 +1004,14 @@ function bakeIntoGroup(meshes, group, material) {
   return bbox;
 }
 
+// The camera's own progress, damped toward getScrollProgress() each frame (see
+// params.scrollCamFollow). Seeded from the current scroll so a load — or a jump
+// straight into the middle of the section — starts at the right pose instead of
+// animating in from the overhead start.
+let camProgress = getScrollProgress();
+
 computeCameraStates();
-applyCameraProgress(getScrollProgress());
+applyCameraProgress(camProgress);
 
 // ─── Pre-warm (compile the full pipeline before the reveal) ──────────────────
 // The footer is off-screen at load, so its rAF loop is visibility-gated and does
@@ -920,7 +1112,14 @@ loader.load(ASSET_BASE + 'test_2_updated.glb', (gltf) => {
   logoGroup.traverse((o) => { if (o.isMesh) { selected.push(o); o.renderOrder = 0; } });
   outlinePass.selectedObjects = selected;
 
-  if (!logoBbox.isEmpty()) layout.logoBboxMinY = logoBbox.min.y;
+  if (!logoBbox.isEmpty()) {
+    layout.logoBboxMinY = logoBbox.min.y;
+    // The gradient ramps over the logo's own height. bakeIntoGroup baked matrixWorld
+    // into the geometry, so this bbox is in the same space the vertex shader reads
+    // `position.y` from — the ramp lands exactly on the logo, top to bottom.
+    logoFillMaterial.uniforms.uMinY.value = logoBbox.min.y;
+    logoFillMaterial.uniforms.uMaxY.value = logoBbox.max.y;
+  }
   if (!floorBbox.isEmpty()) {
     layout.measuredFloorRadius = Math.max(
       floorBbox.max.x - floorBbox.min.x,
@@ -1035,7 +1234,7 @@ function setRenderScale(next) {
   if (next === renderScale) return;
   renderScale = next;
   const effPR = Math.min(window.devicePixelRatio, TIER.dprCap) * renderScale;
-  applyRenderTargets(window.innerWidth, window.innerHeight, effPR);
+  applyRenderTargets(viewportW(), viewportH(), effPR);
   rsCooldown   = RS_COOLDOWN;
   rsOverCount  = 0;
   rsUnderCount = 0;
@@ -1103,19 +1302,46 @@ function pollGpuTimer() {
   decideRenderScale();
 }
 
+// Declared before the listeners are attached so a resize can never observe them
+// uninitialised.
+let lastWinW = window.innerWidth, lastVW = viewportW(), lastVH = viewportH();
+
 window.addEventListener('resize', onViewportResize);
 if (window.visualViewport) {
-  // A mobile URL-bar show/hide fires visualViewport resize without a window
-  // resize; route it through the same helper so it RE-APPLIES the current
-  // renderScale instead of snapping back to full DPR mid-session.
+  // A mobile URL-bar slide fires a visualViewport resize (and often a window resize)
+  // without anything on the page actually changing size. It is still routed through
+  // the same handler, but that handler is now GATED on real measurements, so such an
+  // event costs one clientWidth/Height read and returns — see below.
   window.visualViewport.addEventListener('resize', onViewportResize);
 }
 
+// A phone fires `resize` on EVERY URL-bar slide, i.e. several times per scroll
+// gesture. The old handler unconditionally re-allocated the whole chain — composer
+// RT (MSAA + HalfFloat), sceneRT, bloom and outline targets — on each one. That is
+// tens of milliseconds of driver work landing mid-gesture, and it is the stutter felt
+// on arriving at the scene; `setSize` reallocates even when the dimensions are
+// identical. Because the section and its pin are sized in `vh`, nothing really
+// changed size, so both the reallocation and the timeline re-read are now gated on a
+// measurement that actually moved.
+//
+// Width is the only trustworthy signal that a phone genuinely re-laid out (rotation,
+// or a desktop window resize), so the no-pin fallback height only follows that. When
+// a pinned box IS present its measured height is used directly, so a page that does
+// react to the bar (dvh) still tracks correctly.
 function onViewportResize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  if (window.innerWidth !== lastWinW) {
+    lastWinW = window.innerWidth;
+    vpFallbackH = window.innerHeight;
+  }
+  timelineH = viewportH();
+
+  const w = viewportW(), h = viewportH();
+  const effPR = Math.min(window.devicePixelRatio, TIER.dprCap) * renderScale;
+  if (w === lastVW && h === lastVH) return;   // URL-bar slide → nothing to re-allocate
+  lastVW = w; lastVH = h;
+
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  const effPR = Math.min(window.devicePixelRatio, TIER.dprCap) * renderScale;
   applyRenderTargets(w, h, effPR);
   particleMat.uniforms.uPxScale.value = h / 2;
   rsSettle = RS_SETTLE;   // don't let the resize-frame RT reallocation spike bias the EMA
@@ -1149,7 +1375,23 @@ function animate() {
   rafId = requestAnimationFrame(animate);
   const rawDt = clock.getDelta();
   const dt = Math.min(rawDt, 1 / 30);
+  // The camera follow gets its own, far more generous clamp. `dt` is capped at 1/30
+  // so a hitch can't teleport the particles — but that cap also means any device
+  // running below 30fps advances the follow slower than wall-clock, which would make
+  // the reveal drag on exactly the weakest phones. 1/10 keeps the hitch protection
+  // (a 500ms stall still eases instead of snapping) while staying exact at ≥10fps.
+  const camDt = Math.min(rawDt, 1 / 10);
   const t  = clock.getElapsedTime();
+
+  // Entry ramp: cheap cadence for the first frames after the scene activates.
+  if (entryRamp > 0) {
+    entryRamp--;
+    reflectEvery = Math.max(REFLECTION_EVERY, ENTRY_RAMP_EVERY);
+    glassEvery   = Math.max(GLASS_CAPTURE_EVERY, ENTRY_RAMP_EVERY);
+  } else {
+    reflectEvery = REFLECTION_EVERY;
+    glassEvery   = GLASS_CAPTURE_EVERY;
+  }
 
   // Debug HUD: roll up FPS over ~0.5s of real (unclamped) frame time and print the
   // resolved tier / scale so on-device smoothness is a number, not a guess.
@@ -1163,13 +1405,20 @@ function animate() {
         `fps:   ${dbgFps.toFixed(0)}\n` +
         `scale: ${renderScale.toFixed(3)}\n` +
         `DPR:   ${effPR.toFixed(2)} (cap ${TIER.dprCap})\n` +
+        `cam:   ${camProgress.toFixed(3)} → ${getScrollProgress().toFixed(3)} (follow ${params.scrollCamFollow})\n` +
         `gpuMs: ${rsExt ? rsGpuMs.toFixed(1) : 'n/a — no timer query'}\n` +
         `blurR ${TIER.blurTaps}  msaa ${TIER.msaaSamples}  refl ${TIER.reflectorMax}`;
     }
   }
 
-  // Scroll-driven camera reveal: high above the logo → resting front view.
-  applyCameraProgress(getScrollProgress());
+  // Scroll-driven camera reveal: high above the logo → resting front view. The
+  // scroll gives the TARGET progress; the camera eases toward it (scrollCamFollow)
+  // so the move is slower than the scroll and settles smoothly once it stops.
+  const scrollTarget = getScrollProgress();
+  camProgress = params.scrollCamFollow > 0
+    ? damp(camProgress, scrollTarget, params.scrollCamFollow, camDt)
+    : scrollTarget;
+  applyCameraProgress(camProgress);
 
   // Mouse parallax on the logo.
   mouseXs = damp(mouseXs, mouseX, params.parallaxSmoothRate, dt);
@@ -1229,7 +1478,7 @@ function animate() {
   // shader reuses the previous sceneRT texture (heavily blurred + distorted, so
   // one frame stale is imperceptible). Always captured on the first frame
   // (glassCaptured guard) so the texture is initialised before it is displayed.
-  if (layout.ready && (!glassCaptured || (frameCount % GLASS_CAPTURE_EVERY) === 0)) {
+  if (layout.ready && (!glassCaptured || (frameCount % glassEvery) === 0)) {
     logoGroup.visible     = false;
     reflector.visible     = false;
     floorGroup.visible    = false;
@@ -1265,7 +1514,12 @@ function start() {
   if (running) return;   // idempotent — never two concurrent rAF loops
   running = true;
   clock.getDelta();      // discard the stale delta accrued while paused (no time jump)
+  // Snap the damped camera progress to where the scroll actually is on resume: the
+  // page may have moved a long way while the loop was stopped (tab in background,
+  // section scrolled past and back), and the follow must not replay that gap.
+  camProgress = getScrollProgress();
   resetAdaptive();       // drop the pre-pause EMA/counters so the resume-gap interval can't force a spurious downscale
+  entryRamp = ENTRY_RAMP_FRAMES;   // keep the first frames of the reveal cheap
   rafId = requestAnimationFrame(animate);
 }
 
@@ -1282,10 +1536,16 @@ function updateRunState() {
 }
 
 // Kept alive for the page lifetime — never disconnected.
+// rootMargin gives the loop a quarter-viewport of LEAD-IN: it starts while the footer
+// is still just below the fold, so the first (most expensive) frames of an activation
+// land before anything is visible instead of during the reveal. That is the other half
+// of the arrival-stutter fix, alongside the entry ramp and the gated resize handler.
+// A quarter viewport is deliberately modest — a larger margin would burn GPU on the
+// heavy pipeline well before the footer is anywhere near the screen.
 const visibilityObserver = new IntersectionObserver((entries) => {
   onscreen = entries[entries.length - 1].isIntersecting;
   updateRunState();
-});
+}, { rootMargin: '25% 0px 25% 0px' });
 visibilityObserver.observe(mountEl);
 
 document.addEventListener('visibilitychange', () => {

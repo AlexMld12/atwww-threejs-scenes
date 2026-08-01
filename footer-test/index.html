@@ -22,7 +22,14 @@
          the section. The WebGL canvas mounts INTO #footer-canvas.
          Locally this scaffold reproduces exactly what the Webflow sticky section
          provides, so window scroll drives the camera the same way. */
-      .footer-universe { position: relative; width: 100%; height: 300vh; }
+      /* 400vh (was 300vh) = the scroll-length half of the "slower reveal" review
+         note: the camera's travel is unchanged, it is just spent over 1.5× the
+         scroll (3 viewports instead of 2 — enough to read as slower without turning
+         the footer into an endless scroll). The other half of the slowdown is
+         params.scrollCamFollow in main.js (temporal damping). Keep the Webflow
+         .footer-universe height in sync with this number, or Webflow will reveal
+         faster than this preview. */
+      .footer-universe { position: relative; width: 100%; height: 400vh; }
       .footer-sticky {
         position: sticky; top: 0;
         width: 100%;
