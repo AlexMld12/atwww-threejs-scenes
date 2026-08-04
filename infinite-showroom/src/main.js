@@ -28,9 +28,38 @@ const cardMobileMods   = import.meta.glob('./images/cards/mobile/*.{jpg,jpeg,png
 const sortedUrls = mods => Object.keys(mods).sort().map(k => mods[k]);
 // Phones take the small set when it exists; desktop always takes the full one.
 const pickSet = (desktop, mobile) =>
-  sortedUrls(SMALL_SCREEN && Object.keys(mobile).length ? mobile : desktop);
-const FIELD_URLS = pickSet(fieldDesktopMods, fieldMobileMods);
-const CARD_URLS  = pickSet(cardDesktopMods,  cardMobileMods);
+  SMALL_SCREEN && Object.keys(mobile).length ? mobile : desktop;
+const FIELD_URLS = sortedUrls(pickSet(fieldDesktopMods, fieldMobileMods));
+
+// ─── Card front images: EXPLICIT order ───────────────────────────────────────
+// The three card FRONTS must line up with the three `.channel-card` backs the
+// client orders in Webflow, and that order is an editorial decision that changes.
+// It must therefore NOT fall out of alphabetical filenames: sorting
+// `Caylus / Ethan Schulteis / Stokes Twins` silently puts Ethan second, which is
+// precisely what went wrong. Names are matched as a case-insensitive prefix of the
+// filename, so "Ethan" finds "Ethan Schulteis.webp" and renaming the file for
+// clarity does not break the mapping.
+// Keep this list in the SAME ORDER as the .channel-card elements in Webflow.
+const CARD_ORDER = ['Caylus', 'Stokes Twins', 'Ethan'];
+const cardSet = pickSet(cardDesktopMods, cardMobileMods);
+const cardNamed = Object.keys(cardSet).sort().map(k => ({
+  name: k.slice(k.lastIndexOf('/') + 1).replace(/\.[^.]+$/, ''),
+  url:  cardSet[k],
+}));
+const CARD_URLS = (() => {
+  const taken = new Set();
+  const ordered = CARD_ORDER.map((stem) => {
+    const hit = cardNamed.find(e =>
+      !taken.has(e.url) && e.name.toLowerCase().startsWith(stem.toLowerCase()));
+    if (!hit) { console.warn(`[infinite-showroom] CARD_ORDER entry "${stem}" matches no file in src/images/cards/ — that card gets no front image.`); return null; }
+    taken.add(hit.url);
+    return hit.url;
+  });
+  // Anything in the folder that CARD_ORDER doesn't name keeps its alphabetical
+  // place at the end, so dropping in a 4th channel image still shows up instead
+  // of silently vanishing.
+  return ordered.concat(cardNamed.filter(e => !taken.has(e.url)).map(e => e.url));
+})();
 
 // ─── Config (Webflow-editable) ───────────────────────────────────────────────
 const CFG = Object.assign({
@@ -45,6 +74,10 @@ const CFG = Object.assign({
   maxTexture:  768,         // safety downscale cap (the shipped sets are already under it)
   preloadMargin: '150%',    // how early (in viewport heights) images start loading
   images:      [],          // optional real image URLs (overrides src/images/field)
+  // Card FRONT images, in card order — overrides CARD_ORDER above. Set this in
+  // Webflow to reshuffle or swap the fronts without a code change and redeploy;
+  // leave it empty to use the bundled set. Pass full URLs.
+  cardImages:  [],
 }, (window.SHOWROOM_CONFIG || {}));
 
 // Field image pool: Webflow config wins, else bundled files, else placeholders.
@@ -380,7 +413,12 @@ if (rawCards.length) {
       -webkit-overflow-scrolling:touch; scrollbar-width:none; -ms-overflow-style:none;
       overflow-anchor:none; touch-action:pan-y;
     }
-    .channels-cards .channel-card-bot::-webkit-scrollbar { display:none !important; }`;
+    .channels-cards .channel-card-bot::-webkit-scrollbar { display:none !important; }
+    /* The client's "there is more text below" arrow. Only the FADE and the
+       click-through belong here — position, size and artwork stay theirs in
+       Webflow. pointer-events:none matters: the arrow sits over the description,
+       and a thumb landing on it would otherwise not scroll the text. */
+    .channels-cards .channel-card-arrow { transition:opacity .25s ease; pointer-events:none; }`;
   document.head.appendChild(st);
 }
 
@@ -403,18 +441,65 @@ const cards = rawCards.map((card, i) => {
   // Lenis hijacks the wheel and scrolls the page instead of the card).
   const scroller = card.querySelector('.channel-card-bot') || card;
   scroller.setAttribute('data-lenis-prevent', '');
-  return { box, inner, scroller, card, img, index: i };
+  const arrow = card.querySelector('.channel-card-arrow');
+  // Their CSS may give the arrow a resting opacity below 1 (a soft hint rather
+  // than solid artwork), so capture it before we ever write to it and restore
+  // THAT on "shown" instead of forcing a hard 1. Reading it here is safe: an
+  // ancestor's opacity does not affect an element's own computed value. A base of
+  // 0 means it was authored hidden for JS to reveal, so fall back to 1 — otherwise
+  // the hint could never appear.
+  let arrowShown = arrow ? getComputedStyle(arrow).opacity : '1';
+  if (!(parseFloat(arrowShown) > 0.01)) arrowShown = '1';
+  return { box, inner, scroller, card, img, arrow, arrowShown, index: i };
 });
 
 // Card `src` is assigned with the field preload, not at build time, so the three
 // card images don't download while the viewer is still on an earlier section.
 function primeCardImages() {
   for (const c of cards) {
-    const src = CARD_URLS[c.index];
+    // Webflow config wins, so the fronts can be reordered without a redeploy.
+    const src = (CFG.cardImages && CFG.cardImages[c.index]) || CARD_URLS[c.index];
     if (!src) continue;
     c.img.src = src;
-    // Auto-fill the avatar (img inside the card) too, when its src is empty.
-    c.card.querySelectorAll('img').forEach(im => { if (!im.getAttribute('src')) im.src = src; });
+    // Auto-fill the avatar (img inside the card) too, when its src is empty. The
+    // arrow is excluded — it is the client's own artwork, not a channel photo.
+    c.card.querySelectorAll('img:not(.channel-card-arrow)')
+      .forEach(im => { if (!im.getAttribute('src')) im.src = src; });
+  }
+}
+
+// ─── "More text below" arrow ─────────────────────────────────────────────────
+// The client's `.channel-card-arrow` hints that the description scrolls, so it has
+// to disappear once the text has actually been read and come back on scrolling up.
+// Driven off the scroller's own position rather than the scene timeline, so it is
+// exact. It also stays hidden on a description short enough to fit — an arrow
+// pointing at nothing reads as a broken control.
+function updateArrow(c) {
+  if (!c.arrow) return;
+  const s = c.scroller;
+  const scrollable = s.scrollHeight - s.clientHeight;
+  // 2px of slack both ways: scrollHeight/clientHeight are fractional at non-integer
+  // zoom and DPR, so a fully-scrolled element commonly still reports ~0.5px left.
+  const more = scrollable > 2 && scrollable - s.scrollTop > 2;
+  c.arrow.style.opacity = more ? c.arrowShown : '0';
+}
+
+for (const c of cards) {
+  if (!c.arrow) continue;
+  c.scroller.addEventListener('scroll', () => updateArrow(c), { passive: true });
+  updateArrow(c);
+}
+// One ResizeObserver instead of a pile of load/resize hooks: whether there is
+// anything left to scroll changes when a webfont swaps in, when the avatar image
+// lands, and on every viewport change. Watching both the scroll port and its
+// content covers all three — clientHeight from the former, scrollHeight from the
+// latter.
+if ('ResizeObserver' in window && cards.some(c => c.arrow)) {
+  const ro = new ResizeObserver(() => { for (const c of cards) updateArrow(c); });
+  for (const c of cards) {
+    if (!c.arrow) continue;
+    ro.observe(c.scroller);
+    for (const child of c.scroller.children) ro.observe(child);
   }
 }
 
@@ -430,6 +515,7 @@ function driveCard(c, lp) {
   if (lp <= 0 || lp >= 1) {
     if (c.box.style.visibility !== 'hidden') {
       c.box.style.opacity = '0'; c.box.style.visibility = 'hidden'; c.scroller.scrollTop = 0;
+      updateArrow(c);   // rewound to the top → the hint is due back for next time
     }
     return;
   }

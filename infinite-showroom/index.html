@@ -83,6 +83,18 @@
       }
       .channel-card-bot::-webkit-scrollbar { display: none; }   /* Chrome / Safari */
       .channel-card-description { color: #333; text-align: center; font-size: 12px; line-height: 1.5; }
+
+      /* "There is more text below" hint. Position/size/artwork are yours; the
+         script only FADES it — out when the description is scrolled to the end,
+         back in when you scroll up, and it stays hidden entirely when the text
+         is short enough to fit. It is also made click-through so a thumb landing
+         on it still scrolls the text. */
+      .channel-card-arrow {
+        position: absolute;
+        left: 50%; transform: translateX(-50%);
+        bottom: clamp(10px, calc(10 / 1720 * 100vw), calc(10 / 1720 * 100vw));
+        width: 14px; height: 9px; display: block;
+      }
     </style>
 
     <!-- ─── Webflow-editable config (scene settings only) ─────────────────────
@@ -96,6 +108,10 @@
         // parallax:   5.0,      maxTexture: 768,
         // preloadMargin: '150%',          // how early images start downloading
         // images: [ '...url...', ... ],   // optional — else src/images/field/*
+        // Card FRONT images in card order. Set this to reorder or swap the fronts
+        // from Webflow, with no code change or redeploy. Empty = the bundled set
+        // in main.js's CARD_ORDER (currently Caylus → Stokes Twins → Ethan).
+        // cardImages: [ '...caylus.webp', '...stokes.webp', '...ethan.webp' ],
       };
     </script>
   </head>
@@ -105,6 +121,12 @@
          `data-lenis-prevent` lets the card scroll natively under Lenis. -->
     <div class="channels-universe">
       <div class="channels-sticky">
+        <!-- CARD ORDER MATTERS. The front images come from `CARD_ORDER` in
+             main.js and are matched to these cards by POSITION, so the 1st card
+             here gets the 1st name in that list. Reordering the cards in Webflow
+             means reordering CARD_ORDER too (or setting SHOWROOM_CONFIG.cardImages
+             above, which overrides it without a redeploy).
+             Current order: Caylus → Stokes Twins → Ethan. -->
         <div class="channels-cards">
           <div class="channel-card" data-card="0">
             <div class="channel-card-top">
@@ -114,26 +136,31 @@
             <div class="channel-card-bot" data-lenis-prevent>
               <div class="channel-card-description">Caylus initially approached us to fully manage a clipping channel for his gaming content. Within just one month of launch, we had grown the channel to well over 100,000 subscribers. After seeing its success, he entrusted us with launching and managing a clipping channel for his reaction content, which quickly became another major success, amassing over 100 million views in a single month. Over the past three years, our partnership has expanded to fully managing 10 of Caylus' social media accounts, including clip channels, Top Videos channels, TikTok, and Instagram. During that time, our content has generated over 1 billion views while consistently growing his audience across every platform.</div>
             </div>
+            <img class="channel-card-arrow" alt="" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23111' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
           </div>
 
           <div class="channel-card" data-card="1">
             <div class="channel-card-top">
               <img class="channel-card-img" alt="">
-              <div class="channel-card-name">ETHAN SCHULTEIS · 5M<span class="channel-card-span">SUBSCRIBERS</span></div>
+              <div class="channel-card-name">STOKES TWINS · 140M<span class="channel-card-span">SUBSCRIBERS</span></div>
             </div>
             <div class="channel-card-bot" data-lenis-prevent>
-              <div class="channel-card-description">Placeholder description — edit this text in Webflow. Short copy sits comfortably; long copy scrolls inside the card without a scrollbar.</div>
+              <div class="channel-card-description">When we began working with the Stokes Twins, they had just surpassed 20 million subscribers. We edited both their long-form and short-form content before eventually taking the lead on editing their Shorts. During our time with the channel, we edited dozens of Shorts that amassed over 3 billion views. Those videos contributed to one of the largest subscriber growth periods for a single channel in YouTube history, helping drive over 100 million new subscribers.</div>
             </div>
+            <img class="channel-card-arrow" alt="" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23111' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
           </div>
 
+          <!-- Deliberately SHORT copy: exercises the "text fits, so no arrow at
+               all" branch. The live Webflow copy is long and does show one. -->
           <div class="channel-card" data-card="2">
             <div class="channel-card-top">
               <img class="channel-card-img" alt="">
-              <div class="channel-card-name">STOKES TWINS · 60M<span class="channel-card-span">SUBSCRIBERS</span></div>
+              <div class="channel-card-name">ETHAN · 4M<span class="channel-card-span">SUBSCRIBERS</span></div>
             </div>
             <div class="channel-card-bot" data-lenis-prevent>
-              <div class="channel-card-description">Placeholder description — edit this text in Webflow.</div>
+              <div class="channel-card-description">Short copy sits comfortably and needs no scroll hint.</div>
             </div>
+            <img class="channel-card-arrow" alt="" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23111' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
           </div>
         </div>
       </div>
