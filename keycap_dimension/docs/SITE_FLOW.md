@@ -22,7 +22,7 @@ Vercel.
 | Webflow sau cod? | **COD** (răsturnată pe 2026-09-17; era „Webflow") | Animațiile de DOM depind de unde ești în pagină, iar scena știe deja asta în fiecare cadru. În Webflow ar fi trebuit dublată starea prin clase — două surse de adevăr pentru același lucru, plus nume de clase de ținut sincronizate manual. Argumentul vechi (PDF-ul e dominat de text/HUD) rămâne valabil, dar nu bate asta. |
 | Cu build sau fișiere pure? | **Vite** | Închide două din cele patru puncte blocante din auditul de compatibilitate (§`THREEJS_HANDOFF`): three, lenis și decoderul Draco vin acum din npm / `public/`, nu de pe unpkg + gstatic, deci un proxy corporate nu mai omoară site-ul. Vercel detectează Vite fără configurare. |
 | Iframe sau embed DOM? | **Embed DOM direct** | Tot site-ul e condus de scroll: modulul are nevoie de `window.scrollY` al paginii reale, iar într-un iframe cross-origin asta cere `postMessage`. Plus textul stă PESTE 3D în PDF. |
-| Deploy | **Vercel**, Root Directory = `web/` | Decizia userului, 2026-09-17. Înlocuiește GitHub Pages + jsDelivr. |
+| Deploy | **Vercel**, Root Directory = `keycap_dimension/web` (monorepo `atwww-threejs-scenes`) | Decizia userului, 2026-09-17. Înlocuiește GitHub Pages + jsDelivr. |
 | Un GLB sau trei? | **Trei GLB-uri, UN canvas** | Vezi §2. |
 
 ### ⚠️ Continuitatea vine din renderer, nu din geometrie
