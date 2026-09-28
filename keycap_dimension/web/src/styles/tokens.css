@@ -1,0 +1,144 @@
+/* Tokenii de design: singurul loc unde se scriu culori, fonturi și dimensiuni.
+   Totul din CSS-ul de mai jos și din secțiuni citește DE AICI, nu valori scrise pe loc.
+
+   ⚠️ SCARA DE DIMENSIUNI. Toate mărimile din machetă sunt date în px la o lățime de
+   referință de 1720 px și se scriu cu formula cerută de user:
+       clamp( Npx, N/1720*100vw, N/1720*100vw )
+   Adică 1 px din machetă = 0.0581395vw. Preferata și maximul sunt EGALE, deci formula e
+   echivalentă cu `max(Npx, N*0.0581395vw)`: sub 1720 px lățime textul rămâne fix la N px,
+   iar peste 1720 crește odată cu ecranul. Nu o „simplifica" la un simplu vw — ai pierde
+   pragul de jos, iar pe laptopuri de 1440 totul s-ar micșora.
+
+   ⚠️ Culorile SCENEI 3D nu sunt aici — ele sunt calibrate pe pixeli în
+   `src/scene/index.js` și documentate în `docs/THREEJS_HANDOFF.md` §7bis. Dacă schimbi
+   `--c-bg` fără să schimbi și `BG` din scenă, fundalul paginii nu se mai potrivește cu
+   fundalul canvas-ului. */
+:root {
+  /* ---- culori ---- */
+  /* #04100f e fundalul paginii, ales să se potrivească cu `BG` al scenei
+     (linear 0.01628 / 0.04684 / 0.04060). */
+  --c-bg:        #04100f;
+  --c-bg-pl:     #051b1c;   /* stratul de preloader */
+  /* ⚠️ `--c-bg` la 55%, scris ca rgba, nu calculat cu `color-mix`. Safari are `color-mix`
+     abia din 16.2, iar acolo o declarație cu el nu „degradează": se aruncă TOATĂ regula,
+     deci poarta de mobil ar fi rămas fără imaginea de fundal. Se ține manual în acord cu
+     `--c-bg`, exact ca `--c-bg` cu `BG` din scenă. */
+  --c-bg-55:     rgba(4, 16, 15, 0.55);
+  --c-ink:       #ffffff;
+  --c-ink-20:    rgba(255, 255, 255, 0.20);   /* conturul pătratului de „info" */
+  --c-ink-40:    rgba(255, 255, 255, 0.40);   /* paragrafe */
+  --c-ink-50:    rgba(255, 255, 255, 0.50);   /* liniuțele din nav */
+  --c-accent:    #5cff9d;   /* același verde ca al conturului din actul de pași */
+  --c-mint:      #20e7b7;   /* conturul preloaderului; refolosit pe desenul din 404 */
+
+  /* ---- tipografie ---- */
+  --font-display: 'Familjen Grotesk', system-ui, sans-serif;
+  --font-mono:    'Martian Mono', ui-monospace, Menlo, monospace;
+  --font-body:    var(--font-mono);
+  /* ⚠️ Fontul paragrafului din footer, cerut de user: NimbusSanL.
+     NU se poate self-hosta încă — nu există pe npm (`nimbus-sans`, `@fontsource/
+     nimbus-sans`, `urw-base35`: toate 404) și nu e instalat pe mașină. Până vine fișierul,
+     lista de rezervă e METRIC-COMPATIBILĂ: Nimbus Sans L e o variantă de Helvetica, iar
+     Arial are aceleași metrici, deci literele cad la fel de lat pe macOS și pe Windows.
+     Când primim woff2-ul, se adaugă un `@font-face` în `fonts.css` și nimic altceva nu se
+     schimbă — numele e deja primul în listă. */
+  --font-foot:    'Nimbus Sans L', 'Nimbus Sans', Helvetica, Arial, sans-serif;
+
+  /* titluri: line-height 90%, letter-spacing -0.06em, alb */
+  --fs-h1:        clamp(70px, 4.06977vw, 4.06977vw);
+  --fs-h1-brk:    clamp(64px, 3.72093vw, 3.72093vw);   /* cuvântul dintre [ ] */
+  --fs-h2:        clamp(60px, 3.48837vw, 3.48837vw);
+  --fs-h2-brk:    clamp(54px, 3.13953vw, 3.13953vw);
+  --lh-head:      0.9;
+  --ls-head:      -0.06em;
+
+  /* paragrafe: 12px, line-height 150%, letter-spacing 0 */
+  --fs-body:      clamp(12px, 0.69767vw, 0.69767vw);
+  --lh-body:      1.5;
+
+  /* info din nav: 10px, light, line-height 113%, letter-spacing -0.01em, majuscule */
+  --fs-nav:       clamp(10px, 0.58139vw, 0.58139vw);
+  --lh-nav:       1.13;
+  --ls-nav:       -0.01em;
+
+  /* ---- ritm ---- */
+  --pad-nav:      clamp(20px, 1.16279vw, 1.16279vw);   /* sus + stânga/dreapta în nav */
+  --logo-w:       clamp(70px, 4.06977vw, 4.06977vw);
+  --hero-left:    clamp(115px, 6.68605vw, 6.68605vw);  /* h1 față de marginea stângă */
+  --tick-gap:     clamp(20px, 1.16279vw, 1.16279vw);   /* între două liniuțe */
+  /* 5.32 px e lungimea trasăturii din Figma (`stroke` de 5.32422), nu o valoare rotundă
+     aleasă de noi. Lățimea e 2 px: în machetă trasătura are lățime 0 (e un `stroke`),
+     iar 1 px nu se poate desena identic peste tot — vezi nota din `sections.css`. */
+  --tick-h:       clamp(5.32px, 0.30930vw, 0.30930vw);
+  --tick-w:       clamp(2px,    0.11628vw, 0.11628vw);
+  --tick-text:    clamp(13px, 0.75581vw, 0.75581vw);   /* liniuțe ↔ text */
+  /* ---- footer: măsurile din machetă ---- */
+  --outro-left:   clamp(122px,    7.09302vw, 7.09302vw);   /* titlu ↔ marginea stângă */
+  --outro-p-left: clamp(166.61px, 9.68663vw, 9.68663vw);   /* paragraf ↔ marginea stângă */
+  --gap-outro:    clamp(65.3px,   3.79651vw, 3.79651vw);   /* titlu ↔ paragraf */
+  --outro-p-max:  clamp(227.8px,  13.24419vw, 13.24419vw); /* lățimea paragrafului */
+  --lh-foot:      1.23;      /* 123% */
+  --ls-foot:      -0.02em;
+
+  /* ---- pătratul de „info" de după ABOUT ---- */
+  --info-w:       clamp(16.47px, 0.95756vw, 0.95756vw);
+  --info-h:       clamp(16px,    0.93023vw, 0.93023vw);
+  --info-r:       clamp(3.5px,   0.20349vw, 0.20349vw);
+  --info-bd:      clamp(0.5px,   0.02907vw, 0.02907vw);
+  --info-ico-w:   clamp(4px,     0.23256vw, 0.23256vw);   /* SVG-ul dinăuntru, 4x8 */
+  --info-ico-h:   clamp(8px,     0.46512vw, 0.46512vw);
+  --gap-about:    clamp(5px,     0.29070vw, 0.29070vw);   /* ABOUT ↔ pătrat */
+  --gap-nav-right:clamp(16px,    0.93023vw, 0.93023vw);   /* S.001 ↔ ABOUT */
+
+  /* ⚠️ LĂȚIMILE MAXIME SE SCRIU TOT CU CLAMP, ca orice altă dimensiune. Prima versiune
+     avea `max-width: min(64ch, 70vw)` pe hero, iar `ch` se calculează pe fontul
+     ELEMENTULUI care poartă regula — `.hero`, adică 16 px moșteniți, nu cei 70 px ai
+     titlului. Ieșea 512 px FIX la orice lățime, în timp ce titlul crește cu vw peste
+     1720: măsurat la 2560 px, linia lungă are nevoie de 738 px și intra pe TREI rânduri
+     în loc de două. 560 px de machetă lasă 64 px peste linia cea mai lată (496 px la
+     1720 px, măsurat), deci împărțirea rămâne cea din `<br>` la orice lățime. */
+  --hero-max:     clamp(560px,   32.55814vw, 32.55814vw);
+
+  /* ---- About (V2.pdf) ----
+     ⚠️ Valorile sunt citite de pe CAPTURA machetei, nu din Figma (n-am avut fișierul):
+     cadrul de 1440 randat la 1456, deci fiecare cotă a fost împărțită la 1.011.
+     De verificat cu userul și reglat de aici. */
+  --c-about-deep: #052a28;                   /* „i"-ul pe pătratul alb */
+  /* BACK: #ABE52D la 10%, 20% la hover — valorile userului */
+  --c-back-bg:    rgba(171, 229, 45, 0.10);
+  --c-back-bg-h:  rgba(171, 229, 45, 0.20);
+  --c-about-veil: rgba(5, 42, 40, 0.72);     /* voalul verde peste scena blurată */
+  --c-ink-70:     rgba(255, 255, 255, 0.70); /* paragrafele din About */
+  --about-blur:   28px;
+  --about-left:   clamp(54px,  3.13953vw, 3.13953vw);   /* titlul ↔ marginea stângă */
+  --about-indent: clamp(80px,  4.65116vw, 4.65116vw);   /* rândul 2 al titlului */
+  --about-top:    clamp(172px, 10.0000vw, 10.0000vw);   /* titlul, de sus */
+  /* textul, de sus. ⚠️ Separat de titlu: cu același `top`, majusculele primului rând
+     cădeau cu 5 px mai sus decât în machetă (177 vs 182), pentru că rândul de 20 px are
+     mai puțin spațiu deasupra literelor decât cel de 63 al titlului. */
+  --about-txt-top:clamp(177px, 10.29070vw, 10.29070vw);
+  --about-txt-w:  clamp(404px, 23.48837vw, 23.48837vw); /* coloana de text, centrată */
+  --fs-about:     clamp(14px,  0.81395vw, 0.81395vw);
+  --lh-about:     1.43;                                 /* 20 px pe 14 */
+  --gap-about-p:  clamp(40px,  2.32558vw, 2.32558vw);   /* între paragrafe */
+  /* ⚠️ 14, nu 13: la 13 blocul ieșea 118 px lat față de 128.6 în machetă */
+  --fs-mid-b:     clamp(14px,  0.81395vw, 0.81395vw);   /* ANATOMY of A CLICK */
+  --of-size:      clamp(15px,  0.87209vw, 0.87209vw);
+  --crumb-gap:    clamp(12px,  0.69767vw, 0.69767vw);   /* logo / ABOUT US / BACK */
+  --back-h:       clamp(20px,  1.16279vw, 1.16279vw);
+  --back-px:      clamp(8px,   0.46512vw, 0.46512vw);
+  --fs-back:      clamp(8px,   0.46512vw, 0.46512vw);
+  --back-ico:     clamp(12px,  0.69767vw, 0.69767vw);
+
+  /* ---- mișcare ---- */
+  /* easeOutQuart, ceruta de user pentru hover-uri. E aceeasi curba cu `easeOutQuart` din
+     scena (reveal-ul), doar scrisa in limbajul CSS. */
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --hover-ms: 400ms;
+
+  --z-canvas: 0;
+  --z-content: 1;
+  --z-preloader: 2;
+  --z-nav: 4;
+  --z-dbg: 5;
+}

@@ -1,0 +1,439 @@
+{
+  "_readme": "Rig spec for three.js. glTF cannot carry Blender drivers, so reproduce the sliders in code with this data. Node names match the GLB.",
+  "lift": {
+    "axis_worldZ_local": [
+      0.0,
+      -0.0872,
+      0.9962
+    ],
+    "note_axis": "Both keycaps and their paired switch move along THIS unit axis (switch's local Z, 5deg tilt). Keeps each pair colinear.",
+    "height_meters": 0.109,
+    "center_key_number": "087",
+    "center_factor": 2.6,
+    "formula": "node.position = restPosition + axis_threejs_Yup * (sliderLift[0..1] * height_meters * factor)",
+    "keycap_factors": {
+      "key_cap.038": 0.978,
+      "key_cap.039": 0.636,
+      "key_cap.040": 0.355,
+      "key_cap.041": 0.942,
+      "key_cap.042": 0.961,
+      "key_cap.043": 0.728,
+      "key_cap.044": 0.787,
+      "key_cap.045": 0.405,
+      "key_cap.046": 0.848,
+      "key_cap.047": 0.504,
+      "key_cap.048": 0.37,
+      "key_cap.049": 0.863,
+      "key_cap.050": 0.575,
+      "key_cap.051": 0.755,
+      "key_cap.052": 0.75,
+      "key_cap.054": 0.447,
+      "key_cap.055": 0.469,
+      "key_cap.056": 0.424,
+      "key_cap.057": 0.36,
+      "key_cap.058": 0.666,
+      "key_cap.059": 0.977,
+      "key_cap.060": 0.392,
+      "key_cap.061": 0.702,
+      "key_cap.062": 0.653,
+      "key_cap.063": 0.741,
+      "key_cap.064": 0.408,
+      "key_cap.065": 0.726,
+      "key_cap.066": 0.525,
+      "key_cap.067": 0.712,
+      "key_cap.068": 0.769,
+      "key_cap.069": 0.663,
+      "key_cap.070": 0.581,
+      "key_cap.071": 0.512,
+      "key_cap.072": 0.957,
+      "key_cap.073": 0.645,
+      "key_cap.074": 0.695,
+      "key_cap.075": 0.363,
+      "key_cap.076": 0.68,
+      "key_cap.077": 0.354,
+      "key_cap.078": 0.443,
+      "key_cap.079": 0.657,
+      "key_cap.080": 0.595,
+      "key_cap.081": 0.385,
+      "key_cap.082": 0.732,
+      "key_cap.083": 0.457,
+      "key_cap.084": 0.712,
+      "key_cap.085": 0.444,
+      "key_cap.086": 0.959,
+      "key_cap.087": 2.6,
+      "key_cap.088": 0.851,
+      "key_cap.089": 0.972,
+      "key_cap.090": 0.442,
+      "key_cap.091": 0.549,
+      "key_cap.092": 0.376,
+      "key_cap.093": 0.53,
+      "key_cap.094": 0.874,
+      "key_cap.095": 0.465,
+      "key_cap.096": 0.45,
+      "key_cap.097": 0.971,
+      "key_cap.098": 0.45,
+      "key_cap.099": 0.892,
+      "key_cap.100": 0.377,
+      "key_cap.101": 0.601,
+      "key_cap.102": 0.577,
+      "key_cap.103": 0.572,
+      "key_cap.104": 0.881,
+      "key_cap.105": 0.659,
+      "key_cap.106": 0.859,
+      "key_cap.107": 0.656,
+      "key_cap.108": 0.881,
+      "key_cap.109": 0.923,
+      "key_cap.110": 0.636,
+      "key_cap.111": 0.858,
+      "key_cap.112": 0.88,
+      "key_cap.113": 0.542,
+      "key_cap.114": 0.431,
+      "key_cap.115": 0.471,
+      "key_cap.116": 0.633,
+      "key_cap.117": 0.428,
+      "key_cap.118": 0.694,
+      "key_cap.119": 0.889,
+      "key_cap.120": 0.665,
+      "key_cap.121": 0.882,
+      "key_cap.122": 0.777
+    },
+    "switch_factors": {
+      "SW_038": 0.978,
+      "SW_039": 0.636,
+      "SW_040": 0.355,
+      "SW_041": 0.942,
+      "SW_042": 0.961,
+      "SW_043": 0.728,
+      "SW_044": 0.787,
+      "SW_045": 0.405,
+      "SW_046": 0.848,
+      "SW_047": 0.504,
+      "SW_048": 0.37,
+      "SW_049": 0.863,
+      "SW_050": 0.575,
+      "SW_051": 0.755,
+      "SW_052": 0.75,
+      "SW_054": 0.447,
+      "SW_055": 0.469,
+      "SW_056": 0.424,
+      "SW_057": 0.36,
+      "SW_058": 0.666,
+      "SW_059": 0.977,
+      "SW_060": 0.392,
+      "SW_061": 0.702,
+      "SW_062": 0.653,
+      "SW_063": 0.741,
+      "SW_064": 0.408,
+      "SW_065": 0.726,
+      "SW_066": 0.525,
+      "SW_067": 0.712,
+      "SW_068": 0.769,
+      "SW_069": 0.663,
+      "SW_070": 0.581,
+      "SW_071": 0.512,
+      "SW_072": 0.957,
+      "SW_073": 0.645,
+      "SW_074": 0.695,
+      "SW_075": 0.363,
+      "SW_076": 0.68,
+      "SW_077": 0.354,
+      "SW_078": 0.443,
+      "SW_079": 0.657,
+      "SW_080": 0.595,
+      "SW_081": 0.385,
+      "SW_082": 0.732,
+      "SW_083": 0.457,
+      "SW_084": 0.712,
+      "SW_085": 0.444,
+      "SW_086": 0.959,
+      "SW_087": 2.6,
+      "SW_088": 0.851,
+      "SW_089": 0.972,
+      "SW_090": 0.442,
+      "SW_091": 0.549,
+      "SW_092": 0.376,
+      "SW_093": 0.53,
+      "SW_094": 0.874,
+      "SW_095": 0.465,
+      "SW_096": 0.45,
+      "SW_097": 0.971,
+      "SW_098": 0.45,
+      "SW_099": 0.892,
+      "SW_100": 0.377,
+      "SW_101": 0.601,
+      "SW_102": 0.577,
+      "SW_103": 0.572,
+      "SW_104": 0.881,
+      "SW_105": 0.659,
+      "SW_106": 0.859,
+      "SW_107": 0.656,
+      "SW_108": 0.881,
+      "SW_109": 0.923,
+      "SW_110": 0.636,
+      "SW_111": 0.858,
+      "SW_112": 0.88,
+      "SW_113": 0.542,
+      "SW_114": 0.431,
+      "SW_115": 0.471,
+      "SW_116": 0.633,
+      "SW_117": 0.428,
+      "SW_118": 0.694,
+      "SW_119": 0.889,
+      "SW_120": 0.665,
+      "SW_121": 0.882,
+      "SW_122": 0.777
+    },
+    "axis_threejs_Yup": [
+      0.0,
+      0.9962,
+      0.0872
+    ]
+  },
+  "explode_center_switch": {
+    "parent_node": "SW_087",
+    "parent_scale_z": 0.36,
+    "spacing_meters_world": 0.025,
+    "parts_bottom_to_top": [
+      "Solid 372.002",
+      "Solid 193.002",
+      "Solid 87.002",
+      "Solid 368.002",
+      "Pipe.001",
+      "Solid 154.001",
+      "Solid 208.002"
+    ],
+    "formula_world": "partWorldPos = restWorld + axis_threejs_Yup * (sliderExplode[0..1] * spacing_meters_world * indexInList)",
+    "note_if_local": "Parts are children of SW_087 (scale 0.36). If moving in LOCAL space, divide spacing by that scale."
+  },
+  "lighting_reference_NOT_in_glb": {
+    "lights": [
+      {
+        "name": "Area",
+        "type": "AREA",
+        "energy": 6.561,
+        "color": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "location": [
+          0.057,
+          0.014,
+          1.166
+        ],
+        "rotation_euler_deg": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": 0.87,
+        "specular_factor": 1.0
+      },
+      {
+        "name": "S1_key",
+        "type": "AREA",
+        "energy": 144.6,
+        "color": [
+          0.75,
+          1.0,
+          0.88
+        ],
+        "location": [
+          -2.306,
+          -0.1,
+          1.45
+        ],
+        "rotation_euler_deg": [
+          76.96,
+          1.42,
+          -82.13
+        ],
+        "size": 0.9,
+        "specular_factor": 0.0
+      },
+      {
+        "name": "S1_rim",
+        "type": "AREA",
+        "energy": 114.6,
+        "color": [
+          0.6,
+          1.0,
+          0.85
+        ],
+        "location": [
+          2.273,
+          0.324,
+          0.908
+        ],
+        "rotation_euler_deg": [
+          84.92,
+          -6.33,
+          104.13
+        ],
+        "size": 0.6,
+        "specular_factor": 0.0
+      },
+      {
+        "name": "S2_back",
+        "type": "AREA",
+        "energy": 150.0,
+        "color": [
+          0.7,
+          1.0,
+          0.85
+        ],
+        "location": [
+          0.0,
+          0.575,
+          1.55
+        ],
+        "rotation_euler_deg": [
+          56.42,
+          0.0,
+          180.0
+        ],
+        "size": 1.4,
+        "specular_factor": 0.0
+      },
+      {
+        "name": "S2_fill",
+        "type": "AREA",
+        "energy": 40.1,
+        "color": [
+          0.6,
+          1.0,
+          0.85
+        ],
+        "location": [
+          0.0,
+          -1.05,
+          1.05
+        ],
+        "rotation_euler_deg": [
+          74.74,
+          -0.0,
+          0.0
+        ],
+        "size": 1.2,
+        "specular_factor": 0.0
+      },
+      {
+        "name": "S4_fill",
+        "type": "AREA",
+        "energy": 3.3,
+        "color": [
+          0.6,
+          1.0,
+          0.85
+        ],
+        "location": [
+          -0.9,
+          -0.2,
+          1.1
+        ],
+        "rotation_euler_deg": [
+          70.64,
+          -0.0,
+          -81.16
+        ],
+        "size": 1.0,
+        "specular_factor": 0.0
+      },
+      {
+        "name": "S4_rake",
+        "type": "AREA",
+        "energy": 41.3,
+        "color": [
+          0.75,
+          1.0,
+          0.88
+        ],
+        "location": [
+          0.95,
+          -0.85,
+          0.98
+        ],
+        "rotation_euler_deg": [
+          80.81,
+          -0.0,
+          50.25
+        ],
+        "size": 0.8,
+        "specular_factor": 0.0
+      },
+      {
+        "name": "Top_front",
+        "type": "AREA",
+        "energy": 7.53,
+        "color": [
+          0.72,
+          1.0,
+          0.84
+        ],
+        "location": [
+          0.0,
+          -1.2,
+          1.45
+        ],
+        "rotation_euler_deg": [
+          50.83,
+          -0.0,
+          0.0
+        ],
+        "size": 2.2,
+        "specular_factor": 0.0
+      },
+      {
+        "name": "Top_main",
+        "type": "AREA",
+        "energy": 36.78,
+        "color": [
+          0.72,
+          1.0,
+          0.84
+        ],
+        "location": [
+          0.24,
+          -0.3,
+          2.1
+        ],
+        "rotation_euler_deg": [
+          9.4,
+          0.0,
+          45.0
+        ],
+        "size": 1.5,
+        "specular_factor": 0.0
+      }
+    ],
+    "world_color_linear": [
+      0.005,
+      0.034,
+      0.017,
+      1.0
+    ],
+    "world_strength": 0.18,
+    "view_transform": "Filmic",
+    "look": "Very High Contrast",
+    "exposure": -0.9,
+    "note": "glTF drops Area lights + world + color grading. Recreate in three.js: dark scene, deep green ambient/world, negative tone-mapping exposure, high contrast."
+  },
+  "camera": {
+    "location": [
+      0.047,
+      -0.345,
+      2.352
+    ],
+    "rotation_euler_deg": [
+      13.8,
+      0.0,
+      -0.0
+    ],
+    "lens_mm": 45.0
+  },
+  "coordinate_system": {
+    "glb_export": "Y-up (three.js standard)",
+    "blender_to_threejs": "(x, y, z)_blender -> (x, z, -y)_threejs",
+    "note": "Use axis_threejs below for node motion. Positions in lighting/camera sections are Blender Z-up; convert the same way."
+  }
+}

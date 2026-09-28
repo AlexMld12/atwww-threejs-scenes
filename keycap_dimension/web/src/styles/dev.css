@@ -1,0 +1,7 @@
+/* Readout minim, ASCUNS implicit. `?dbg=1` îl aprinde — îl folosesc la verificare,
+   dar pagina trebuie să arate ca în site, deci nu apare fără să-l ceri. */
+#dbg { position: fixed; left: 10px; bottom: 10px; z-index: 5; display: none;
+       font: 11px/1.6 ui-monospace, Menlo, monospace; color: #7fbfb2;
+       background: rgba(4,16,15,.72); padding: 6px 9px; border-radius: 6px;
+       white-space: pre; pointer-events: none; }
+body.dbg #dbg { display: block; }

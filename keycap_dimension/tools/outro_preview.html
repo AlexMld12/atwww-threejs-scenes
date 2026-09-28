@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Keycap — Outro (câmp de taste)</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#04100f;
+              font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#e6f2f0; }
+  #app { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  #stats { position:fixed; top:12px; left:12px; z-index:3; display:flex; gap:15px;
+           background:rgba(8,20,19,.78); backdrop-filter:blur(12px);
+           border:1px solid rgba(120,255,215,.14); border-radius:10px; padding:8px 12px; }
+  #stats .lbl { color:#7fbfb2; font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+  #stats b { color:#20e7b7; font-variant-numeric:tabular-nums; }
+  #stats b.warn { color:#ffb347; }
+
+  #bar { position:fixed; left:12px; right:300px; bottom:12px; z-index:3;
+         background:rgba(8,20,19,.82); backdrop-filter:blur(14px);
+         border:1px solid rgba(120,255,215,.14); border-radius:12px; padding:12px 14px;
+         display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #scrub { flex:1 1 260px; min-width:150px; accent-color:#20e7b7; }
+  button, select { background:rgba(32,231,183,.08); color:#d8f5ee; border:1px solid rgba(120,255,215,.22);
+           padding:7px 12px; border-radius:8px; cursor:pointer; font:inherit; }
+  button:hover { background:rgba(32,231,183,.18); }
+  button.on { background:#20e7b7; color:#04211c; border-color:#20e7b7; }
+  #tc { font-variant-numeric:tabular-nums; color:#7fbfb2; min-width:100px; }
+
+  #tune { position:fixed; top:12px; right:12px; bottom:12px; z-index:3; width:276px;
+          overflow-y:auto; background:rgba(8,20,19,.88); backdrop-filter:blur(14px);
+          border:1px solid rgba(120,255,215,.14); border-radius:12px; padding:12px; }
+  #tune h4 { margin:14px 0 6px; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+             color:#20e7b7; font-weight:600; border-top:1px solid rgba(120,255,215,.12); padding-top:10px; }
+  #tune h4:first-child { margin-top:0; border-top:0; padding-top:0; }
+  .row { display:grid; grid-template-columns:1fr 88px 44px; gap:7px; align-items:center; margin:5px 0; }
+  .row .lbl { color:#9dc9c0; font-size:11.5px; }
+  .row input[type=range] { width:100%; accent-color:#20e7b7; }
+  .row b { text-align:right; color:#cfeee6; font-variant-numeric:tabular-nums; font-weight:500; font-size:11.5px; }
+  .rowb { display:flex; justify-content:space-between; align-items:center; margin:6px 0; gap:8px; }
+  .rowb .lbl { color:#9dc9c0; font-size:11.5px; }
+  .rowb button { padding:4px 10px; font-size:11.5px; }
+  .note { color:#5f9a90; font-size:10.5px; margin-top:5px; line-height:1.35; }
+
+  #saved { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:5;
+           background:rgba(8,24,22,.97); border:1px solid #20e7b7; border-radius:12px;
+           padding:18px 22px; display:none; text-align:center; max-width:70vw; }
+  #saved a { color:#20e7b7; font-weight:600; display:block; margin:10px 0; word-break:break-all; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.176.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.176.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="stats">
+  <div><span class="lbl">FPS</span> <b id="fps">–</b></div>
+  <div><span class="lbl">Draw calls</span> <b id="calls">–</b></div>
+  <div><span class="lbl">Triunghiuri</span> <b id="tris">–</b></div>
+  <div><span class="lbl">Render/cadru</span> <b id="rpf">–</b></div>
+  <div><span class="lbl">Taste</span> <b id="keys">–</b></div>
+  <div><span class="lbl">Se apasă</span> <b id="act">–</b></div>
+</div>
+
+<div id="bar">
+  <button id="play">⏸ Pauză</button>
+  <input id="scrub" type="range" min="0" max="1000" value="0">
+  <span id="tc">0.00 / 0.00 s</span>
+  <button id="loopbtn" class="on">Loop</button>
+  <button id="cambtn" class="on">Cameră Blender</button>
+  <button id="png">⬇ PNG</button>
+  <select id="pngscale"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select>
+</div>
+
+<div id="tune">
+  <h4>Imagine</h4>
+  <div class="row"><span class="lbl">Exposure</span><input id="s_exp" type="range" min="0" max="250" value="54"><b id="v_exp">0.54</b></div>
+  <div class="row"><span class="lbl">Contrast</span><input id="s_con" type="range" min="50" max="250" value="108"><b id="v_con">1.08</b></div>
+  <div class="row"><span class="lbl">Saturație</span><input id="s_sat" type="range" min="0" max="200" value="80"><b id="v_sat">0.80</b></div>
+  <div class="row"><span class="lbl">Lift (negru)</span><input id="s_lift" type="range" min="-50" max="50" value="0"><b id="v_lift">0.00</b></div>
+  <div class="row"><span class="lbl">Câștig R</span><input id="s_gr" type="range" min="50" max="200" value="93"><b id="v_gr">0.93</b></div>
+  <div class="row"><span class="lbl">Câștig G</span><input id="s_gg" type="range" min="50" max="200" value="100"><b id="v_gg">1.00</b></div>
+  <div class="row"><span class="lbl">Câștig B</span><input id="s_gb" type="range" min="50" max="200" value="116"><b id="v_gb">1.16</b></div>
+
+  <h4>Vignetă</h4>
+  <div class="row"><span class="lbl">Intensitate</span><input id="s_vig" type="range" min="0" max="100" value="20"><b id="v_vig">0.20</b></div>
+  <div class="row"><span class="lbl">Întindere</span><input id="s_vgr" type="range" min="0" max="100" value="61"><b id="v_vgr">0.61</b></div>
+  <div class="row"><span class="lbl">Formă (rotunjire)</span><input id="s_vgp" type="range" min="200" max="800" value="400"><b id="v_vgp">4.00</b></div>
+
+  <h4>Noise</h4>
+  <!-- Aliniat cu intro-ul (2026-09-14, cererea userului): 0.18 -> 0.04 și 1.80 -> 2.00.
+       Duritatea (5.00) și culoarea (#9fe8d4) erau deja identice. -->
+  <div class="row"><span class="lbl">Intensitate</span><input id="s_nz" type="range" min="0" max="100" value="4"><b id="v_nz">0.04</b></div>
+  <div class="row"><span class="lbl">Granulație</span><input id="s_ng" type="range" min="50" max="600" value="200"><b id="v_ng">2.00</b></div>
+  <div class="row"><span class="lbl">Duritate</span><input id="s_np" type="range" min="100" max="900" value="500"><b id="v_np">5.00</b></div>
+  <div class="rowb"><span class="lbl">Animat pe cadru</span><button id="nzanim" class="on">DA</button></div>
+
+  <h4>Ceață</h4>
+  <div class="row"><span class="lbl">Densitate</span><input id="s_fog" type="range" min="0" max="500" value="212"><b id="v_fog">2.12</b></div>
+
+  <h4>Lumini (RectArea, din Blender)</h4>
+  <div class="row"><span class="lbl">Top_main</span><input id="s_l1" type="range" min="0" max="1200" value="0"><b id="v_l1">0.00</b></div>
+  <div class="row"><span class="lbl">Top_front</span><input id="s_l2" type="range" min="0" max="1200" value="0"><b id="v_l2">0.00</b></div>
+  <div class="row"><span class="lbl">Area (de sus)</span><input id="s_l3" type="range" min="0" max="1200" value="651"><b id="v_l3">6.51</b></div>
+  <div class="row"><span class="lbl">World (environment)</span><input id="s_amb" type="range" min="0" max="800" value="500"><b id="v_amb">5.00</b></div>
+
+  <h4>Tastare (continuă, în three.js)</h4>
+  <div class="rowb"><span class="lbl">Activă</span><button id="typebtn" class="on">DA</button></div>
+  <!-- Fracțiunea de taste apăsate la un moment dat. Înainte era „apăsări/s", care
+       nu putea exprima „aproape toate": la 4969 de taste, 200/s = 2% din câmp. -->
+  <div class="row"><span class="lbl">Taste apăsate</span><input id="s_tdt" type="range" min="0" max="99" value="85"><b id="v_tdt">0.85</b></div>
+  <div class="rowb"><span class="lbl">Doar cele vizibile</span><button id="cullbtn" class="on">DA</button></div>
+  <div class="row"><span class="lbl">Marjă vizibilitate (m)</span><input id="s_cmg" type="range" min="0" max="20" value="2"><b id="v_cmg">0.02</b></div>
+  <div class="row"><span class="lbl">Adâncime (mm)</span><input id="s_tdp" type="range" min="5" max="42" value="34"><b id="v_tdp">3.4</b></div>
+  <div class="row"><span class="lbl">Durata apăsării (s)</span><input id="s_tdu" type="range" min="10" max="150" value="50"><b id="v_tdu">0.50</b></div>
+  <div class="rowb"><span class="lbl">Rafală la impact</span><button id="burstbtn" class="on">DA</button></div>
+  <div class="row"><span class="lbl">Rafală: rază (cm)</span><input id="s_brd" type="range" min="5" max="100" value="42"><b id="v_brd">42</b></div>
+  <div class="row"><span class="lbl">Rafală: densitate</span><input id="s_bdn" type="range" min="0" max="100" value="90"><b id="v_bdn">0.90</b></div>
+  <div class="row"><span class="lbl">Moment impact (s)</span><input id="s_bti" type="range" min="0" max="950" value="738"><b id="v_bti">7.38</b></div>
+
+  <h4>Material taste</h4>
+  <div class="row"><span class="lbl">Mix Blender</span><input id="s_mix" type="range" min="0" max="100" value="100"><b id="v_mix">1.00</b></div>
+  <div class="row"><span class="lbl">Roughness</span><input id="s_rgh" type="range" min="0" max="100" value="64"><b id="v_rgh">0.64</b></div>
+  <div class="row"><span class="lbl">Env intensity</span><input id="s_env" type="range" min="0" max="500" value="300"><b id="v_env">3.00</b></div>
+  <div class="row"><span class="lbl">Relief (bump)</span><input id="s_bmp" type="range" min="0" max="100" value="26"><b id="v_bmp">0.26</b></div>
+  <div class="row"><span class="lbl">Relief: scară</span><input id="s_bsc" type="range" min="1" max="40" value="10"><b id="v_bsc">10</b></div>
+  <div class="row"><span class="lbl">Luminozitate legendă</span><input id="s_leg" type="range" min="0" max="300" value="100"><b id="v_leg">1.00</b></div>
+
+  <h4>Piese switch (culorile din intro)</h4>
+  <div class="row"><span class="lbl">Luminozitate</span><input id="s_swb" type="range" min="10" max="400" value="100"><b id="v_swb">1.00</b></div>
+  <!-- „Piese închise" = arcul și contactul metalic. În intro sunt #0A0C0C / #111A18,
+       practic invizibile; aici pornesc de la un negru mai deschis. Sliderul ridică
+       nivelul, luciul dă highlight-ul care le face lizibile fără să le albească. -->
+  <div class="row"><span class="lbl">Piese închise: nivel</span><input id="s_dlift" type="range" min="20" max="400" value="100"><b id="v_dlift">1.00</b></div>
+  <div class="row"><span class="lbl">Piese închise: luciu</span><input id="s_dgl" type="range" min="2" max="100" value="15"><b id="v_dgl">0.15</b></div>
+
+  <h4>Performanță</h4>
+  <div class="row"><span class="lbl">Rezoluție</span><input id="s_res" type="range" min="50" max="200" value="100"><b id="v_res">1.00</b></div>
+  <div class="row"><span class="lbl">Rază detaliu (cm)</span><input id="s_lod" type="range" min="0" max="80" value="24"><b id="v_lod">24</b></div>
+  <div class="rowb"><span class="lbl">Instanțiere taste</span><button id="instbtn" class="on">PORNIT</button></div>
+  <div class="note" id="instinfo">–</div>
+</div>
+
+<div id="saved">
+  <div>Imaginea e gata. Click pe link ca să o descarci:</div>
+  <a id="savedlink" download>–</a>
+  <button onclick="document.getElementById('saved').style.display='none'">Închide</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+const app = document.getElementById('app');
+
+// ---------------------------------------------------------------- renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+let resScale = 1.0;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2) * resScale);
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.51;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = false;
+// info se reseteaza la FIECARE renderer.render(); cu composer sunt mai multe pe
+// cadru, deci il resetam manual, o data pe cadru.
+renderer.info.autoReset = false;
+app.appendChild(renderer.domElement);
+
+// diagnostic: de cate ori chiar se randeaza scena intr-un cadru. Statisticile
+// aratau exact dublul triunghiurilor din GLB, deci vrem sa vedem numarul real.
+let renderCalls = 0, renderCallsShown = 0;
+const _render = renderer.render.bind(renderer);
+renderer.render = function (sc, cam) { renderCalls++; return _render(sc, cam); };
+
+// ---------------------------------------------------------------- scena
+const scene = new THREE.Scene();
+const BG = new THREE.Color().setRGB(0.01628, 0.04684, 0.04732, THREE.LinearSRGBColorSpace);
+scene.background = BG;
+scene.fog = new THREE.FogExp2(BG.getHex(), 2.12);
+
+// ---------------------------------------------------------------- lumini
+// Cele trei din Lights_0_Current sunt AREA in Blender. Intensitatea nu e in wati:
+// three.js vrea radianta, L = P / (A * pi). Cu shape=SQUARE, A = size^2.
+RectAreaLightUniformsLib.init();
+const LTINT = new THREE.Color().setRGB(0.72, 1.0, 0.84, THREE.SRGBColorSpace);
+function areaLight(pos, look, size, intensity, color) {
+  const l = new THREE.RectAreaLight(color, intensity, size, size);
+  l.position.set(pos[0], pos[1], pos[2]);
+  scene.add(l);
+  l.lookAt(look[0], look[1], look[2]);
+  return l;
+}
+// Blender (Z-up) -> three (Y-up):  (x,y,z) -> (x, z, -y)
+const L_main  = areaLight([0.2400, 2.1000,  0.3000], [0.1245, 1.1134, 0.1845], 1.50, 0.00, LTINT);
+const L_front = areaLight([0.0000, 1.4500,  1.2000], [0.0000, 0.8183, 0.4248], 2.20, 0.00, LTINT);
+// ⚠️ Culoarea: `LTINT`, nu `0xffffff`. În Blender lumina „Area" E albă (vezi
+// keycap_rig.json: color [1,1,1]), deci albul era fidel sursei — DAR e singura lumină
+// aprinsă aici (celelalte două sunt pe intensitate 0), iar intro-ul luminează totul cu
+// verdele-mentă `0xb8ffd6`. Cu alb, outro-ul ieșea vizibil mai rece decât intro-ul.
+// Schimbat la cererea explicită „același sentiment de culori ca în intro" (2026-09-14):
+// aici prioritatea e potrivirea cu intro-ul, nu fidelitatea față de Blender.
+const L_top   = areaLight([0.0572, 1.1663, -0.0139], [0.0572, 0.1663, -0.0139], 0.87, 6.51, LTINT);
+
+// World-ul din Blender e emisie plata = mediu uniform. Un AmbientLight n-ar da si
+// reflexie, deci generam un environment map PMREM din exact aceeasi culoare.
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envScene = new THREE.Scene();
+envScene.background = BG;
+scene.environment = pmrem.fromScene(envScene).texture;
+scene.environmentIntensity = 5.0;
+
+// ---------------------------------------------------------------- camere
+// Blender cu sensor_fit AUTO si aspect >= 1 fixeaza FOV-ul ORIZONTAL; glTF
+// stocheaza yfov pentru aspectul de la export, deci il recalculam la resize.
+const H_FOV = 2 * Math.atan(36 / (2 * 45));
+let blenderCam = null;
+const orbitCam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.005, 60);
+orbitCam.position.set(0.35, 0.95, 0.55);
+const controls = new OrbitControls(orbitCam, renderer.domElement);
+controls.target.set(-0.024, 0.78, -0.001);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+let useBlenderCam = true;
+const activeCam = () => (useBlenderCam && blenderCam) ? blenderCam : orbitCam;
+function applyAspect() {
+  const a = innerWidth / innerHeight;
+  for (const c of [blenderCam, orbitCam]) {
+    if (!c) continue;
+    c.aspect = a;
+    if (c === blenderCam) c.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(H_FOV / 2) / a));
+    c.updateProjectionMatrix();
+  }
+}
+
+// ---------------------------------------------------------------- post
+// Un singur pass de finisare: vigneta + gradare + noise. Asezat DUPA OutputPass,
+// deci lucreaza pe imaginea deja tone-mapata, in spatiu de afisare.
+const GradePass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    uVig: { value: 0.20 }, uVigR: { value: 0.61 }, uVigP: { value: 4.0 },
+    uNoise: { value: 0.04 }, uGrain: { value: 2.0 }, uPow: { value: 5.0 },
+    uTime: { value: 0 }, uContrast: { value: 1.08 }, uSat: { value: 0.80 }, uLift: { value: 0.0 },
+    // Câștig per canal, adus din preview.html. R și G sunt identice cu intro-ul, dar
+    // B e **1.16, nu 1.28**: în intro cifra aceea corectează texturile COAPTE, care au
+    // B sub G. Outro-ul are alte texturi, deci 1.28 nu corecta nimic — introducea un
+    // viraj spre albastru (măsurat: B/G ajungea 1.30 cu lumină albă, 1.12 cu lumină
+    // mentă, față de 1.016 în intro). 1.16 = 1.28 × (1.016/1.118), derivat din
+    // măsurătoare. Ținta e RAPORTUL intro-ului, care e stabil la 1.016 pe orice cadru,
+    // nu valoarea literală a sliderului.
+    uGainR: { value: 0.93 }, uGainG: { value: 1.0 }, uGainB: { value: 1.16 },
+    uRes: { value: new THREE.Vector2(1, 1) },
+    uNzCol: { value: new THREE.Color(0x9fe8d4) },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uVig, uVigR, uVigP, uNoise, uGrain, uPow, uTime, uContrast, uSat, uLift;
+    uniform float uGainR, uGainG, uGainB;
+    uniform vec2 uRes;
+    uniform vec3 uNzCol;
+    varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D( tDiffuse, vUv ).rgb;
+
+      // gradare simpla: lift pe negru, contrast in jurul lui 0.5, apoi saturatie
+      c += uLift;
+      c = ( c - 0.5 ) * uContrast + 0.5;
+      float l = dot( c, vec3( 0.2126, 0.7152, 0.0722 ) );
+      c = mix( vec3( l ), c, uSat );
+
+      // balans pe canale — aceeasi poziție în lanț ca în preview.html: DUPA saturație,
+      // INAINTE de vignetă. Ordinea contează: pus după vignetă ar colora și
+      // închiderea marginilor, nu doar imaginea.
+      c *= vec3( uGainR, uGainG, uGainB );
+
+      // vigneta: distanta de tip dreptunghi rotunjit (norma uVigP), nu cerc, ca sa
+      // urmeze marginile unui cadru lat in loc sa manance sus-jos
+      vec2 vd = abs( vUv - 0.5 ) * 2.0;
+      float vr = pow( pow( vd.x, uVigP ) + pow( vd.y, uVigP ), 1.0 / uVigP );
+      c *= 1.0 - smoothstep( uVigR, 1.0, vr ) * uVig;
+
+      // Static de TV, formula din preview.html. Doua lucruri conteaza:
+      //  - grila e in PIXELI (gl_FragCoord), nu in UV, altfel puricii se intind
+      //    odata cu rezolutia;
+      //  - timpul intra cu multiplicatori DIFERITI pe cele doua axe. Daca il aduni
+      //    la fel pe amandoua, grila aluneca in diagonala cu o celula pe cadru -
+      //    exact miscarea ciudata de dinainte. Asa, se reseamana la fiecare cadru.
+      //  - pow(n, uPow) pastreaza doar scanteile luminoase => static, nu ceata.
+      vec2 ip = floor( gl_FragCoord.xy / max( uGrain, 1.0 ) );
+      float n = fract( sin( dot( ip + vec2( uTime * 61.7, uTime * 23.3 ),
+                                 vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+      c += uNzCol * ( uNoise * pow( n, uPow ) );
+
+      gl_FragColor = vec4( clamp( c, 0.0, 1.0 ), 1.0 );
+    }`,
+});
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, orbitCam);
+composer.addPass(renderPass);
+composer.addPass(new OutputPass());
+composer.addPass(GradePass);
+
+// ---------------------------------------------------------------- material taste
+// In Blender, Base Color NU e textura, ci
+//     Mix( Factor = textura, A = alb, B = culoare plata )
+// pe canale: unde textura e alba iese culoarea plata (corpul tastei), unde e
+// neagra iese alb (legenda). glTF nu poate exporta un graf procedural, deci a
+// pastrat doar textura -> taste deschise cu legende inchise, exact pe dos.
+const FLAT = {
+  '1': new THREE.Color().setRGB(0.0000, 0.0437, 0.0482, THREE.LinearSRGBColorSpace),
+  '2': new THREE.Color().setRGB(0.0000, 0.0831, 0.0920, THREE.LinearSRGBColorSpace),
+  '3': new THREE.Color().setRGB(0.7874, 0.0642, 0.0071, THREE.LinearSRGBColorSpace),
+};
+const capUniforms = [];
+const capMats = new Set();
+
+// ---------------------------------------------- piesele switch-ului hero (2026-09-14)
+// În GLB toate cele 7 piese partajează UN material, `switch`, cu
+// `KHR_materials_transmission` la factor 1 — complet transmisiv, de unde aspectul
+// deschis și arcul albicios. Intro-ul folosește alt material (`switch_atlas_Baked`),
+// cu culoare PLATĂ per piesă. Ca să arate la fel, clonăm materialul pe fiecare nod și
+// îi dăm culoarea documentată în DESIGN_BRIEF §3.
+// Declarat AICI, nu în callback-ul de load: sliderele îl ating și rulează mai sus în
+// modul (aceeași capcană de zonă moartă temporală ca în preview.html).
+const PIECE_COL = {
+  'Solid 87':  0x3e534f,   // carcasă sus        (translucidă și în intro)
+  'Solid 154': 0x3e534f,   // carcasă jos        (translucidă și în intro)
+  'Solid 193': 0x3a4d4a,   // piesă translucidă
+  'Solid 208': 0x1f5f8a,   // stem albastru — singurul accent rece din scenă
+  'Solid 372': 0x18231f,   // piesă albă
+  // Arcul e #0A0C0C și contactul #111A18 în intro, adică ~0.003 în linear: acolo ies
+  // practic invizibile. Cererea userului e „un negru mai deschis" — mai lizibile decât
+  // în intro, dar NU albe ca acum în outro. Astea sunt valorile de pornire; nivelul
+  // exact se reglează din sliderul „Piese închise: nivel".
+  'Pipe':      0x262b2a,   // arc
+  'Solid 368': 0x2a3230,   // contact metalic
+};
+const GLASS_PIECES = { 'Solid 87': 1, 'Solid 154': 1, 'Solid 193': 1 };
+const DARK_PIECES = { 'Pipe': 1, 'Solid 368': 1 };
+const swPieceMats = {};
+let swBright = 1.0, darkLift = 1.0, darkGloss = 0.15;
+
+function applySwitchCols() {
+  for (const k in swPieceMats) {
+    const e = swPieceMats[k];
+    e.mat.color.copy(e.base).multiplyScalar(swBright * (e.dark ? darkLift : 1));
+    if (e.dark) e.mat.roughness = darkGloss;
+    e.mat.needsUpdate = true;
+  }
+}
+
+// relief fin pe capacul tastei: in Blender e un nod Noise -> Bump (strength 0.26).
+// Aici il dam ca bumpMap generat pe canvas, deci fara risc de shader custom.
+function grainTexture(size = 256) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  let s = 1234567;
+  for (let i = 0; i < size * size; i++) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const v = 118 + ((s >> 9) & 0xff) * 0.16;
+    img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
+    img.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(10, 10);
+  return t;
+}
+const GRAIN = grainTexture();
+
+function patchKeycap(m) {
+  const which = (m.name.match(/Keycaps_Col\s*(\d)/) || [, '1'])[1];
+  m.color.setRGB(1, 1, 1);      // factorul de baza trebuie neutru; mixul da culoarea
+  m.metalness = 0.0;
+  m.roughness = 0.64;
+  m.bumpMap = GRAIN;
+  m.bumpScale = 0.26;
+  const uFlat = { value: (FLAT[which] || FLAT['1']).clone() };
+  const uMix = { value: 1.0 };
+  const uLeg = { value: 1.0 };
+  capUniforms.push({ uFlat, uMix, uLeg });
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uFlat = uFlat; shader.uniforms.uMix = uMix; shader.uniforms.uLeg = uLeg;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uFlat;\nuniform float uMix;\nuniform float uLeg;')
+      .replace('#include <map_fragment>', `
+        #ifdef USE_MAP
+          vec3 tex = texture2D( map, vMapUv ).rgb;
+          vec3 mixed = mix( vec3( uLeg ), uFlat, tex );
+          diffuseColor.rgb *= mix( tex, mixed, uMix );
+        #endif
+      `);
+  };
+  m.customProgramCacheKey = () => 'keycapmix' + which;
+  m.needsUpdate = true;
+}
+
+// ---------------------------------------------------------------- load
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+const loader = new GLTFLoader();
+loader.setDRACOLoader(draco);
+
+let mixer = null, action = null, duration = 0, root = null;
+let sourceNodes = [], fieldKeys = [];
+let instancing = true, nKeys = 0;
+const HOLE = new THREE.Vector3(-0.024, 0.7742, -0.001);   // in coordonate three (Y-up)
+
+loader.load('../web/public/models/keycap_outro_web.glb', (gltf) => {
+  root = gltf.scene;
+  scene.add(root);
+
+  root.traverse(o => { if (o.isCamera && !blenderCam) blenderCam = o; });
+  if (blenderCam) { blenderCam.near = 0.005; blenderCam.far = 60; }
+  applyAspect();
+
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach(m => { if (m && /Keycaps_Col/.test(m.name)) { if (!capMats.has(m)) { capMats.add(m); patchKeycap(m); } } });
+  });
+
+  // ---- piesele switch-ului hero: material propriu per piesă, ca în intro ----
+  // ⚠️ GLTFLoader sanitizează numele: `H_Solid 87.002` ajunge `H_Solid_87002`,
+  // `H_Pipe.001` → `H_Pipe001` (punctele cad, spațiile devin underscore). Potrivirea
+  // acceptă ambele forme, ca în preview.html.
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const mm = o.name.match(/^H_(?:Solid[ _]?(87|154|193|208|368|372)|(Pipe))/);
+    if (!mm) return;
+    const key = mm[2] ? 'Pipe' : 'Solid ' + mm[1];
+    if (swPieceMats[key]) return;
+    const src = Array.isArray(o.material) ? o.material[0] : o.material;
+    if (!src) return;
+    const c = src.clone();
+    c.name = 'switch_' + key.replace(/\s+/g, '');
+    // Transmisia se OPREȘTE: în intro piesele sunt opace, cu excepția celor 3 carcase
+    // translucide la opacitate 0.55. Cu transmission 1 arcul ieșea albicios.
+    c.transmission = 0;
+    c.transmissionMap = null;
+    c.map = null;                    // culoare plată per piesă, exact ca în intro
+    c.metalness = 0;
+    c.side = THREE.DoubleSide;
+    c.transparent = !!GLASS_PIECES[key];
+    c.opacity = GLASS_PIECES[key] ? 0.55 : 1;
+    c.depthWrite = !GLASS_PIECES[key];
+    c.roughness = DARK_PIECES[key] ? darkGloss : 0.64;
+    // Pe piesele închise scoatem și harta de roughness/metalness: luciul lor trebuie
+    // să fie EXACT cât spune sliderul, altfel harta îl modulează per pixel și
+    // highlight-ul dispare pe porțiuni.
+    if (DARK_PIECES[key]) { c.roughnessMap = null; c.metalnessMap = null; }
+    o.material = c;
+    swPieceMats[key] = { mat: c, base: new THREE.Color(PIECE_COL[key]), dark: !!DARK_PIECES[key] };
+  });
+  applySwitchCols();
+  console.log('piese switch outro:', Object.keys(swPieceMats));
+
+  // legatura geometrie -> (legenda, LOD), ca sa putem comuta LOD-ul la runtime
+  const parser = gltf.parser, json = parser.json;
+  const geomInfo = new Map();
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const a = parser.associations.get(o);
+    if (!a || a.meshes === undefined) return;
+    const nm = json.meshes[a.meshes].name || '';
+    const m = nm.match(/^FIELD_(LOD\d)_(.+)$/);
+    if (m) geomInfo.set(o.geometry, { lod: m[1], legend: m[2] });
+  });
+  geomByLegend = new Map();
+  for (const [g, i] of geomInfo) {
+    if (!geomByLegend.has(i.legend)) geomByLegend.set(i.legend, {});
+    geomByLegend.get(i.legend)[i.lod] = g;
+  }
+
+  const animated = new Set();
+  if (gltf.animations.length) {
+    mixer = new THREE.AnimationMixer(root);
+    action = mixer.clipAction(gltf.animations[0]);
+    action.play();
+    duration = gltf.animations[0].duration;
+    for (const t of gltf.animations[0].tracks) animated.add(THREE.PropertyBinding.parseTrackName(t.name).nodeName);
+  }
+
+  // inventarul tastelor: matricea de baza, distanta de gaura, legenda
+  root.traverse(o => {
+    if (!o.isMesh || !/^K[+-]\d{2}[+-]\d{2}$/.test(o.name)) return;
+    o.updateWorldMatrix(true, false);
+    const p = new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
+    const gi = geomInfo.get(o.geometry);
+    fieldKeys.push({
+      node: o, legend: gi ? gi.legend : null, mat: o.material,
+      base: o.matrixWorld.clone(),
+      pos: p,                             // pentru testul de vizibilitate (frustum)
+      d: Math.hypot(p.x - HOLE.x, p.z - HOLE.z),
+      off: 0, pressing: false, nextT: 0, t0: 0, dur: 0.5, dep: TYPE.depth,
+    });
+  });
+  nKeys = fieldKeys.length;
+  sourceNodes = fieldKeys.map(k => k.node);
+  // pornirile se imprastie, altfel toate tastele s-ar apasa in acelasi moment
+  // impraștiere initiala pe o durata de apasare, ca sa nu porneasca toate odata
+  for (const k of fieldKeys) k.nextT = Math.random() * (TYPE.durLo + TYPE.durHi);
+  rebuildInstances(lodRadius);
+
+  document.getElementById('keys').textContent = nKeys.toLocaleString('ro-RO');
+  playing = true; updatePlayBtn();
+}, undefined, (e) => console.error('nu am putut incarca GLB-ul', e));
+
+// ---------------------------------------------------------------- instantiere
+// ~5000 de noduri de tasta impart doar 86 de geometrii. Lasate asa ies ~5000 draw
+// calls; strase in InstancedMesh ies ~90. Toate sunt "dinamice", pentru ca orice
+// tasta poate fi apasata de sistemul de tastare de mai jos.
+let geomByLegend = new Map();
+let lodRadius = 0.24;
+let meshes = [];
+
+function disposeInstances() {
+  for (const im of meshes) scene.remove(im);
+  meshes = [];
+}
+
+function rebuildInstances(radius) {
+  disposeInstances();
+  const groups = new Map();
+  for (const k of fieldKeys) {
+    const byLod = k.legend ? geomByLegend.get(k.legend) : null;
+    let geom = k.node.geometry;
+    if (byLod) geom = (k.d < radius ? (byLod.LOD1 || byLod.LOD0) : (byLod.LOD0 || byLod.LOD1));
+    const key = geom.uuid + '|' + k.mat.uuid;
+    if (!groups.has(key)) groups.set(key, { geom, mat: k.mat, keys: [] });
+    groups.get(key).keys.push(k);
+  }
+  let tris = 0;
+  for (const g of groups.values()) {
+    const im = new THREE.InstancedMesh(g.geom, g.mat, g.keys.length);
+    im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    im.frustumCulled = false;
+    g.keys.forEach((k, i) => { k.im = im; k.idx = i; writeKey(k); });
+    im.instanceMatrix.needsUpdate = true;
+    scene.add(im); meshes.push(im);
+    tris += (g.geom.index ? g.geom.index.count : g.geom.attributes.position.count) / 3 * g.keys.length;
+  }
+  setInstancing(instancing);
+  document.getElementById('instinfo').textContent =
+    `${nKeys} taste → ${meshes.length} InstancedMesh · ${Math.round(tris / 1000)}k triunghiuri în câmp`;
+}
+
+function setInstancing(on) {
+  instancing = on;
+  sourceNodes.forEach(o => { o.visible = !on; });
+  meshes.forEach(im => { im.visible = on; });
+}
+
+// ---------------------------------------------------------------- tastare continua
+// Apasarile NU mai sunt coapte in GLB: se genereaza aici, pe un ceas propriu care
+// nu tine de clip. Asa continua la nesfarsit, chiar daca animatia hero-ului s-a
+// terminat sau clipul a luat-o de la capat.
+const TYPE = {
+  on: true,
+  // ⚠️ Parametrul NU mai e „apasari pe secunda" (2026-09-14). Acela era gresit ales
+  // pentru intentia „aproape toate tastele se apasa incontinuu": cu ~4969 de taste si
+  // apasari de ~0.53 s, un ritm de 200/s tine apasate doar 200 x 0.53 = 105 taste,
+  // adica 2% din camp. Pentru 85% ar fi fost nevoie de ~50.000 apasari/s.
+  // `duty` = fractiunea de timp in care o tasta e apasata, deci si fractiunea de
+  // taste apasate la un moment dat. Asta e marimea pe care userul o are in cap.
+  duty: 0.85,
+  depth: 0.0034,     // adancimea apasarii (m); pana la placa sunt 4.3 mm
+  durLo: 0.34, durHi: 0.72,
+  burstOn: true, burstRadius: 0.42, burstDensity: 0.9, burstSpeed: 0.75, impactT: 7.375,
+};
+const _m = new THREE.Matrix4();
+
+// ---------------------------------------------- apasari doar pe tastele VIZIBILE
+// Compromisul de performanta propus de user (2026-09-14): partea scumpa nu e logica
+// de apasare, ci `writeKey` + urcarea matricelor de instanta. La 85% din 4969 de taste
+// scriem ~4200 de matrici pe cadru, din care majoritatea sunt in afara cadrului si nu
+// se vad oricum. Testam fiecare tasta contra frustumului camerei si apasam numai ce
+// intra in imagine; restul sunt sarite inainte de `writeKey`.
+// Testul e pe PUNCT (centrul tastei) contra celor 6 plane — 6 produse scalare, mult
+// mai ieftin decat scrierea unei matrici. Planele sunt impinse in afara cu o marja, ca
+// o tasta sa nu fie eliberata brusc cand iese din cadru cu capacul inca pe ecran.
+const _frustum = new THREE.Frustum(), _pvm = new THREE.Matrix4();
+// ⚠️ Aici a existat și o limită de DISTANȚĂ (`pressMaxDist`), pe ideea că tastele
+// depărtate au câțiva pixeli și nu merită apăsate. SCOASĂ (2026-09-14) — ideea e
+// falsă pe scena asta, verificat prin baleiere secundă cu secundă a clipului:
+//   · toate tastele din cadru au PESTE 16 px lățime la orice moment, pentru că
+//     câmpul e mic (1.35 m) și camera aproape (0.47–1.50 m). Nu există taste mici.
+//   · distanța camerei la câmp VARIAZĂ mult: cea mai apropiată tastă e la 1.07 m la
+//     t=0 și la 0.47 m la final. O limită fixă de 0.6 m tăia deci TOT câmpul în prima
+//     jumătate a clipului, deși erau 734–1879 taste în cadru.
+// Rămâne doar testul de frustum, care e corect prin natura lui.
+// Marja: 0.02 m ≈ o lățime de tastă. Era 0.12 m, adică peste 6 lățimi, și aproape
+// tripla numărul de taste considerate vizibile (2167 raportate în loc de 715 reale).
+let cullTyping = true, cullMargin = 0.02, visKeys = 0;
+
+function updateTypingFrustum(cam) {
+  cam.updateMatrixWorld();
+  _pvm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+  _frustum.setFromProjectionMatrix(_pvm);
+  for (const pl of _frustum.planes) pl.constant += cullMargin;
+}
+
+function writeKey(k) {
+  _m.copy(k.base);
+  _m.elements[13] += (k.off || 0);      // translatia pe Y (sus-jos) in coordonate three
+  k.im.setMatrixAt(k.idx, _m);
+  k.im.__dirty = true;
+}
+
+const smooth = (x) => x * x * (3 - 2 * x);
+
+// profil de apasare, normalizat: coboara, sta putin, revine cu un mic salt peste repaus
+function pressProfile(u) {
+  if (u < 0.18) return -smooth(u / 0.18);
+  if (u < 0.34) return -1;
+  if (u < 0.72) return -1 + smooth((u - 0.34) / 0.38) * 1.28;
+  return 0.28 * (1 - smooth((u - 0.72) / 0.28));
+}
+
+function scheduleNext(k, T) {
+  // Pauza medie care da fractiunea ceruta: duty = dur / (dur + pauza), deci
+  // pauza = dur * (1 - duty) / duty. La duty -> 1 pauza -> 0 si tastele se reapasa
+  // imediat. Multiplicatorul aleator (medie 1.0) pastreaza variatia, ca sa nu se vada
+  // ca un val sincronizat.
+  const durAvg = (TYPE.durLo + TYPE.durHi) * 0.5;
+  if (TYPE.duty <= 0) { k.nextT = 1e9; return; }
+  const mean = durAvg * (1 - Math.min(TYPE.duty, 0.999)) / Math.min(TYPE.duty, 0.999);
+  k.nextT = T + mean * (0.25 + Math.random() * 1.5);
+}
+
+function startPress(k, T) {
+  k.pressing = true;
+  k.t0 = T;
+  k.dur = TYPE.durLo + Math.random() * (TYPE.durHi - TYPE.durLo);
+  k.dep = TYPE.depth * (0.65 + Math.random() * 0.35);
+}
+
+// La aterizarea hero-ului: o rafala care pleaca din gaura spre exterior. Se
+// re-declanseaza la fiecare reluare a clipului.
+function triggerBurst(T) {
+  if (!TYPE.burstOn) return;
+  let n = 0;
+  for (const k of fieldKeys) {
+    if (k.d > TYPE.burstRadius || k.pressing) continue;
+    if (Math.random() > TYPE.burstDensity * Math.exp(-k.d / 0.20)) continue;
+    k.nextT = T + k.d / TYPE.burstSpeed + (Math.random() * 0.35 - 0.08);
+    n++;
+  }
+  return n;
+}
+
+let typedTotal = 0;
+function updateTyping(T, cam) {
+  if (!instancing) return;
+  if (cullTyping && cam) updateTypingFrustum(cam);
+  let active = 0, vis = 0;
+  for (const k of fieldKeys) {
+    const seen = !cullTyping || !cam || _frustum.containsPoint(k.pos);
+    if (seen) vis++;
+    if (!seen) {
+      // iesita din cadru: o eliberam ca sa nu revina in imagine blocata apasata,
+      // apoi ii reprogramam apasarea pentru cand va fi din nou vizibila
+      if (k.pressing) { k.pressing = false; if (k.off !== 0) { k.off = 0; writeKey(k); } scheduleNext(k, T); }
+      continue;
+    }
+    if (!k.pressing) {
+      if (TYPE.on && TYPE.duty > 0 && T >= k.nextT) { startPress(k, T); typedTotal++; }
+      else continue;
+    }
+    const u = (T - k.t0) / k.dur;
+    if (u >= 1) {
+      k.pressing = false;
+      if (k.off !== 0) { k.off = 0; writeKey(k); }
+      scheduleNext(k, T);
+    } else {
+      k.off = pressProfile(u) * k.dep;
+      writeKey(k);
+      active++;
+    }
+  }
+  for (const im of meshes) {
+    if (im.__dirty) { im.instanceMatrix.needsUpdate = true; im.__dirty = false; }
+  }
+  visKeys = vis;
+  return active;
+}
+
+
+// ---------------------------------------------------------------- UI
+function bind(id, out, fn, div = 1, dec = 2) {
+  const el = document.getElementById(id), o = document.getElementById(out);
+  const run = () => { const v = el.value / div; if (o) o.textContent = dec ? v.toFixed(dec) : String(v); fn(v); };
+  el.addEventListener('input', run); run();
+}
+const U = GradePass.uniforms;
+bind('s_exp', 'v_exp', v => renderer.toneMappingExposure = v, 100);
+bind('s_con', 'v_con', v => U.uContrast.value = v, 100);
+bind('s_sat', 'v_sat', v => U.uSat.value = v, 100);
+bind('s_lift', 'v_lift', v => U.uLift.value = v, 1000, 3);
+bind('s_gr', 'v_gr', v => U.uGainR.value = v, 100);
+bind('s_gg', 'v_gg', v => U.uGainG.value = v, 100);
+bind('s_gb', 'v_gb', v => U.uGainB.value = v, 100);
+bind('s_vig', 'v_vig', v => U.uVig.value = v, 100);
+bind('s_vgr', 'v_vgr', v => U.uVigR.value = v, 100);
+bind('s_vgp', 'v_vgp', v => U.uVigP.value = v, 100);
+bind('s_nz', 'v_nz', v => U.uNoise.value = v, 100);
+bind('s_ng', 'v_ng', v => U.uGrain.value = v, 100);
+bind('s_np', 'v_np', v => U.uPow.value = v, 100);
+bind('s_fog', 'v_fog', v => scene.fog.density = v, 100);
+bind('s_l1', 'v_l1', v => L_main.intensity = v, 100);
+bind('s_l2', 'v_l2', v => L_front.intensity = v, 100);
+bind('s_l3', 'v_l3', v => L_top.intensity = v, 100);
+bind('s_amb', 'v_amb', v => scene.environmentIntensity = v, 100);
+bind('s_tdt', 'v_tdt', v => { TYPE.duty = v; }, 100);
+bind('s_cmg', 'v_cmg', v => { cullMargin = v; }, 100);
+document.getElementById('cullbtn').addEventListener('click', (e) => {
+  cullTyping = !cullTyping;
+  e.target.classList.toggle('on', cullTyping);
+  e.target.textContent = cullTyping ? 'DA' : 'NU';
+});
+bind('s_tdp', 'v_tdp', v => TYPE.depth = v / 1000, 10, 1);
+bind('s_tdu', 'v_tdu', v => { TYPE.durLo = v * 0.7; TYPE.durHi = v * 1.45; }, 100);
+bind('s_brd', 'v_brd', v => TYPE.burstRadius = v / 100, 1, 0);
+bind('s_bdn', 'v_bdn', v => TYPE.burstDensity = v, 100);
+bind('s_bti', 'v_bti', v => TYPE.impactT = v, 100);
+document.getElementById('typebtn').onclick = (e) => {
+  TYPE.on = !TYPE.on; e.target.classList.toggle('on', TYPE.on); e.target.textContent = TYPE.on ? 'DA' : 'NU';
+};
+document.getElementById('burstbtn').onclick = (e) => {
+  TYPE.burstOn = !TYPE.burstOn; e.target.classList.toggle('on', TYPE.burstOn); e.target.textContent = TYPE.burstOn ? 'DA' : 'NU';
+};
+bind('s_mix', 'v_mix', v => capUniforms.forEach(u => u.uMix.value = v), 100);
+bind('s_leg', 'v_leg', v => capUniforms.forEach(u => u.uLeg.value = v), 100);
+bind('s_rgh', 'v_rgh', v => capMats.forEach(m => m.roughness = v), 100);
+bind('s_swb',   'v_swb',   v => { swBright = v; applySwitchCols(); }, 100);
+bind('s_dlift', 'v_dlift', v => { darkLift = v; applySwitchCols(); }, 100);
+bind('s_dgl',   'v_dgl',   v => { darkGloss = v; applySwitchCols(); }, 100);
+bind('s_env', 'v_env', v => capMats.forEach(m => m.envMapIntensity = v), 100);
+bind('s_bmp', 'v_bmp', v => capMats.forEach(m => m.bumpScale = v), 100);
+bind('s_bsc', 'v_bsc', v => { GRAIN.repeat.set(v, v); GRAIN.needsUpdate = true; }, 1, 0);
+bind('s_res', 'v_res', v => { resScale = v; applyRes(); }, 100);
+// rebuild-ul regrupeaza 3000+ de taste, deci nu il facem la fiecare eveniment de slider
+let lodTimer = null;
+bind('s_lod', 'v_lod', v => {
+  lodRadius = v / 100;
+  clearTimeout(lodTimer);
+  lodTimer = setTimeout(() => { if (fieldKeys.length) rebuildInstances(lodRadius); }, 120);
+}, 1, 0);
+
+function applyRes() {
+  const pr = Math.min(devicePixelRatio, 2) * resScale;
+  renderer.setPixelRatio(pr);
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setPixelRatio ? composer.setPixelRatio(pr) : null;
+  composer.setSize(innerWidth, innerHeight);
+  U.uRes.value.set(innerWidth * pr, innerHeight * pr);
+  applyAspect();
+}
+
+let nzAnim = true;
+document.getElementById('nzanim').onclick = (e) => { nzAnim = !nzAnim; e.target.classList.toggle('on', nzAnim); e.target.textContent = nzAnim ? 'DA' : 'NU'; };
+
+let playing = false, looping = true;
+const playBtn = document.getElementById('play'), scrub = document.getElementById('scrub'), tc = document.getElementById('tc');
+function updatePlayBtn() { playBtn.textContent = playing ? '⏸ Pauză' : '▶ Redă'; }
+playBtn.onclick = () => { playing = !playing; updatePlayBtn(); };
+document.getElementById('loopbtn').onclick = (e) => { looping = !looping; e.target.classList.toggle('on', looping); };
+document.getElementById('cambtn').onclick = (e) => {
+  useBlenderCam = !useBlenderCam; e.target.classList.toggle('on', useBlenderCam);
+  e.target.textContent = useBlenderCam ? 'Cameră Blender' : 'Orbit liber';
+};
+document.getElementById('instbtn').onclick = (e) => {
+  setInstancing(!instancing); e.target.classList.toggle('on', instancing);
+  e.target.textContent = instancing ? 'PORNIT' : 'OPRIT';
+};
+scrub.addEventListener('input', () => {
+  if (!action || !duration) return;
+  playing = false; updatePlayBtn();
+  action.time = (scrub.value / 1000) * duration;
+  mixer.update(0);
+});
+
+// toBlob e asincron: un click() din callback-ul lui pierde user activation si
+// browserul blocheaza descarcarea in tacere. Deci dam un link, nu dam noi click.
+document.getElementById('png').onclick = () => {
+  const scale = +document.getElementById('pngscale').value;
+  const w = innerWidth, h = innerHeight, was = playing;
+  playing = false; updatePlayBtn();
+  renderer.setPixelRatio(scale); renderer.setSize(w, h, false);
+  composer.setSize(w * scale, h * scale);
+  U.uRes.value.set(w * scale, h * scale);
+  applyAspect(); composer.render();
+  renderer.domElement.toBlob((blob) => {
+    const url = URL.createObjectURL(blob), a = document.getElementById('savedlink');
+    a.href = url;
+    a.download = `outro_${(action ? action.time : 0).toFixed(2)}s_${w * scale}x${h * scale}.png`;
+    a.textContent = a.download;
+    document.getElementById('saved').style.display = 'block';
+    applyRes(); playing = was; updatePlayBtn();
+  }, 'image/png');
+};
+
+addEventListener('resize', applyRes);
+applyRes();
+
+// ---------------------------------------------------------------- bucla
+const clock = new THREE.Clock();
+let fpsT = 0, fpsN = 0, T = 0, prevClip = 0, activeKeys = 0;
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = clock.getDelta();
+  T += dt;                       // ceas propriu: tastarea nu se opreste cu clipul
+
+  if (mixer && playing) {
+    mixer.update(dt);
+    if (action.time >= duration) action.time = looping ? 0 : duration;
+    // rafala de la aterizare, re-declansata la fiecare reluare a clipului
+    if (prevClip < TYPE.impactT && action.time >= TYPE.impactT) triggerBurst(T);
+    prevClip = action.time < prevClip ? 0 : action.time;
+  }
+  activeKeys = updateTyping(T, activeCam()) || 0;
+  if (!useBlenderCam) controls.update();
+  if (nzAnim) U.uTime.value = T;
+
+  renderPass.camera = activeCam();
+  renderer.info.reset();
+  renderCalls = 0;
+  composer.render();
+  renderCallsShown = renderCalls;
+
+  if (action && duration) {
+    scrub.value = Math.round((action.time / duration) * 1000);
+    tc.textContent = `${action.time.toFixed(2)} / ${duration.toFixed(2)} s`;
+  }
+  fpsN++; fpsT += dt; frames++;
+  if (fpsT >= 0.5) {
+    document.getElementById('fps').textContent = Math.round(fpsN / fpsT);
+    document.getElementById('calls').textContent = renderer.info.render.calls.toLocaleString('ro-RO');
+    document.getElementById('tris').textContent = renderer.info.render.triangles.toLocaleString('ro-RO');
+    const rpf = document.getElementById('rpf');
+    rpf.textContent = renderCallsShown;
+    rpf.className = renderCallsShown > 3 ? 'warn' : '';
+    document.getElementById('act').textContent = activeKeys;
+    document.getElementById('keys').textContent =
+      (cullTyping ? visKeys.toLocaleString('ro-RO') + ' / ' : '') + nKeys.toLocaleString('ro-RO');
+    fpsT = 0; fpsN = 0;
+  }
+}
+tick();
+</script>
+</body>
+</html>

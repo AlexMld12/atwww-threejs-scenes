@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Keycap — Outro / Footer</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; background:#0a0b0b; font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#e8eef0; }
+  body { height:100%; overflow:hidden; }
+  body.scrolling { overflow-y:auto; }
+  #app { position:fixed; inset:0; z-index:0; }
+  canvas { display:block; }
+  /* există doar în modul scroll: dă paginii înălțime ca să avem ce derula */
+  #scrollspace { display:none; height:400vh; }
+  body.scrolling #scrollspace { display:block; }
+  #ui {
+    position:fixed; left:16px; right:16px; bottom:16px; padding:14px 16px; z-index:2;
+    background:rgba(14,20,22,.82); backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08); border-radius:14px;
+    display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+  }
+  #scrub { flex:1 1 300px; min-width:200px; accent-color:#4fd1c5; }
+  button {
+    background:rgba(255,255,255,.07); color:#e8eef0; border:1px solid rgba(255,255,255,.12);
+    padding:7px 13px; border-radius:9px; cursor:pointer; font:inherit;
+  }
+  button:hover { background:rgba(255,255,255,.13); }
+  button.on { background:#4fd1c5; color:#06231f; border-color:#4fd1c5; font-weight:600; }
+  #pval { font-variant-numeric:tabular-nums; opacity:.75; min-width:96px; }
+  #phase { min-width:190px; font-variant-numeric:tabular-nums; }
+  #phase b { color:#4fd1c5; font-weight:600; }
+  #stats {
+    position:fixed; top:16px; left:16px; padding:10px 13px; z-index:2;
+    background:rgba(14,20,22,.82); backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08); border-radius:11px;
+    font-variant-numeric:tabular-nums; line-height:1.7; pointer-events:none;
+  }
+  #stats b { color:#4fd1c5; font-weight:600; }
+  #load {
+    position:fixed; inset:0; display:grid; place-items:center; background:#0a0b0b; z-index:3;
+    transition:opacity .6s; font-size:15px; letter-spacing:.02em;
+  }
+  #load.hide { opacity:0; pointer-events:none; }
+  .lbl { opacity:.6; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+  #tune {
+    position:fixed; top:16px; right:16px; padding:12px 14px; width:252px; z-index:2;
+    background:rgba(14,20,22,.82); backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08); border-radius:11px;
+    max-height:calc(100vh - 108px); overflow-y:auto; overscroll-behavior:contain;
+  }
+  #tune::-webkit-scrollbar { width:8px; }
+  #tune::-webkit-scrollbar-thumb { background:rgba(79,209,197,.35); border-radius:4px; }
+  #tune::-webkit-scrollbar-track { background:transparent; }
+  #tune .row { display:grid; grid-template-columns:1fr 84px 40px; gap:8px; align-items:center; margin:7px 0; }
+  #tune input { accent-color:#4fd1c5; width:100%; }
+  #tune b { color:#4fd1c5; font-variant-numeric:tabular-nums; font-size:11px; text-align:right; }
+  #tune hr { border:0; border-top:1px solid rgba(255,255,255,.08); margin:10px 0; }
+  #tune .hd { opacity:.85; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#4fd1c5; margin:2px 0 4px; }
+  .ccell { height:20px; padding:0; border:1px solid rgba(255,255,255,.15); border-radius:5px; background:none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.176.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.176.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="scrollspace"></div>
+<div id="stats">
+  <div><span class="lbl">FPS</span> <b id="fps">–</b></div>
+  <div><span class="lbl">Draw calls</span> <b id="calls">–</b></div>
+  <div><span class="lbl">Triunghiuri</span> <b id="tris">–</b></div>
+  <div><span class="lbl">Keycaps câmp</span> <b id="ncap">–</b></div>
+</div>
+<div id="ui">
+  <button id="play" class="on">⏸ Pauză</button>
+  <button id="replay" title="De la început">↺</button>
+  <input id="scrub" type="range" min="0" max="1000" value="0">
+  <span id="pval">0% · clip 6.25s</span>
+  <span id="phase">—</span>
+  <button id="loopbtn">Buclă: OFF</button>
+  <button id="scrollbtn" title="Progresul urmărește scroll-ul paginii — cum ar sta într-un footer real">Scroll: OFF</button>
+  <button id="cambtn">🎬 Cameră regie</button>
+</div>
+<div id="tune">
+  <div class="hd">Regie — cele 3 faze</div>
+  <div class="row"><span class="lbl">Durată totală (s)</span><input id="s_dur" type="range" min="30" max="240" value="110"><b id="v_dur">11.0</b></div>
+  <div class="row"><span class="lbl">Glow până la</span><input id="s_gend" type="range" min="10" max="80" value="46"><b id="v_gend">0.46</b></div>
+  <div class="row"><span class="lbl">Strâns până la</span><input id="s_aend" type="range" min="20" max="95" value="72"><b id="v_aend">0.72</b></div>
+  <div class="row"><span class="lbl">Cursă coborâre (cm)</span><input id="s_trv" type="range" min="0" max="40" value="9"><b id="v_trv">9</b></div>
+  <div class="row"><span class="lbl">Rotire la strângere</span><input id="s_yaw" type="range" min="0" max="180" value="0"><b id="v_yaw">0.00</b></div>
+  <div class="row"><span class="lbl">Înclinare la strângere</span><input id="s_tlt" type="range" min="0" max="60" value="0"><b id="v_tlt">0.00</b></div>
+  <hr>
+  <div class="hd">Glow-ul care trece prin piese</div>
+  <div class="row"><span class="lbl">Intensitate</span><input id="s_gls" type="range" min="0" max="200" value="80"><b id="v_gls">8.0</b></div>
+  <div class="row"><span class="lbl">Grosime</span><input id="s_glt" type="range" min="0" max="80" value="20"><b id="v_glt">2.00</b></div>
+  <div class="row"><span class="lbl">Împrăștiere</span><input id="s_glg" type="range" min="0" max="100" value="55"><b id="v_glg">0.55</b></div>
+  <div class="row"><span class="lbl">Suprapunere piese</span><input id="s_glo" type="range" min="0" max="90" value="30"><b id="v_glo">0.30</b></div>
+  <div class="row" style="grid-template-columns:1fr 84px 40px">
+    <span class="lbl">Culoare</span><input id="glcol" type="color" value="#5cff9d" class="ccell"><b></b>
+  </div>
+  <hr>
+  <div class="hd">Cameră (A = glow, B = strâns, C = final)</div>
+  <div class="row"><span class="lbl">Distanță A (cm)</span><input id="s_rA" type="range" min="5" max="200" value="42"><b id="v_rA">42</b></div>
+  <div class="row"><span class="lbl">Distanță B (cm)</span><input id="s_rB" type="range" min="5" max="200" value="26"><b id="v_rB">26</b></div>
+  <div class="row"><span class="lbl">Distanță C (cm)</span><input id="s_rC" type="range" min="20" max="400" value="105"><b id="v_rC">105</b></div>
+  <div class="row"><span class="lbl">Unghi A (°)</span><input id="s_eA" type="range" min="-20" max="88" value="6"><b id="v_eA">6</b></div>
+  <div class="row"><span class="lbl">Unghi B (°)</span><input id="s_eB" type="range" min="-20" max="88" value="16"><b id="v_eB">16</b></div>
+  <div class="row"><span class="lbl">Unghi C (°)</span><input id="s_eC" type="range" min="-20" max="88" value="13"><b id="v_eC">13</b></div>
+  <div class="row"><span class="lbl">Azimut A (°)</span><input id="s_aA" type="range" min="-180" max="180" value="-14"><b id="v_aA">-14</b></div>
+  <div class="row"><span class="lbl">Azimut B (°)</span><input id="s_aB" type="range" min="-180" max="180" value="8"><b id="v_aB">8</b></div>
+  <div class="row"><span class="lbl">Azimut C (°)</span><input id="s_aC" type="range" min="-180" max="180" value="22"><b id="v_aC">22</b></div>
+  <div class="row"><span class="lbl">FOV</span><input id="s_fov" type="range" min="18" max="70" value="34"><b id="v_fov">34</b></div>
+  <hr>
+  <div class="hd">Fundal blueprint (faza A + B)</div>
+  <div class="row"><span class="lbl">Opacitate</span><input id="s_bdo" type="range" min="0" max="100" value="100"><b id="v_bdo">1.00</b></div>
+  <div class="row"><span class="lbl">Distanță (m)</span><input id="s_bdd" type="range" min="20" max="300" value="70"><b id="v_bdd">0.70</b></div>
+  <div class="row" style="grid-template-columns:1fr 84px 40px">
+    <span class="lbl">Culoare</span><input id="bdcol" type="color" value="#0c3b38" class="ccell"><b></b>
+  </div>
+  <div class="row" style="grid-template-columns:1fr 40px 40px;gap:6px">
+    <button id="imgpick">Încarcă imagine…</button>
+    <button id="imginv" class="on" title="Sursa e albă cu text negru">⇄</button>
+    <button id="imgclr" title="Scoate imaginea">✕</button>
+  </div>
+  <input id="imgfile" type="file" accept="image/*" style="display:none">
+  <div class="row"><span class="lbl">Imagine: mărime</span><input id="s_ims" type="range" min="5" max="250" value="100"><b id="v_ims">1.00</b></div>
+  <div class="row"><span class="lbl">Imagine: intensitate</span><input id="s_imi" type="range" min="0" max="100" value="16"><b id="v_imi">0.16</b></div>
+  <div class="row" style="grid-template-columns:1fr 84px 40px">
+    <span class="lbl">Culoare text</span><input id="imgink" type="color" value="#8fe8d2" class="ccell"><b></b>
+  </div>
+  <hr>
+  <div class="hd">Ecranul de keycaps (faza C)</div>
+  <div class="row"><span class="lbl">Grilă (n × n)</span><input id="s_grid" type="range" min="11" max="141" step="2" value="73"><b id="v_grid">73</b></div>
+  <div class="row"><span class="lbl">Pas (mm)</span><input id="s_pitch" type="range" min="140" max="300" value="190"><b id="v_pitch">19.0</b></div>
+  <div class="row"><span class="lbl">Ceață</span><input id="s_fog" type="range" min="0" max="900" value="230"><b id="v_fog">2.30</b></div>
+  <div class="row"><span class="lbl">Roughness</span><input id="s_frg" type="range" min="0" max="100" value="55"><b id="v_frg">0.55</b></div>
+  <div class="row" style="grid-template-columns:1fr 84px 40px">
+    <span class="lbl">Culoare</span><input id="fcol" type="color" value="#dcdfdf" class="ccell"><b></b>
+  </div>
+  <div class="row"><span class="lbl">Umbră de contact</span><input id="s_sh" type="range" min="0" max="100" value="35"><b id="v_sh">0.35</b></div>
+  <div style="margin:6px 0"><button id="herowhite" class="on" style="width:100%">Hero: alb ca ecranul</button></div>
+  <hr>
+  <div class="hd">Profunzime de câmp</div>
+  <div class="row"><span class="lbl">Blur faza A/B</span><input id="s_b0" type="range" min="0" max="300" value="120"><b id="v_b0">1.20</b></div>
+  <div class="row"><span class="lbl">Blur final</span><input id="s_b1" type="range" min="0" max="300" value="26"><b id="v_b1">0.26</b></div>
+  <div class="row"><span class="lbl">Rază blur (px)</span><input id="s_brad" type="range" min="10" max="600" value="260"><b id="v_brad">2.60</b></div>
+  <div style="margin:6px 0"><button id="dofbtn" class="on" style="width:100%">DOF: pornit</button></div>
+  <hr>
+  <div class="hd">Lumină</div>
+  <div class="row"><span class="lbl">Exposure</span><input id="s_exp" type="range" min="0" max="200" value="92"><b id="v_exp">0.92</b></div>
+  <div class="row"><span class="lbl">Lumina principală</span><input id="s_key" type="range" min="0" max="600" value="230"><b id="v_key">2.30</b></div>
+  <div class="row"><span class="lbl">Lumina laterală</span><input id="s_fill" type="range" min="0" max="300" value="70"><b id="v_fill">0.70</b></div>
+  <div class="row"><span class="lbl">Ambient</span><input id="s_amb" type="range" min="0" max="200" value="28"><b id="v_amb">0.28</b></div>
+  <div class="row"><span class="lbl">Environment</span><input id="s_env" type="range" min="0" max="200" value="30"><b id="v_env">0.30</b></div>
+  <div class="row"><span class="lbl">Switch: opacitate</span><input id="s_op" type="range" min="5" max="100" value="55"><b id="v_op">0.55</b></div>
+  <hr>
+  <div class="hd">Imagine finală</div>
+  <div class="row"><span class="lbl">Vignetă: intensitate</span><input id="s_vig" type="range" min="0" max="100" value="55"><b id="v_vig">0.55</b></div>
+  <div class="row"><span class="lbl">Vignetă: întindere</span><input id="s_vgr" type="range" min="0" max="100" value="66"><b id="v_vgr">0.66</b></div>
+  <div class="row"><span class="lbl">Grain</span><input id="s_gr" type="range" min="0" max="100" value="7"><b id="v_gr">0.07</b></div>
+</div>
+<div id="load">Se încarcă scena (8.8 MB)…</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+
+const app = document.getElementById('app');
+const clamp = THREE.MathUtils.clamp;
+const lerp = THREE.MathUtils.lerp;
+const sstep = THREE.MathUtils.smoothstep;
+const DEG = Math.PI / 180;
+
+// ============================================================================
+// REGIA, în trei faze (asta e miezul: nu se strânge de la început)
+//   A  0 .. glowEnd   ansamblul rămâne EXPLODAT la 6.25 s; glow-ul trece prin
+//                     fiecare piesă, de sus în jos, câte una
+//   B  glowEnd .. asmEnd   clipul rulează PE INVERS 6.25 -> 0: switch-ul se strânge
+//                     și keycap-ul se integrează, dar ansamblul stă suspendat
+//   C  asmEnd .. 1    fundalul blueprint se stinge, apare ecranul de keycaps și
+//                     tot ansamblul coboară în locașul gol din mijloc
+// ============================================================================
+
+// ---------- renderer ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const BASE_PR = Math.min(devicePixelRatio, 2);
+renderer.setPixelRatio(BASE_PR);
+renderer.info.autoReset = false;          // resetăm manual o dată pe cadru, vezi renderFrame()
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.92;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+// ---------- scenă ----------
+// scene.background rămâne NULL intenționat, culoarea vine din clear color-ul
+// renderer-ului. Motivul e pasul de adâncime al DOF-ului: WebGLBackground forțează
+// un clear cu culoarea de fundal, care ar suprascrie clear-ul alb de care are nevoie
+// harta de adâncime. Cu background null, pasul își pune singur clear color-ul.
+const BG = new THREE.Color('#0a0b0b');
+renderer.setClearColor(BG, 1);
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(BG.getHex(), 2.3);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.30;
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.3);
+const fillLight = new THREE.DirectionalLight(0xdff2ff, 0.7);
+const ambient = new THREE.AmbientLight(0xffffff, 0.28);
+scene.add(keyLight, keyLight.target, fillLight, fillLight.target, ambient);
+
+// ---------- camere ----------
+const dirCam = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.01, 20);
+const freeCam = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.01, 20);
+freeCam.position.set(0.4, 1.1, 0.4);
+const controls = new OrbitControls(freeCam, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxDistance = 8;
+controls.enabled = false;
+let useFreeCam = false;
+const activeCam = () => (useFreeCam ? freeCam : dirCam);
+
+const VERT = /* glsl */`
+  varying vec2 vUv;
+  void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }`;
+
+// ---------- DOF: pas propriu ----------
+// De ce nu BokehPass: acela ia ~13 mostre pe un inel, iar la razele mari din referință
+// dă copii-fantomă ale grilei, nu blur cremos. Aici: hartă de adâncime + gaussian
+// separabil ping-pong la jumătate de rezoluție (2 runde => sigma efectiv ~7 px la
+// jumătate = ~14 px pe ecran), apoi compunere după cercul de confuzie.
+// Blurul se face ÎNAINTE de OutputPass, deci în linear HDR — corect fizic, și zonele
+// foarte luminoase se împrăștie frumos.
+const BLUR = /* glsl */`
+  uniform sampler2D tDiffuse; uniform vec2 uStep; varying vec2 vUv;
+  void main() {
+    // gaussian de 5 taps cu sampling liniar (ponderi Rastergrid)
+    vec4 s = texture2D( tDiffuse, vUv ) * 0.2270270270;
+    s += ( texture2D( tDiffuse, vUv + uStep * 1.3846153846 )
+         + texture2D( tDiffuse, vUv - uStep * 1.3846153846 ) ) * 0.3162162162;
+    s += ( texture2D( tDiffuse, vUv + uStep * 3.2307692308 )
+         + texture2D( tDiffuse, vUv - uStep * 3.2307692308 ) ) * 0.0702702703;
+    gl_FragColor = s;
+  }`;
+
+class DofPass extends Pass {
+  constructor(sc, cam) {
+    super();
+    this.scene = sc; this.camera = cam;
+    this.focus = 0.30;        // distanța în metri care rămâne clară
+    this.strength = 1.20;     // cât de repede crește blurul cu depărtarea de focus
+    this.radius = 2.60;       // raza gaussianului, în pixeli la rezoluția redusă
+    this.rounds = 2;          // câte runde de blur (fiecare rundă lărgește sigma)
+    this._oldClear = new THREE.Color();
+    this.depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    this.blurMat = new THREE.ShaderMaterial({
+      uniforms: { tDiffuse: { value: null }, uStep: { value: new THREE.Vector2() } },
+      vertexShader: VERT, fragmentShader: BLUR,
+    });
+    this.compMat = new THREE.ShaderMaterial({
+      uniforms: {
+        tDiffuse: { value: null }, tBlur: { value: null }, tDepth: { value: null },
+        uFocus: { value: 0.3 }, uStrength: { value: 1.2 },
+        uNear: { value: cam.near }, uFar: { value: cam.far },
+      },
+      vertexShader: VERT,
+      fragmentShader: /* glsl */`
+        #include <packing>
+        uniform sampler2D tDiffuse, tBlur, tDepth;
+        uniform float uFocus, uStrength, uNear, uFar;
+        varying vec2 vUv;
+        void main() {
+          // MeshDepthMaterial cu RGBADepthPacking => despachetăm și trecem în view-space
+          float d = unpackRGBAToDepth( texture2D( tDepth, vUv ) );
+          float viewZ = perspectiveDepthToViewZ( d, uNear, uFar );
+          float dist = -viewZ;
+          // cerc de confuzie: 0 la distanța de focus, 1 la blur maxim
+          float coc = clamp( abs( dist - uFocus ) * uStrength, 0.0, 1.0 );
+          coc = smoothstep( 0.0, 1.0, coc );
+          gl_FragColor = mix( texture2D( tDiffuse, vUv ), texture2D( tBlur, vUv ), coc );
+        }`,
+    });
+    this.quad = new FullScreenQuad(this.compMat);
+    this.rtDepth = null; this.rtA = null; this.rtB = null;
+  }
+  setSize(w, h) {
+    const hw = Math.max(1, Math.floor(w / 2)), hh = Math.max(1, Math.floor(h / 2));
+    if (!this.rtDepth) {
+      this.rtDepth = new THREE.WebGLRenderTarget(w, h);
+      const o = { type: THREE.HalfFloatType, depthBuffer: false };
+      this.rtA = new THREE.WebGLRenderTarget(hw, hh, o);
+      this.rtB = new THREE.WebGLRenderTarget(hw, hh, o);
+    } else {
+      this.rtDepth.setSize(w, h); this.rtA.setSize(hw, hh); this.rtB.setSize(hw, hh);
+    }
+    this._w = hw; this._h = hh;
+  }
+  render(renderer, writeBuffer, readBuffer) {
+    // 1) adâncimea, cu clear ALB (= departe). Rețeta e cea din BokehPass: fără
+    //    autoClear=false + clear() manual, fundalul ar rămâne la 0 = lipit de cameră.
+    renderer.getClearColor(this._oldClear);
+    const oldAlpha = renderer.getClearAlpha(), oldAuto = renderer.autoClear;
+    renderer.autoClear = false;
+    this.scene.overrideMaterial = this.depthMat;
+    renderer.setClearColor(0xffffff); renderer.setClearAlpha(1);
+    renderer.setRenderTarget(this.rtDepth);
+    renderer.clear();
+    renderer.render(this.scene, this.camera);
+    this.scene.overrideMaterial = null;
+    renderer.setClearColor(this._oldClear); renderer.setClearAlpha(oldAlpha);
+    renderer.autoClear = oldAuto;
+
+    // 2) blur ping-pong pe jumătate de rezoluție
+    this.quad.material = this.blurMat;
+    let src = readBuffer.texture;
+    for (let i = 0; i < this.rounds; i++) {
+      this.blurMat.uniforms.tDiffuse.value = src;
+      this.blurMat.uniforms.uStep.value.set(this.radius / this._w, 0);
+      renderer.setRenderTarget(this.rtA); renderer.clear(); this.quad.render(renderer);
+      this.blurMat.uniforms.tDiffuse.value = this.rtA.texture;
+      this.blurMat.uniforms.uStep.value.set(0, this.radius / this._h);
+      renderer.setRenderTarget(this.rtB); renderer.clear(); this.quad.render(renderer);
+      src = this.rtB.texture;
+    }
+
+    // 3) compunere sharp vs blurat, după cercul de confuzie
+    const u = this.compMat.uniforms;
+    u.tDiffuse.value = readBuffer.texture;
+    u.tBlur.value = src;
+    u.tDepth.value = this.rtDepth.texture;
+    u.uFocus.value = this.focus;
+    u.uStrength.value = this.strength;
+    u.uNear.value = this.camera.near;
+    u.uFar.value = this.camera.far;
+    this.quad.material = this.compMat;
+    if (this.renderToScreen) renderer.setRenderTarget(null);
+    else { renderer.setRenderTarget(writeBuffer); renderer.clear(); }
+    this.quad.render(renderer);
+  }
+}
+
+// ---------- lanțul de postprocesare ----------
+// OutlinePass e DUPĂ OutputPass, deliberat: așa conturul nu mai trece prin tone mapping
+// și culoarea aleasă iese exact. Vigneta + grain-ul vin la final, din același motiv.
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, dirCam);
+const dofPass = new DofPass(scene, dirCam);
+const outputPass = new OutputPass();
+const outlinePass = new OutlinePass(new THREE.Vector2(innerWidth, innerHeight), scene, dirCam);
+outlinePass.edgeStrength = 8.0;
+outlinePass.edgeThickness = 2.0;
+outlinePass.edgeGlow = 0.55;
+outlinePass.pulsePeriod = 0;
+outlinePass.visibleEdgeColor.set('#5cff9d');
+outlinePass.hiddenEdgeColor.set('#1c6b45');
+const gradePass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null }, uVig: { value: 0.55 }, uVigR: { value: 0.34 },
+    uGrain: { value: 0.07 }, uTime: { value: 0 },
+  },
+  vertexShader: VERT,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; uniform float uVig, uVigR, uGrain, uTime;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D( tDiffuse, vUv );
+      vec2 d = ( vUv - 0.5 ) * 2.0;
+      float r = length( d ) * 0.7071067812;        // 1.0 exact în colțuri
+      c.rgb *= 1.0 - smoothstep( uVigR, 1.0, r ) * uVig;
+      float n = fract( sin( dot( vUv + fract( uTime ), vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+      c.rgb += ( n - 0.5 ) * uGrain;
+      gl_FragColor = c;
+    }`,
+});
+composer.addPass(renderPass);
+composer.addPass(dofPass);
+composer.addPass(outputPass);
+composer.addPass(outlinePass);
+composer.addPass(gradePass);
+composer.setPixelRatio(BASE_PR);
+composer.setSize(innerWidth, innerHeight);
+let dofOn = true;
+
+// ---------- fundalul blueprint (fazele A + B) ----------
+// Placă orientată mereu spre cameră, la distanță fixă în fața ei: continuă exact
+// look-ul din preview (verde închis + desenul tehnic din care se ia doar cerneala),
+// dar merge din orice unghi, fără să depindă de poziția peretelui din scena de birou.
+// depthWrite RĂMÂNE pornit, deși e material transparent: DOF-ul citește harta de
+// adâncime, iar dacă placa nu scrie adâncime pixelii ei rămân la clear-ul alb (= 20 m,
+// far plane) și blueprint-ul ar ieși blurat complet. Fiind cel mai depărtat obiect și
+// desenat primul (renderOrder -10), nu ascunde nimic din ce e în față.
+const bdMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: true, side: THREE.DoubleSide,
+  uniforms: {
+    uOpacity: { value: 1 }, cBase: { value: new THREE.Color('#0c3b38') },
+    uTex: { value: null }, uHasTex: { value: 0 }, uTexScale: { value: 1.0 },
+    uTexAsp: { value: 1 }, uPlaneAsp: { value: 1.78 },
+    uInk: { value: new THREE.Color('#8fe8d2') }, uInkAmt: { value: 0.16 }, uInvert: { value: 1 },
+  },
+  vertexShader: VERT,
+  fragmentShader: /* glsl */`
+    uniform vec3 cBase, uInk;
+    uniform float uOpacity, uHasTex, uTexScale, uTexAsp, uPlaneAsp, uInkAmt, uInvert;
+    uniform sampler2D uTex;
+    varying vec2 vUv;
+    void main() {
+      vec3 col = cBase;
+      // imaginea: se ia doar cerneala, nu pixelii. Fundalul alb al desenului se topește
+      // în verde, iar liniile ies în uInk. Raportul e păstrat, altfel desenul portret
+      // s-ar întinde pe toată lățimea ecranului.
+      if ( uHasTex > 0.5 ) {
+        float s = max( uTexScale, 1e-3 );
+        vec2 k = vec2( uPlaneAsp / ( max( uTexAsp, 1e-3 ) * s ), 1.0 / s );
+        vec2 tuv = ( vUv - vec2( 0.5 ) ) * k + vec2( 0.5 );
+        vec2 in2 = step( vec2( 0.0 ), tuv ) * step( tuv, vec2( 1.0 ) );
+        vec4 src = texture2D( uTex, tuv );
+        float lum = dot( src.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+        float ink = clamp( mix( lum, 1.0 - lum, uInvert ) * src.a * in2.x * in2.y * uInkAmt, 0.0, 1.0 );
+        col = mix( col, uInk, ink );
+      }
+      gl_FragColor = vec4( col, uOpacity );
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+});
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), bdMat);
+backdrop.renderOrder = -10;
+backdrop.frustumCulled = false;
+scene.add(backdrop);
+let bdOpacity = 1.0, bdDist = 0.70;
+function layoutBackdrop(cam) {
+  const h = 2 * Math.tan(cam.fov * 0.5 * DEG) * bdDist, w = h * cam.aspect;
+  bdMat.uniforms.uPlaneAsp.value = w / h;
+  backdrop.scale.set(w * 1.02, h * 1.02, 1);
+  backdrop.quaternion.copy(cam.quaternion);
+  backdrop.position.copy(cam.position).addScaledVector(
+    tmpV2.set(0, 0, -1).applyQuaternion(cam.quaternion), bdDist);
+}
+
+// ---------- încărcare ----------
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+const loader = new GLTFLoader();
+loader.setDRACOLoader(draco);
+
+const STEP_LABELS = {
+  'key_cap': 'keycap', 'Solid 87': 'carcasă sus', 'Solid 154': 'carcasă jos',
+  'Solid 193': 'piesă translucidă', 'Solid 208': 'stem albastru',
+  'Solid 368': 'contact metalic', 'Solid 372': 'piesă albă', 'Pipe': 'arc + pini',
+};
+let mixer = null, action = null, clipDur = 0, ready = false;
+let heroCap = null, capGeo = null;
+const capCenterLocal = new THREE.Vector3();
+const glassMats = [], heroMats = [], heroPieces = [], steps = [];
+let heroWhite = true;                     // implicit alb, ca în referință
+const heroSaved = new Map();              // map-urile reale, ca să le putem pune înapoi
+const pivot = new THREE.Group();          // mișcă/rotește tot ansamblul
+scene.add(pivot);
+
+// baza ortonormală a "ecranului" de keycaps, măsurată din tastatura reală
+const slot = new THREE.Vector3();         // unde ajunge keycap-ul la final (locașul gol)
+const slotQ = new THREE.Quaternion();
+const slotS = new THREE.Vector3(1, 1, 1);
+const fUp = new THREE.Vector3(0, 1, 0), fRight = new THREE.Vector3(1, 0, 0), fFwd = new THREE.Vector3(0, 0, 1);
+let measuredPitch = 0.019, capBottom = 0, capTop = 0, columnRadius = 0.06;
+
+let field = null, fieldMat = null, plate = null, contact = null, contactMat = null;
+let gridN = 73, pitch = 0.019;
+const tmpM = new THREE.Matrix4(), tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(),
+      tmpQ = new THREE.Quaternion();
+
+// ---------- starea regiei ----------
+// Declarată ÎNAINTE de loader.load, nu după: callback-ul de load cheamă applyHeroWhite()
+// și applyP(), care citesc de aici. Cu `const`/`let` mai jos, dacă load-ul ar fi vreodată
+// sincron (cache, sau un loader care nu așteaptă) am lua ReferenceError din TDZ.
+let P = 0, playing = true, looping = false, scrollMode = false;
+let outroDur = 11.0, glowEnd = 0.46, asmEnd = 0.72, travel = 0.09;
+let tumbleYaw = 0, tumbleTilt = 0, glowOverlap = 0.30, glowStrength = 8.0;
+let camRA = 0.42, camRB = 0.26, camRC = 1.05;
+let camEA = 6, camEB = 16, camEC = 13, camAA = -14, camAB = 8, camAC = 22;
+let blur0 = 1.20, blur1 = 0.26, shadowAmt = 0.35;
+const fieldBase = new THREE.Color('#dcdfdf');   // culoarea "curată": fieldMat.color e cea stinsă de apariție
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const camTarget = new THREE.Vector3();
+const phaseEl = document.getElementById('phase');
+const scrub = document.getElementById('scrub'), pval = document.getElementById('pval'),
+      playBtn = document.getElementById('play');
+
+loader.load('../web/public/models/keycap_scene_web.glb', (gltf) => {
+  const root = gltf.scene;
+  root.updateMatrixWorld(true);
+
+  mixer = new THREE.AnimationMixer(root);
+  action = mixer.clipAction(gltf.animations[0]);        // "Scene" — un singur clip cu tot
+  clipDur = gltf.animations[0].duration;
+  action.play(); action.paused = true;
+
+  // ---- piesele unice ale switch-ului exploded: cele FĂRĂ strămoș SW_xxx ----
+  // (aceeași regulă ca în preview.html; instanțele SW_ sunt cele 84 din tastatură)
+  const heroSet = new Set();
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    let p = o.parent, inst = false;
+    while (p) { if (/^SW_\d+/.test(p.name)) { inst = true; break; } p = p.parent; }
+    if (inst) return;
+    if (/^(Solid 87|Solid 154|Solid 193|Solid 208|Solid 368|Solid 372|Pipe)/.test(o.name)) heroSet.add(o);
+  });
+
+  // ---- keycap-ul erou = cel care ajunge cel mai sus la FINALUL clipului ----
+  action.time = clipDur; mixer.update(0); root.updateMatrixWorld(true);
+  const allCaps = [];
+  root.traverse(o => { if (o.isMesh && /^key_cap/.test(o.name)) allCaps.push(o); });
+  const centerOf = (m) => {
+    if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+    return new THREE.Vector3().copy(m.geometry.boundingSphere.center).applyMatrix4(m.matrixWorld);
+  };
+  let topY = -Infinity;
+  for (const m of allCaps) { const y = centerOf(m).y; if (y > topY) { topY = y; heroCap = m; } }
+  if (!heroCap) {
+    document.getElementById('load').textContent = 'Nu am găsit niciun mesh "key_cap*" în GLB.';
+    console.error('outro: lipsesc keycap-urile', { mesh_key_cap: allCaps.length });
+    return;
+  }
+  heroSet.add(heroCap);
+  heroPieces.push(...heroSet);
+
+  // tot restul dispare. Doar mesh-uri, niciodată grupuri: vizibilitatea se moștenește,
+  // iar un grup ascuns ar lua cu el și piesele pe care vrem să le păstrăm.
+  root.traverse(o => { if (o.isMesh && !heroSet.has(o)) o.visible = false; });
+
+  // ---- ordinea glow-ului: de sus în jos, la starea EXPLODATĂ (t = clipDur) ----
+  // Nu e hardcodată: citim Y-ul real al fiecărei piese în coloană și sortăm.
+  const labelOf = (n) => {
+    for (const k in STEP_LABELS) if (n.startsWith(k)) return STEP_LABELS[k];
+    return n;
+  };
+  for (const m of heroSet) steps.push({ mesh: m, label: labelOf(m.name), y: centerOf(m).y });
+  steps.sort((a, b) => b.y - a.y);
+  // raza coloanei explodate — de aici iese distanța de cameră pentru faza A
+  const colBox = new THREE.Box3();
+  for (const m of heroSet) colBox.expandByObject(m);   // heroSet ține mesh-uri direct
+  columnRadius = colBox.getSize(tmpV).length() * 0.5;
+
+  // ---- MĂSURĂTORI la clip time 0 (ansamblu montat, keycap la locul lui) ----
+  action.time = 0; mixer.update(0); root.updateMatrixWorld(true);
+  heroCap.matrixWorld.decompose(slot, slotQ, slotS);
+  capGeo = heroCap.geometry;
+  if (!capGeo.boundingBox) capGeo.computeBoundingBox();
+  if (!capGeo.boundingSphere) capGeo.computeBoundingSphere();
+  capCenterLocal.copy(capGeo.boundingSphere.center);
+  // baza și vârful capacului, măsurate pe axa lui locală Y și scalate în lume
+  capBottom = capGeo.boundingBox.min.y * slotS.y;
+  capTop = capGeo.boundingBox.max.y * slotS.y;
+
+  // baza planului: "sus" e axa Y locală a keycap-ului; prima direcție din grilă o luăm
+  // de la vecinul REAL cel mai apropiat (deci câmpul continuă exact tastatura), a doua
+  // din produs vectorial — NU din al doilea vecin: rândurile sunt sculptate la înălțimi
+  // diferite, iar din vecinul măsurat grila ieșea romb și derapa în Y pe 36 de rânduri.
+  fUp.set(0, 1, 0).applyQuaternion(slotQ).normalize();
+  const rel = allCaps.filter(m => m !== heroCap)
+    .map(m => new THREE.Vector3().setFromMatrixPosition(m.matrixWorld).sub(slot))
+    .map(v => v.projectOnPlane(fUp))
+    .filter(v => v.length() > 1e-5)
+    .sort((a, b) => a.length() - b.length());
+  if (rel.length) {
+    fRight.copy(rel[0]).normalize();
+    measuredPitch = rel[0].length();
+    fFwd.crossVectors(fUp, fRight).normalize();
+    const perp = rel.find(v => Math.abs(v.dot(fRight) / v.length()) < 0.35);
+    console.log('câmp măsurat:', {
+      pas_vecin_apropiat: +measuredPitch.toFixed(5),
+      pas_perpendicular_masurat: perp ? +perp.length().toFixed(5) : null,   // doar control
+      right: fRight.toArray().map(v => +v.toFixed(3)),
+      up: fUp.toArray().map(v => +v.toFixed(3)),
+    });
+  }
+
+  // pivotul: transformul net e identitate (translate(slot) ∘ translate(-slot)), deci
+  // lumea rămâne exact ca în GLB. Rotația se face în jurul locașului, iar poziția lui
+  // e cea pe care o mișcăm în faza C ca ansamblul să coboare în locaș.
+  const holder = new THREE.Group();
+  pivot.position.copy(slot);
+  holder.position.copy(slot).negate();
+  pivot.add(holder); holder.add(root);
+
+  // ---- materiale ----
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+  const seen = new Set();
+  root.traverse(o => {
+    if (!o.isMesh || !o.visible) return;
+    for (const mat of (Array.isArray(o.material) ? o.material : [o.material])) {
+      if (!mat || seen.has(mat.uuid)) continue;
+      seen.add(mat.uuid);
+      for (const k of ['map', 'emissiveMap', 'normalMap', 'roughnessMap']) {
+        if (mat[k]) { mat[k].anisotropy = maxAniso; mat[k].needsUpdate = true; }
+      }
+      // În GLB totul vine ca emisie coaptă (lumina din scena de birou). Aici scena e
+      // alta, deci convertim în PBR real: emissiveMap devine albedo și piesele primesc
+      // lumina NOUĂ. Altfel heroul ar căra cu el lumina verde a peretelui.
+      // proprietățile sunt verificate, nu presupuse: o excepție aici ar omorî toată
+      // pagina, iar din GLB pot veni și materiale fără emissive (Basic, Unlit)
+      if (mat.emissiveMap && !mat.map) mat.map = mat.emissiveMap;
+      if (mat.emissive) mat.emissive.setScalar(0);
+      if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0;
+      if (mat.color) mat.color.setScalar(1);
+      if ('roughness' in mat) mat.roughness = 0.42;
+      if ('metalness' in mat) mat.metalness = 0.0;
+      if (/switch_glass/i.test(mat.name)) {
+        mat.transparent = true; mat.opacity = 0.55;
+        mat.depthWrite = false; mat.side = THREE.DoubleSide;
+        glassMats.push(mat);
+      }
+      heroMats.push(mat);
+      mat.needsUpdate = true;
+    }
+  });
+
+  // ---- ecranul de keycaps, plăcuța de bază, umbra de contact ----
+  fieldMat = new THREE.MeshStandardMaterial({ color: 0xdcdfdf, roughness: 0.55, metalness: 0 });
+  plate = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshStandardMaterial({ color: 0x0c0d0e, roughness: 0.85, metalness: 0 })
+  );
+  plate.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), fUp);
+  scene.add(plate);
+
+  contactMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false,
+    uniforms: { uOpacity: { value: 0 } },
+    vertexShader: VERT,
+    fragmentShader: /* glsl */`
+      uniform float uOpacity; varying vec2 vUv;
+      void main() {
+        float r = length( ( vUv - 0.5 ) * 2.0 );
+        gl_FragColor = vec4( 0.0, 0.0, 0.0, ( 1.0 - smoothstep( 0.15, 1.0, r ) ) * uOpacity );
+      }`,
+  });
+  contact = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), contactMat);
+  contact.quaternion.copy(plate.quaternion);
+  contact.renderOrder = 2;
+  scene.add(contact);
+
+  // lumini orientate pe locaș (la DirectionalLight contează doar direcția poziție→țintă)
+  keyLight.position.copy(slot).addScaledVector(fUp, 0.9).addScaledVector(fRight, 0.35).addScaledVector(fFwd, 0.30);
+  keyLight.target.position.copy(slot);
+  fillLight.position.copy(slot).addScaledVector(fUp, 0.25).addScaledVector(fRight, -0.8).addScaledVector(fFwd, 0.6);
+  fillLight.target.position.copy(slot);
+
+  // pasul grilei și distanța de cameră pentru faza A ies din MĂSURĂTORI, nu din HTML
+  setSlider('s_pitch', Math.round(measuredPitch * 10000));
+  const rAfit = columnRadius / Math.tan(dirCam.fov * 0.5 * DEG) * 1.15;
+  setSlider('s_rA', Math.round(rAfit * 100));
+  setSlider('s_rB', Math.round(rAfit * 62));
+
+  ready = true;
+  applyHeroWhite();
+  layoutField(gridN, pitch);
+  document.getElementById('load').classList.add('hide');
+  applyP(0);
+  console.log('outro pregătit:', {
+    hero_keycap: heroCap.name,
+    ordinea_glow: steps.map((s, i) => `${i + 1}. ${s.label} — ${s.mesh.name}`),
+    clip: `${clipDur.toFixed(2)}s`,
+    locas: slot.toArray().map(v => +v.toFixed(4)),
+    raza_coloanei: +columnRadius.toFixed(4),
+    distanta_A_calculata: +rAfit.toFixed(3),
+  });
+}, (e) => {
+  if (e.total) document.getElementById('load').textContent =
+    `Se încarcă… ${Math.round(e.loaded / e.total * 100)}%`;
+}, (err) => {
+  document.getElementById('load').textContent = 'Eroare: ' + err.message;
+  console.error(err);
+});
+
+function setSlider(id, v) {
+  const s = document.getElementById(id);
+  s.value = String(v);
+  s.dispatchEvent(new Event('input'));
+}
+
+// ---------- ecranul de keycaps ----------
+// InstancedMesh: 73×73 − 1 = 5328 capace × 284 triunghiuri, tot într-un singur draw call.
+// Geometria e chiar keycap-ul real din GLB, iar grila e construită în jurul poziției
+// reale a keycap-ului la clip-time 0 => locașul din mijloc E exact locul lui, deci la
+// final intră perfect la nivel cu vecinii, fără potriviri manuale.
+function layoutField(n, p) {
+  if (!capGeo) return;
+  n = Math.max(3, Math.round(n));           // n < 2 => count negativ => InstancedMesh aruncă
+  const count = n * n - 1;                 // minus locașul din mijloc
+  if (!field || field.count !== count) {
+    if (field) { scene.remove(field); field.dispose(); }
+    field = new THREE.InstancedMesh(capGeo, fieldMat, count);
+    field.frustumCulled = false;           // sfera lui e uriașă; oricum e mereu în cadru
+    scene.add(field);
+  }
+  const h = (n - 1) / 2;
+  let i = 0;
+  for (let a = -h; a <= h; a++) {
+    for (let b = -h; b <= h; b++) {
+      if (a === 0 && b === 0) continue;    // locașul gol
+      tmpV.copy(slot).addScaledVector(fRight, a * p).addScaledVector(fFwd, b * p);
+      field.setMatrixAt(i++, tmpM.compose(tmpV, slotQ, slotS));
+    }
+  }
+  field.instanceMatrix.needsUpdate = true;
+  field.computeBoundingSphere();
+  // plăcuța închisă de sub capace: fără ea, spațiile dintre ele s-ar vedea "goale".
+  // Stă și peste corpul switch-ului care coboară, exact ca placa unei tastaturi reale.
+  const span = n * p * 1.6;
+  plate.scale.set(span, span, 1);
+  plate.position.copy(slot).addScaledVector(fUp, capBottom - 0.0015);
+  // umbra stă PESTE fețele de sus ale capacelor. Sub ele ar fi ascunsă de test-ul de
+  // adâncime (capacele au 13.5 mm înălțime), deci nu s-ar vedea nimic.
+  contact.scale.setScalar(p * 7);
+  contact.position.copy(slot).addScaledVector(fUp, capTop + 0.0004);
+  document.getElementById('ncap').textContent = count.toLocaleString('ro-RO');
+}
+
+function applyP(p) {
+  P = clamp(p, 0, 1);
+  if (!ready) return;
+  const gE = Math.max(glowEnd, 0.02), aE = Math.max(asmEnd, gE + 0.02);
+  const uA = clamp(P / gE, 0, 1);                        // faza A: glow-ul
+  const uB = clamp((P - gE) / (aE - gE), 0, 1);          // faza B: strângerea
+  const uC = clamp((P - aE) / Math.max(1 - aE, 1e-4), 0, 1);  // faza C: coborârea
+
+  // ---- A: clipul stă la 6.25 s cât timp trece glow-ul; apoi rulează pe INVERS ----
+  action.time = clipDur * (1 - easeInOut(uB));
+  mixer.update(0);
+
+  // ---- glow-ul: o piesă pe rând, de sus în jos, cu intensitatea care urcă și coboară
+  //      în felia ei, ca să se citească drept "trece prin" ----
+  let label = '';
+  if (uA < 1 && steps.length) {
+    const n = steps.length;
+    const x = uA * n;
+    const i = Math.min(n - 1, Math.floor(x));
+    const f = x - i;
+    // suprapunerea lărgește felia, deci piesa vecină mai apucă puțin glow
+    const w = clamp((f - (0 - glowOverlap)) / (1 + 2 * glowOverlap), 0, 1);
+    outlinePass.selectedObjects = [steps[i].mesh];
+    outlinePass.edgeStrength = glowStrength * Math.sin(Math.PI * w);
+    label = `<b>${i + 1}/${n}</b> ${steps[i].label}`;
+  } else {
+    outlinePass.selectedObjects = [];
+  }
+  outlinePass.enabled = outlinePass.selectedObjects.length > 0 && outlinePass.edgeStrength > 0.01;
+
+  // ---- rotația care se stinge exact când piesa se așază (implicit 0) ----
+  const k = (1 - uB) * (1 - uB);
+  pivot.quaternion.setFromAxisAngle(fUp, tumbleYaw * k)
+    .multiply(tmpQ.setFromAxisAngle(fRight, tumbleTilt * k));
+  // ---- C: coborârea în locaș. În A și B ansamblul stă suspendat cu "travel" mai sus,
+  //      iar la P = 1 pivotul revine în locaș => keycap-ul aterizează exact în gaură.
+  pivot.position.copy(slot).addScaledVector(fUp, travel * (1 - easeInOut(uC)));
+  pivot.updateMatrixWorld(true);
+
+  // ---- camera: 3 chei (A = coloana întreagă, B = ansamblul strâns, C = larg pe ecran)
+  //      Ținta e centroidul pieselor vizibile, deci trece singură de la centrul coloanei
+  //      explodate la ansamblul montat, fără să sară.
+  camTarget.set(0, 0, 0);
+  for (const m of heroPieces) camTarget.add(tmpV.copy(m.geometry.boundingSphere.center).applyMatrix4(m.matrixWorld));
+  camTarget.multiplyScalar(1 / heroPieces.length);
+  let r, el, az;
+  if (P <= aE) {
+    const t = easeInOut(clamp(P / aE, 0, 1));
+    r = lerp(camRA, camRB, t); el = lerp(camEA, camEB, t); az = lerp(camAA, camAB, t);
+  } else {
+    const t = easeOut(uC);
+    r = lerp(camRB, camRC, t); el = lerp(camEB, camEC, t); az = lerp(camAB, camAC, t);
+  }
+  tmpV.set(0, 0, 0)
+    .addScaledVector(fRight, Math.cos(el * DEG) * Math.sin(az * DEG))
+    .addScaledVector(fFwd, Math.cos(el * DEG) * Math.cos(az * DEG))
+    .addScaledVector(fUp, Math.sin(el * DEG));
+  dirCam.position.copy(camTarget).addScaledVector(tmpV, r);
+  dirCam.up.copy(fUp);
+  dirCam.lookAt(camTarget);
+
+  // ---- DOF: focus lipit pe subiect, deci el e mereu clar ----
+  dofPass.focus = dirCam.position.distanceTo(camTarget);
+  dofPass.strength = lerp(blur0, blur1, easeInOut(uC));
+
+  // ---- schimbul de fundal: blueprint-ul se stinge, apoi apare ecranul de keycaps.
+  //      Deliberat FĂRĂ suprapunere: altfel placa orientată spre cameră ar intersecta
+  //      câmpul. Între ele rămâne o clipă de negru, care ajută dezvăluirea.
+  const bdFade = 1 - sstep(P, aE - 0.10, aE + 0.02);
+  bdMat.uniforms.uOpacity.value = bdOpacity * bdFade;
+  backdrop.visible = bdMat.uniforms.uOpacity.value > 0.004;
+  const fFade = sstep(P, aE + 0.04, Math.min(aE + 0.30, 0.99));
+  fieldMat.color.copy(fieldBase).multiplyScalar(fFade);
+  // ascunse de tot cât sunt stinse: scoate din cost și pasul de adâncime și cel de contur
+  field.visible = plate.visible = fFade > 0.004;
+  contactMat.uniforms.uOpacity.value = shadowAmt * sstep(uC, 0.35, 0.98);
+  contact.visible = contactMat.uniforms.uOpacity.value > 0.004;
+
+  phaseEl.innerHTML = uA < 1 ? `A · glow · ${label}`
+    : (uB < 1 ? 'B · se strânge' : (uC < 1 ? 'C · coboară în locaș' : 'C · așezat'));
+  syncUI();
+}
+
+// ---------- UI ----------
+function syncUI() {
+  scrub.value = String(Math.round(P * 1000));
+  pval.textContent = `${Math.round(P * 100)}% · clip ${(action ? action.time : 0).toFixed(2)}s`;
+}
+function setPlaying(on) {
+  playing = on;
+  playBtn.classList.toggle('on', on);
+  playBtn.textContent = on ? '⏸ Pauză' : '▶ Redă';
+}
+scrub.addEventListener('input', () => { setPlaying(false); applyP(scrub.value / 1000); });
+playBtn.addEventListener('click', () => { if (!playing && P >= 1) P = 0; setPlaying(!playing); });
+document.getElementById('replay').addEventListener('click', () => { applyP(0); setPlaying(true); });
+document.getElementById('loopbtn').addEventListener('click', (e) => {
+  looping = !looping;
+  e.target.classList.toggle('on', looping);
+  e.target.textContent = 'Buclă: ' + (looping ? 'ON' : 'OFF');
+});
+document.getElementById('scrollbtn').addEventListener('click', (e) => {
+  scrollMode = !scrollMode;
+  document.body.classList.toggle('scrolling', scrollMode);
+  e.target.classList.toggle('on', scrollMode);
+  e.target.textContent = 'Scroll: ' + (scrollMode ? 'ON' : 'OFF');
+  if (scrollMode) { setPlaying(false); onScroll(); }
+});
+function onScroll() {
+  if (!scrollMode) return;
+  const max = document.documentElement.scrollHeight - innerHeight;
+  applyP(max > 0 ? scrollY / max : 0);
+}
+addEventListener('scroll', onScroll, { passive: true });
+document.getElementById('cambtn').addEventListener('click', (e) => {
+  useFreeCam = !useFreeCam;
+  if (useFreeCam) {                        // preluare fără salt: pornim din cadrul regiei
+    freeCam.position.copy(dirCam.position);
+    freeCam.up.copy(fUp);
+    controls.target.copy(camTarget);
+    controls.update();
+  }
+  controls.enabled = useFreeCam;
+  renderPass.camera = activeCam();
+  dofPass.camera = activeCam();
+  outlinePass.renderCamera = activeCam();
+  e.target.classList.toggle('on', !useFreeCam);
+  e.target.textContent = useFreeCam ? '🖱 Orbit liber' : '🎬 Cameră regie';
+});
+
+function bind(id, valId, fn, div, digits) {
+  const s = document.getElementById(id), v = document.getElementById(valId);
+  const upd = () => {
+    const x = s.value / div;
+    v.textContent = digits === undefined ? x.toFixed(2) : x.toFixed(digits);
+    fn(x);
+  };
+  s.addEventListener('input', upd); upd();
+}
+const re = () => { if (ready) applyP(P); };     // reaplică regia cu noile valori
+
+bind('s_dur', 'v_dur', x => outroDur = Math.max(x, 0.2), 10, 1);
+bind('s_gend', 'v_gend', x => { glowEnd = x; re(); }, 100);
+bind('s_aend', 'v_aend', x => { asmEnd = x; re(); }, 100);
+bind('s_trv', 'v_trv', x => { travel = x / 100; re(); }, 1, 0);
+bind('s_yaw', 'v_yaw', x => { tumbleYaw = x; re(); }, 100);
+bind('s_tlt', 'v_tlt', x => { tumbleTilt = x; re(); }, 100);
+bind('s_gls', 'v_gls', x => { glowStrength = x; re(); }, 10, 1);
+bind('s_glt', 'v_glt', x => outlinePass.edgeThickness = x, 10);
+bind('s_glg', 'v_glg', x => outlinePass.edgeGlow = x, 100);
+bind('s_glo', 'v_glo', x => { glowOverlap = x; re(); }, 100);
+bind('s_rA', 'v_rA', x => { camRA = x; re(); }, 100, 0);
+bind('s_rB', 'v_rB', x => { camRB = x; re(); }, 100, 0);
+bind('s_rC', 'v_rC', x => { camRC = x; re(); }, 100, 0);
+bind('s_eA', 'v_eA', x => { camEA = x; re(); }, 1, 0);
+bind('s_eB', 'v_eB', x => { camEB = x; re(); }, 1, 0);
+bind('s_eC', 'v_eC', x => { camEC = x; re(); }, 1, 0);
+bind('s_aA', 'v_aA', x => { camAA = x; re(); }, 1, 0);
+bind('s_aB', 'v_aB', x => { camAB = x; re(); }, 1, 0);
+bind('s_aC', 'v_aC', x => { camAC = x; re(); }, 1, 0);
+bind('s_fov', 'v_fov', x => { dirCam.fov = x; dirCam.updateProjectionMatrix(); re(); }, 1, 0);
+bind('s_bdo', 'v_bdo', x => { bdOpacity = x; re(); }, 100);
+bind('s_bdd', 'v_bdd', x => { bdDist = x; }, 100);
+bind('s_ims', 'v_ims', x => bdMat.uniforms.uTexScale.value = x, 100);
+bind('s_imi', 'v_imi', x => bdMat.uniforms.uInkAmt.value = x, 100);
+bind('s_grid', 'v_grid', x => { gridN = Math.round(x); if (ready) layoutField(gridN, pitch); }, 1, 0);
+bind('s_pitch', 'v_pitch', x => { pitch = x / 1000; if (ready) layoutField(gridN, pitch); }, 10, 1);
+bind('s_fog', 'v_fog', x => scene.fog.density = x, 100);
+bind('s_frg', 'v_frg', x => { if (fieldMat) { fieldMat.roughness = x; fieldMat.needsUpdate = true; } }, 100);
+bind('s_sh', 'v_sh', x => { shadowAmt = x; re(); }, 100);
+bind('s_b0', 'v_b0', x => { blur0 = x; re(); }, 100);
+bind('s_b1', 'v_b1', x => { blur1 = x; re(); }, 100);
+bind('s_brad', 'v_brad', x => dofPass.radius = x, 100);
+bind('s_exp', 'v_exp', x => renderer.toneMappingExposure = x, 100);
+bind('s_key', 'v_key', x => keyLight.intensity = x, 100);
+bind('s_fill', 'v_fill', x => fillLight.intensity = x, 100);
+bind('s_amb', 'v_amb', x => ambient.intensity = x, 100);
+bind('s_env', 'v_env', x => scene.environmentIntensity = x, 100);
+bind('s_op', 'v_op', x => glassMats.forEach(m => { m.opacity = x; m.needsUpdate = true; }), 100);
+bind('s_vig', 'v_vig', x => gradePass.uniforms.uVig.value = x, 100);
+bind('s_vgr', 'v_vgr', x => gradePass.uniforms.uVigR.value = 1 - x, 100);
+bind('s_gr', 'v_gr', x => gradePass.uniforms.uGrain.value = x, 100);
+
+document.getElementById('glcol').addEventListener('input', (e) => {
+  outlinePass.visibleEdgeColor.set(e.target.value);
+  outlinePass.hiddenEdgeColor.set(e.target.value).multiplyScalar(0.35);
+});
+document.getElementById('bdcol').addEventListener('input',
+  (e) => bdMat.uniforms.cBase.value.set(e.target.value));
+document.getElementById('imgink').addEventListener('input',
+  (e) => bdMat.uniforms.uInk.value.set(e.target.value));
+document.getElementById('fcol').addEventListener('input', (e) => {
+  fieldBase.set(e.target.value);
+  if (heroWhite) applyHeroWhite();          // heroul alb urmează culoarea ecranului
+  re();                                      // apariția recalculează fieldMat.color
+});
+document.getElementById('dofbtn').addEventListener('click', (e) => {
+  dofOn = !dofOn;
+  dofPass.enabled = dofOn;
+  e.target.classList.toggle('on', dofOn);
+  e.target.textContent = 'DOF: ' + (dofOn ? 'pornit' : 'oprit');
+});
+// heroul alb (ca în referință) vs textura reală coaptă din GLB
+function applyHeroWhite() {
+  if (!fieldMat) return;
+  for (const m of heroMats) {
+    if (/switch_glass/i.test(m.name)) continue;      // carcasa translucidă rămâne cum e
+    if (heroWhite) {
+      if (!heroSaved.has(m)) heroSaved.set(m, m.map);
+      // fieldBase, nu fieldMat.color: aceea e stinsă de apariție, heroul nu se stinge
+      m.map = null; m.color.copy(fieldBase);
+    } else if (heroSaved.has(m)) {
+      m.map = heroSaved.get(m); m.color.setScalar(1);
+    }
+    m.needsUpdate = true;
+  }
+  const b = document.getElementById('herowhite');
+  b.classList.toggle('on', heroWhite);
+  b.textContent = heroWhite ? 'Hero: alb ca ecranul' : 'Hero: textura reală';
+}
+document.getElementById('herowhite').addEventListener('click', () => {
+  heroWhite = !heroWhite; applyHeroWhite();
+});
+
+// ---------- imaginea de pe fundalul blueprint ----------
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+let bdTexUrl = null;
+function setBdTexture(tex, w, h) {
+  const old = bdMat.uniforms.uTex.value;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = maxAniso;               // linii de 1 px privite în unghi, altfel sfârâie
+  tex.needsUpdate = true;
+  bdMat.uniforms.uTex.value = tex;
+  bdMat.uniforms.uHasTex.value = 1;
+  bdMat.uniforms.uTexAsp.value = w / h;
+  if (old) old.dispose();
+  console.log(`fundal: imagine ${w}×${h} (raport ${(w / h).toFixed(3)})`);
+}
+function loadBdImage(url, revoke) {
+  new THREE.TextureLoader().load(url, (tex) => {
+    setBdTexture(tex, tex.image.width, tex.image.height);
+    if (revoke) URL.revokeObjectURL(url);
+  }, undefined, () => { if (revoke) URL.revokeObjectURL(url); });
+}
+const imgFile = document.getElementById('imgfile');
+document.getElementById('imgpick').addEventListener('click', () => imgFile.click());
+function takeFile(f) {
+  if (!f || !f.type.startsWith('image/')) return;
+  if (bdTexUrl) URL.revokeObjectURL(bdTexUrl);
+  bdTexUrl = URL.createObjectURL(f);
+  loadBdImage(bdTexUrl, false);
+}
+imgFile.addEventListener('change', () => { takeFile(imgFile.files && imgFile.files[0]); imgFile.value = ''; });
+document.getElementById('imgclr').addEventListener('click', () => {
+  if (bdMat.uniforms.uTex.value) bdMat.uniforms.uTex.value.dispose();
+  bdMat.uniforms.uTex.value = null;
+  bdMat.uniforms.uHasTex.value = 0;
+  if (bdTexUrl) { URL.revokeObjectURL(bdTexUrl); bdTexUrl = null; }
+});
+document.getElementById('imginv').addEventListener('click', (e) => {
+  const on = bdMat.uniforms.uInvert.value < 0.5;
+  bdMat.uniforms.uInvert.value = on ? 1 : 0;
+  e.target.classList.toggle('on', on);
+  e.target.title = on ? 'Sursa e albă cu text negru' : 'Sursa e deja pe fundal închis';
+});
+for (const p of ['../source/assets/scrim.png', '../source/assets/scrim.jpg']) {
+  fetch(p, { method: 'HEAD' }).then(r => { if (r.ok) loadBdImage(p, false); }).catch(() => {});
+}
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', (e) => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) { e.preventDefault(); takeFile(f); }
+});
+
+addEventListener('resize', () => {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  dirCam.aspect = freeCam.aspect = w / h;
+  dirCam.updateProjectionMatrix(); freeCam.updateProjectionMatrix();
+  if (scrollMode) onScroll();
+});
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+let fpsT = 0, frames = 0;
+const fpsEl = document.getElementById('fps'), callsEl = document.getElementById('calls'),
+      trisEl = document.getElementById('tris');
+
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  if (ready && playing && !scrollMode) {
+    let p = P + dt / outroDur;
+    if (p >= 1) { if (looping) p = 0; else { p = 1; setPlaying(false); } }
+    applyP(p);
+  }
+  if (useFreeCam) controls.update();
+  layoutBackdrop(activeCam());             // placa se reașază în fiecare cadru în fața camerei
+  renderer.info.reset();                   // altfel statisticile ar arăta doar ultimul pass
+  gradePass.uniforms.uTime.value = performance.now() / 1000;
+  composer.render();
+
+  frames++; fpsT += dt;
+  if (fpsT >= 0.5) {
+    fpsEl.textContent = Math.round(frames / fpsT);
+    callsEl.textContent = renderer.info.render.calls;
+    trisEl.textContent = renderer.info.render.triangles.toLocaleString('ro-RO');
+    frames = 0; fpsT = 0;
+  }
+});
+</script>
+</body>
+</html>

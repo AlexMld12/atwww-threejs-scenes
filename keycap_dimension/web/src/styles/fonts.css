@@ -1,0 +1,24 @@
+/* Fonturile, SELF-HOSTED din npm (@fontsource), nu de pe fonts.googleapis.com.
+   ⚠️ Deliberat: auditul de compatibilitate desktop a arătat că o dependență de CDN la
+   runtime omoară tot site-ul dacă un proxy o blochează. three, lenis și decoderul Draco
+   au fost deja mutate local din același motiv; fonturile urmează aceeași regulă.
+   Se importă DOAR subsetul latin și DOAR greutățile folosite — fiecare `@import` în plus
+   e un fișier woff2 pe care browserul chiar îl descarcă. */
+@import '@fontsource/familjen-grotesk/latin-400.css';   /* titluri */
+@import '@fontsource/familjen-grotesk/latin-600.css';   /* „ANATOMY of A CLICK" din About */
+@import '@fontsource/martian-mono/latin-300.css';       /* info din nav, „light" */
+@import '@fontsource/martian-mono/latin-400.css';       /* paragrafe */
+
+/* NimbusSanL — paragraful din footer. ⚠️ Nu vine din npm, ca celelalte: nu există acolo
+   (`nimbus-sans`, `@fontsource/nimbus-sans`, `urw-base35` — toate 404). Fișierul e dat de
+   user, convertit în woff2, și stă în `src/assets/fonts/`. Regula rămâne aceeași: livrat
+   de pe domeniul nostru, nimic de pe CDN.
+   ⚠️ `font-display: swap` — textul se citește din prima, cu rezerva metric-compatibilă
+   (Helvetica/Arial), și se schimbă când vine fontul. La 42 KB, schimbul nu se vede. */
+@font-face {
+  font-family: 'Nimbus Sans L';
+  src: url('../assets/fonts/NimbusSanL-Regu.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

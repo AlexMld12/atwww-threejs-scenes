@@ -1,0 +1,465 @@
+/* Conținutul paginii: nav, titlu, indicatoarele de jos.
+   ⚠️ Totul stă PESTE canvas (`--z-content` / `--z-nav`), iar canvas-ul e `position:
+   fixed`. Deci stratul ăsta e și el fix și NU prinde clicuri — altfel ar înghiți
+   scroll-ul și interacțiunea cu scena. Doar elementele care chiar se apasă
+   (logo, link-uri) își reactivează `pointer-events`. */
+#content {
+  position: fixed; inset: 0; z-index: var(--z-content);
+  pointer-events: none;
+  /* Apare odată cu scena, nu peste preloader — aceeași clasă ca poarta de desktop.
+     ⚠️ Fără `transition` aici: stratul se aprinde INSTANT, iar intrarea o face fiecare
+     grup pe cont propriu (nav și blocurile de jos din `piece-in` de mai jos, titlul
+     literă cu literă din `ui/index.js`). Un fade pe tot `#content` s-ar suprapune
+     peste ele și ar dubla opacitățile — literele ar intra în ceață, nu în focus.
+     ⚠️ Regula geamănă stă INLINE în `<head>`, ca plasă pentru intervalul în care CSS-ul
+     principal încă nu e injectat de modul (vezi comentariul de acolo). */
+  opacity: 0;
+}
+html.is-ready #content { opacity: 1; }
+#content a,
+#content button { pointer-events: auto; color: inherit; text-decoration: none; }
+
+/* ⚠️ Culoarea se scrie EXPLICIT pe logo. SVG-ul lui desenează cu `fill="currentColor"`,
+   iar `currentColor` pe un <a> fără `color` e culoarea de link a browserului — în temă
+   întunecată, măsurat: `rgb(158, 158, 255)`, adică logo-ul ieșea mov-roz în loc de alb.
+   Nu e o culoare pe care o poți vedea în CSS, pentru că nu e scrisă nicăieri. */
+.nav__logo { color: var(--c-ink); }
+
+/* ---------------------------------------------------------------- nav */
+.nav {
+  position: absolute; inset: 0 0 auto 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--pad-nav);
+  z-index: var(--z-nav);
+}
+.nav__logo { display: block; line-height: 0; }
+.nav__logo svg { display: block; width: var(--logo-w); height: auto; }
+
+/* ---- indicatorul de secțiune, cu liniuțele de o parte și de alta ---- */
+/* Două straturi în aceeași celulă: indicatorul paginii (a) și titlul din About (b).
+   Blocul ia lățimea celui mai lat, deci trecerea nu mută nimic și `placeNavMid` rămâne
+   valabil în ambele stări. */
+.nav__mid { display: grid; align-items: center; justify-items: center; }
+.nav__mid > * { grid-area: 1 / 1; }
+.nav__mid-a { display: flex; align-items: center; gap: var(--tick-text); }
+/* Liniuțele sunt blocuri de 2 x 5.32 px (scara de clamp), nu `border` și nu SVG.
+   ⚠️ LĂȚIMEA DE 2 PX E CE LE FACE EGALE. La 1 px, la o scalare de 125% blocul acoperă
+   1.25 pixeli de ecran: după unde cade, ori pică pe un pixel plin, ori se împarte în
+   două coloane la jumătate — măsurat, vârful ieșea între 64.4 și 83.4, adică exact
+   „unele mai groase, altele mai subțiri". La 2 px acoperă 2.5 pixeli, deci ORICUM ar
+   cădea rămâne cel puțin un pixel acoperit complet, iar vârful e același peste tot.
+   ⚠️ Înălțimea e 5.32, lungimea trasăturii din Figma, nu 5 rotunjit.
+   ⚠️ Vezi nota lungă din `ui/index.js` pentru variantele încercate înainte (SVG per
+   liniuță, SVG pe grup, fixare pe pixel, `translateX`) și cifrele fiecăreia. */
+.ticks { display: flex; align-items: center; gap: var(--tick-gap-px, var(--tick-gap)); }
+.ticks i {
+  display: block;
+  width: var(--tick-w-px, var(--tick-w));
+  height: var(--tick-h-px, var(--tick-h));
+  background: var(--c-ink-50);
+}
+.nav__section {
+  font: 300 var(--fs-nav)/var(--lh-nav) var(--font-mono);
+  letter-spacing: var(--ls-nav);
+  color: var(--c-ink);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nav__right {
+  display: flex; align-items: center; gap: var(--gap-nav-right);
+  font: 300 var(--fs-nav)/var(--lh-nav) var(--font-mono);
+  letter-spacing: var(--ls-nav);
+  color: var(--c-ink);
+  text-transform: uppercase;
+}
+.nav__about { display: inline-flex; align-items: center; gap: var(--gap-about); }
+/* Pătratul de „info". ⚠️ Dimensiunile NU sunt în `em` (cum erau înainte, 1.5em): ar fi
+   depins de mărimea textului din nav, iar macheta le dă în px proprii — 16.47 x 16, colț
+   3.5, contur 0.5. Deci merg pe scara de clamp, ca orice altă dimensiune.
+   ⚠️ Conturul de 0.5 px se raportează `1px` în `getComputedStyle`: Chrome rotunjește
+   lățimea de bordură la cel puțin UN pixel de dispozitiv. Pe DPR ≥ 2 iese firul subțire
+   din machetă, pe DPR 1 iese un pixel plin. Nu se „repară" scriind 1px — valoarea
+   declarată rămâne cea din machetă, ca să fie corectă acolo unde ecranul o poate reda. */
+.nav__i {
+  display: inline-grid; place-items: center;
+  flex: none;
+  width: var(--info-w); height: var(--info-h);
+  border: var(--info-bd) solid var(--c-ink-20);
+  border-radius: var(--info-r);
+}
+.nav__i svg { display: block; width: var(--info-ico-w); height: var(--info-ico-h); }
+/* La hover pe ABOUT, pătratul trece la alb plin — și conturul, și „i"-ul dinăuntru, care
+   în starea de repaus e la 80%. Textul își face scramble din `ui/index.js`.
+   ⚠️ Tranziția stă pe starea de REPAUS, nu pe `:hover`: altfel s-ar anima doar la intrare,
+   iar la ieșirea cursorului ar pocni înapoi. */
+.nav__i,
+.nav__i svg path {
+  transition: border-color var(--hover-ms) var(--ease-out-quart),
+              fill-opacity var(--hover-ms) var(--ease-out-quart);
+}
+.nav__about:hover .nav__i,
+.nav__about:focus-visible .nav__i { border-color: var(--c-ink); }
+.nav__about:hover .nav__i svg path,
+.nav__about:focus-visible .nav__i svg path { fill-opacity: 1; }
+
+/* ---------------------------------------------------------------- titlu */
+/* ⚠️ Centrarea NU se mai face cu `top: 50%` + `translateY(-50%)`, ci cu grilă. Motivul
+   nu e poziția — și una și alta cad pe jumătate de pixel când fereastra are înălțime
+   IMPARĂ (măsurat: la 901 px, `top = 387.50` în ambele variante) — ci faptul că un
+   `transform` de bază obligă browserul să țină titlul pe strat propriu de compozitare
+   TOT timpul, iar animația de ieșire se adună peste el.
+   Jumătatea de pixel se rezolvă separat, din `snapHero()` în `ui/index.js`, care adaugă
+   1 px de `padding-top` când e nevoie: într-o grilă centrată, padding-ul de sus mută
+   conținutul cu JUMĂTATE din el, deci 1 px transformă `.5` în pixel întreg.
+   `inset: 0` + `padding-left` înlocuiesc `left: var(--hero-left)`. */
+.hero {
+  position: absolute; inset: 0;
+  display: grid; align-content: center; justify-items: start;
+  padding-left: var(--hero-left);
+}
+/* ⚠️ `--hero-max` e pe scara de clamp; vezi nota din `tokens.css` pentru de ce `ch`
+   era greșit pe `.hero` (se calcula pe fontul ei, nu al titlului). Acum stă pe h1,
+   pentru că `.hero` e întinsă pe tot ecranul. */
+.hero h1 { max-width: var(--hero-max); }
+h1, h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: var(--lh-head);
+  letter-spacing: var(--ls-head);
+  color: var(--c-ink);
+}
+h1 { font-size: var(--fs-h1); }
+h2 { font-size: var(--fs-h2); }
+/* Cuvântul dintre paranteze drepte e mai mic decât restul titlului; PARANTEZELE rămân
+   la mărimea titlului. De aceea `<b>` înfășoară doar cuvântul, iar `[` și `]` stau în
+   afara lui, în textul normal. */
+h1 b, h2 b { font-weight: inherit; }
+h1 b { font-size: var(--fs-h1-brk); }
+h2 b { font-size: var(--fs-h2-brk); }
+
+/* ---------------------------------------------------------------- jos */
+.foot {
+  position: absolute; inset: auto 0 0 0;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: var(--pad-nav);
+  gap: 2rem;
+  /* peste voalul din About, ca nav-ul */
+  z-index: var(--z-nav);
+}
+/* Fiecare colț: două straturi în aceeași celulă, lipite de jos. */
+.foot__l, .foot__r { display: grid; align-items: end; }
+.foot__r { justify-items: end; }
+.foot__l > *, .foot__r > * { grid-area: 1 / 1; }
+.foot__scroll,
+.foot__info {
+  margin: 0;
+  font: 400 var(--fs-body)/var(--lh-body) var(--font-mono);
+  color: var(--c-ink-40);
+}
+.foot__scroll { text-transform: uppercase; }
+/* „[SCROLL TO EXPLORE]" e BUTON, nu paragraf: în footer devine „[BACK TO TOP]" și chiar
+   duce sus. Un `<div>` cu `onclick` n-ar fi fost accesibil de la tastatură. */
+/* Semnătura din stânga-jos: alb 40% → alb plin la hover, în 400 ms. */
+.foot__scroll a {
+  color: inherit; text-decoration: none;
+  transition: color var(--hover-ms) var(--ease-out-quart);
+}
+/* ⚠️ `#content` în selector NU e de decor: fără el regula pierde. Culoarea de bază a
+   link-urilor e pusă de `#content a { color: inherit }`, adică un selector cu ID
+   (specificitate 1-0-1), iar `.foot__scroll a:hover` (0-2-1) nu-l poate bate — hover-ul
+   pur și simplu nu se vedea. Măsurat: cu `matches(':hover')` adevărat și cadre forțate,
+   culoarea rămânea `rgba(255,255,255,0.4)` la toate cele șase eșantioane. */
+#content .foot__scroll a:hover,
+#content .foot__scroll a:focus-visible { color: var(--c-ink); }
+/* ⚠️ HUD-ul are patru linii SEPARATE, nu un text cu newline-uri: linia cu ALT și SPEED
+   se schimbă în fiecare cadru și nu trece niciodată prin scramble. De aceea a dispărut
+   și `white-space: pre-line` — nu mai există newline-uri de păstrat. */
+.foot__info { text-align: right; }
+.foot__info p { margin: 0; }
+/* ⚠️ Cifrele HUD-ului cu lățime fixă: fără asta, ALT și SPEED fac blocul să pulseze la
+   fiecare schimbare de cifră, pentru că fontul e proporțional pe numere. */
+.hud__live { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- heading-ul pieselor
+   UN SINGUR element pentru toate cele opt piese. `top` se scrie din `ui/index.js`, în
+   pixeli ÎNTREGI, din dreptunghiul pe ecran al piesei evidențiate (`keycap:step` → `box`)
+   — numai scena știe unde cade piesa. Stânga e aceeași cu a titlului din hero. */
+/* ⚠️ `right: 0` NU e decorativ. Copiii sunt absoluți, deci blocul nu-și ia lățimea din ei:
+   fără el rămâne LAT DE ZERO, iar un `h2` așezat într-o cutie de referință de zero se
+   rupe la fiecare cuvânt. Măsurat: înălțimi de 217, 379 și 433 px în loc de 108 (două
+   rânduri), și de aici titlul sărea în sus și în jos în loc să coboare lin — poziția se
+   calculează din înălțimea lui.
+   ⚠️ Fără `padding-left`: pentru copiii absoluți cutia de referință e PADDING BOX-ul,
+   deci padding-ul n-ar muta nimic. Marginea stângă stă pe `h2`. */
+.part { position: absolute; left: 0; right: 0; top: 0; }
+/* ⚠️ Cele două straturi stau UNUL PESTE ALTUL: la schimbarea piesei, textul vechi iese în
+   timp ce cel nou intră, deci titlul nu dispare niciodată de tot. Cu `position: absolute`
+   pe amândouă, blocul are înălțime 0 și poziția se calculează din înălțimea stratului
+   activ (vezi `placePart`). */
+.part h2 {
+  position: absolute; top: 0; left: var(--hero-left);
+  max-width: var(--hero-max);
+}
+/* ⚠️ Când nu e niciun pas activ, literele sunt deja pictate transparent — dar textul ar
+   rămâne în arborele de accesibilitate și un cititor de ecran l-ar citi peste footer.
+   `visibility` îl scoate și de acolo, fără să miște layoutul. */
+.part.is-off { visibility: hidden; }
+
+/* ---------------------------------------------------------------- footer (actul outro)
+   Așezat ca hero-ul: stânga la aceeași margine, centrat pe verticală. */
+.outro {
+  position: absolute; inset: 0;
+  display: grid; align-content: center; justify-items: start;
+}
+/* ⚠️ Titlul și paragraful au margini stângi DIFERITE în machetă — 122 și 166.61 px — deci
+   padding-ul nu se poate pune pe bloc, ci pe fiecare în parte. */
+.outro h2 { max-width: var(--hero-max); margin-left: var(--outro-left); }
+.outro__sub {
+  margin: var(--gap-outro) 0 0 var(--outro-p-left);
+  max-width: var(--outro-p-max);
+  /* 12px / 123% / -0.02em / alb plin — valorile din machetă.
+     ⚠️ Fontul e NimbusSanL (din Figma), nu monospace-ul HUD-ului și nici cel de titlu.
+     Vezi `--font-foot` în `tokens.css` pentru de ce e deocamdată doar o listă de rezervă.
+     Că nu e din familia HUD-ului s-a văzut și din măsurătoare: în machetă textul intră pe
+     patru rânduri în 227.8 px, iar cu Martian Mono ieșea pe ȘASE. */
+  font: 400 var(--fs-body)/var(--lh-foot) var(--font-foot);
+  letter-spacing: var(--ls-foot);
+  color: var(--c-ink);
+}
+/* Paragraful nu se animă literă cu literă (ar fi prea mult text): intră simplu, cu o mică
+   întârziere după titlu.
+   ⚠️ Întârzierea e DOAR la intrare. Prima versiune o avea pe tranziția de bază, deci se
+   aplica și la ieșire: blocul rămânea vizibil ~850 ms după ce plecai din footer și se
+   vedea peste secțiunea pieselor — exact ce s-a raportat. La ieșire dispare în 150 ms. */
+/* ⚠️ Ieșirea e INSTANTANEE, fără tranziție. Actele se schimbă instantaneu și în 3D (la
+   cusătură se comută pur și simplu ce e afișat), deci orice fade la ieșire înseamnă un
+   interval în care textul de footer stă peste secțiunea pieselor — exact ce s-a raportat.
+   Intrarea își păstrează întârzierea, ca paragraful să vină după titlu. */
+.outro__sub { opacity: 0; }
+.outro.is-on .outro__sub { opacity: 1; transition: opacity 500ms ease-out 350ms; }
+
+/* ---------------------------------------------------------------- intrarea în pagină
+   Ordinea cerută de user: preloader → blur-ul scenei se limpezește → ABIA APOI apar
+   elementele de DOM și își fac fiecare reveal-ul. Momentul e `html.is-ready`, adică
+   exact clipa în care scena termină faza 2 din `updateReveal`.
+
+   Nav-ul și blocurile de jos intră din CSS (nu au nevoie de per-literă), cu ACELAȘI
+   vocabular ca reveal-ul scenei: ies din blur, nu doar din transparență. Scena pornește
+   la 30 px de blur și se limpezește; aici sunt 10 px, pentru că textul e mic și la 30
+   ar fi o pată. Titlul NU e aici — el se animă literă cu literă din `ui/index.js`. */
+@keyframes piece-in {
+  from { opacity: 0; filter: blur(10px); transform: translateY(0.6em); }
+  to   { opacity: 1; filter: blur(0);    transform: none; }
+}
+/* ⚠️ Animația stă pe CUTIILE colțurilor (.foot__l / .foot__r), nu pe textele din ele.
+   Cu `fill: both`, o animație ține `opacity` și `filter` bătute în cuie pentru totdeauna,
+   deasupra oricărei reguli — deci pusă pe `.foot__scroll`, stingerea lui la deschiderea
+   About n-ar fi avut niciun efect. Pe cutie, copiii rămân liberi să treacă între straturi. */
+html.is-ready .nav,
+html.is-ready .foot__l,
+html.is-ready .foot__r {
+  animation: piece-in 900ms cubic-bezier(.16, .84, .3, 1) both;
+}
+/* Nav-ul pornește primul, textele de jos îl urmează. ⚠️ Decalajele sunt MICI: prima
+   versiune avea 60 / 620 / 760 ms și se simțea ca un timp mort după ce scena se
+   limpezea. Acum totul se suprapune cu coada blurului (vezi `READY_AT` în scenă), iar
+   ultimul element pornește la 300 ms, nu la 760. */
+html.is-ready .nav          { animation-delay: 0ms; }
+html.is-ready .foot__l      { animation-delay: 200ms; }
+html.is-ready .foot__r      { animation-delay: 300ms; }
+
+/* ---- literele titlului ----
+   Fiecare literă e un <span> creat de `ui/index.js`, care îi scrie `opacity`, `filter`
+   și `transform` inline. Aici stă doar ce nu se schimbă în timp.
+   ⚠️ `inline-block` e obligatoriu: pe un inline curat nu se aplică `transform`. Costul
+   e kerningul dintre litere; la `letter-spacing: -0.06em` nu se vede, verificat pe
+   lățimea liniei (496 px cu și fără spargere).
+   ⚠️ `white-space: pre` ține spațiile care au rămas noduri de text (nu le spargem,
+   altfel se pierde locul unde se poate rupe rândul). */
+.hero .ch { display: inline-block; white-space: pre; }
+/* ⚠️ FĂRĂ `will-change`. Prima versiune îl punea pe litere cât ținea animația, ca să
+   le promoveze pe strat propriu. Exact asta e ce face textul să pară mai moale cât se
+   animă și să „se limpezească" la final: pe strat propriu, antialiasingul trece pe
+   tonuri de gri și poziția se interpolează pe subpixeli. 26 de litere nu au nevoie de
+   promovare — sunt câțiva zeci de pixeli fiecare. (Saltul de antialiasing e închis
+   oricum din `-webkit-font-smoothing` în `base.css`, dar stratul rămâne un cost fără
+   rost.) */
+
+/* Cine a cerut din sistem mai puțină mișcare primește elementele direct așezate.
+   ⚠️ Partea de JS verifică ACEEAȘI interogare (`REDUCED` din `ui/index.js`) și sare
+   peste bucla titlului, dispunând imediat `keycap:herodone` — altfel scroll-ul ar fi
+   rămas blocat cele două secunde ale unei animații care oricum nu se mai joacă. */
+@media (prefers-reduced-motion: reduce) {
+  html.is-ready .nav,
+  html.is-ready .foot__l,
+  html.is-ready .foot__r { animation: none; }
+}
+
+/* ================================================================ ABOUT (V2.pdf)
+   Nu e pagină: e un strat peste scenă, comutat de `html.is-about` din `ui/index.js`.
+   Ce se schimbă, după cererea userului:
+     · fundalul se blurează sub un voal verde;
+     · lângă logo apar „/ ABOUT US / [BACK]";
+     · în mijlocul nav-ului „INFO SWITCH" cu liniuțe → „ANATOMY of A CLICK";
+     · pătratul de „info" devine alb, cu „i"-ul în #052A28; S.001 trece la alb 40%;
+     · stânga-jos „SOCIALS / IG / IN / X", dreapta-jos ©2026 / ALL RIGHTS / MADE BY.
+   Fiecare pereche de straturi trece cu ACELAȘI vocabular ca restul paginii: iese din
+   blur, nu doar din transparență. */
+.nav__mid-a, .nav__mid-b,
+.nav__crumbs,
+.foot__scroll, .foot__socials,
+.foot__info, .foot__legal {
+  transition: opacity 450ms var(--ease-out-quart),
+              filter 450ms var(--ease-out-quart),
+              visibility 0s linear 0s;
+}
+/* stratul stins: transparent, blurat și scos din accesibilitate / din clicuri.
+   ⚠️ `visibility` cu întârziere egală cu fade-ul: altfel dispare înainte să se stingă. */
+.nav__mid-b, .nav__crumbs, .foot__socials, .foot__legal,
+html.is-about .nav__mid-a,
+html.is-about .foot__scroll,
+html.is-about .foot__info {
+  opacity: 0; filter: blur(8px); visibility: hidden;
+  transition-delay: 0s, 0s, 450ms;
+}
+html.is-about .nav__mid-b,
+html.is-about .nav__crumbs,
+html.is-about .foot__socials,
+html.is-about .foot__legal {
+  opacity: 1; filter: none; visibility: visible;
+  /* intră puțin după ce iese perechea, ca cele două texte să nu se citească suprapuse */
+  transition-delay: 120ms, 120ms, 0s;
+}
+
+/* ---- breadcrumbs, lipite de logo fără să-i schimbe lățimea blocului ---- */
+.nav__left { position: relative; display: flex; align-items: center; }
+.nav__crumbs {
+  position: absolute; left: 100%; top: 0; bottom: 0;
+  display: flex; align-items: center; gap: var(--crumb-gap);
+  padding-left: var(--crumb-gap);
+  font: 300 var(--fs-nav)/var(--lh-nav) var(--font-mono);
+  letter-spacing: var(--ls-nav);
+  color: var(--c-ink-40);
+  white-space: nowrap;
+}
+.nav__back {
+  display: inline-flex; align-items: center; gap: var(--back-px);
+  height: var(--back-h); padding: 0 var(--back-px);
+  margin: 0; border: var(--info-bd) solid var(--c-ink-20); border-radius: 2px;
+  background: var(--c-back-bg);
+  font: 400 var(--fs-back)/1 var(--font-mono);
+  letter-spacing: var(--ls-nav);
+  cursor: pointer;
+  transition: border-color var(--hover-ms) var(--ease-out-quart),
+              background-color var(--hover-ms) var(--ease-out-quart);
+}
+/* ⚠️ `#content` în selector: `#content button { color: inherit }` (1-0-1) ar fi lăsat
+   butonul pe 40%-ul breadcrumb-ului. Aceeași capcană ca la hover-ul de link. */
+#content .nav__back { color: var(--c-ink); }
+.nav__back:hover, .nav__back:focus-visible {
+  border-color: var(--c-ink); background: var(--c-back-bg-h); outline: none;
+}
+.nav__back svg { display: block; width: var(--back-ico); height: auto; }
+
+/* ---- titlul din mijloc ---- */
+.nav__mid-b {
+  display: flex; align-items: center; gap: 0.15em;
+  font: 600 var(--fs-mid-b)/1 var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+.nav__of { display: block; width: var(--of-size); height: var(--of-size); }
+
+/* ---- dreapta: S.001 și pătratul de „info" ---- */
+.nav__sid { transition: color 450ms var(--ease-out-quart); }
+html.is-about .nav__sid { color: var(--c-ink-40); }
+.nav__i { transition: border-color var(--hover-ms) var(--ease-out-quart),
+                      background-color var(--hover-ms) var(--ease-out-quart); }
+.nav__i svg path { transition: fill-opacity var(--hover-ms) var(--ease-out-quart),
+                               fill var(--hover-ms) var(--ease-out-quart); }
+html.is-about .nav__i { background: var(--c-ink); border-color: var(--c-ink); }
+html.is-about .nav__i svg path { fill: var(--c-about-deep); fill-opacity: 1; }
+
+/* ---- colțurile de jos ---- */
+.foot__socials, .foot__legal {
+  margin: 0;
+  font: 400 var(--fs-body)/var(--lh-body) var(--font-mono);
+  color: var(--c-ink-40);
+  text-transform: uppercase;
+}
+.foot__lead { color: var(--c-ink); }
+.foot__legal { text-align: right; }
+.foot__legal p { margin: 0; }
+/* Hover-ul semnăturii, pe toate link-urile de aici: 40% → alb plin, 400 ms.
+   ⚠️ `#content` în selector din același motiv ca la `.foot__scroll a:hover`. */
+.foot__socials a, .foot__legal a {
+  transition: color var(--hover-ms) var(--ease-out-quart);
+}
+#content .foot__socials a:hover, #content .foot__socials a:focus-visible,
+#content .foot__legal a:hover,   #content .foot__legal a:focus-visible { color: var(--c-ink); }
+
+/* ---- voalul și conținutul ---- */
+/* ⚠️ Stă în `#content` (care e context de stivuire), între textele paginii și nav/foot:
+   `z-index: 3`, cu nav și foot pe `--z-nav` (4). Scos în afara lui `#content`, n-ar mai
+   putea sta SUB nav, fiindcă nav-ul e prins în contextul lui `#content`. */
+.about {
+  position: absolute; inset: 0; z-index: 3;
+  background: var(--c-about-veil);
+  -webkit-backdrop-filter: blur(var(--about-blur));
+          backdrop-filter: blur(var(--about-blur));
+  opacity: 0; visibility: hidden;
+  transition: opacity 600ms var(--ease-out-quart), visibility 0s linear 600ms;
+}
+html.is-about .about {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transition: opacity 600ms var(--ease-out-quart), visibility 0s;
+}
+/* textele paginii de dedesubt se sting: prin blur ar rămâne o pată de alb */
+.hero, .part, .outro { transition: opacity 400ms var(--ease-out-quart); }
+html.is-about .hero,
+html.is-about .part,
+html.is-about .outro { opacity: 0; }
+
+.about__h {
+  position: absolute; left: var(--about-left); top: var(--about-top);
+  font-size: var(--fs-h1);
+}
+.about__h b { font-size: var(--fs-h1-brk); }
+.about__l2 { display: block; padding-left: var(--about-indent); }
+.about__h .ch { display: inline-block; white-space: pre; }
+
+.about__txt {
+  position: absolute; top: var(--about-txt-top); left: 0; right: 0;
+  width: var(--about-txt-w); margin: 0 auto;
+  font: 400 var(--fs-about)/var(--lh-about) var(--font-foot);
+  color: var(--c-ink-70);
+  text-align: justify;
+}
+.about__txt p { margin: 0; }
+.about__txt p + p { margin-top: var(--gap-about-p); }
+/* ⚠️ Italicul e SINTETIZAT de browser: din NimbusSanL avem doar Regular. Dacă userul
+   trimite și fișierul italic, se adaugă un al doilea `@font-face` în `fonts.css`.
+   ⚠️ `letter-spacing` e compensarea pentru asta: italicul real e puțin mai îngust decât
+   Regular-ul înclinat, iar fără ea ultimul paragraf ieșea pe CINCI rânduri, nu pe patru
+   ca în machetă („velit / placerat." rupt). Se scoate odată cu fișierul italic. */
+.about__em { font-style: italic; letter-spacing: -0.01em; }
+/* paragrafele intră ca blocurile de jos, decalate */
+.about__txt p { opacity: 0; filter: blur(8px); transform: translateY(0.6em);
+  transition: opacity 300ms ease-out, filter 300ms ease-out, transform 300ms ease-out; }
+html.is-about .about__txt p {
+  opacity: 1; filter: none; transform: none;
+  transition: opacity 900ms cubic-bezier(.16, .84, .3, 1),
+              filter 900ms cubic-bezier(.16, .84, .3, 1),
+              transform 900ms cubic-bezier(.16, .84, .3, 1);
+}
+html.is-about .about__txt p:nth-child(1) { transition-delay: 250ms; }
+html.is-about .about__txt p:nth-child(2) { transition-delay: 350ms; }
+html.is-about .about__txt p:nth-child(3) { transition-delay: 450ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .about, .about__txt p, .nav__mid-a, .nav__mid-b, .nav__crumbs,
+  .foot__scroll, .foot__socials, .foot__info, .foot__legal { transition: none !important; }
+}

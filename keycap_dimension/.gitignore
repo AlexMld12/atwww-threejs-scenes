@@ -1,0 +1,21 @@
+# ---- autorat Blender: ~640 MB, ramane pe disc dar NU in git ----
+# .blend-urile, texturile master si modelele cumparate. Daca ai nevoie de ele pe alta
+# masina, copiaza folderul manual — nu exista alt loc din care sa se regenereze.
+source/
+
+# ---- generat, se reface din npm ----
+web/node_modules/
+web/dist/
+# decoderul Draco se copiaza din node_modules de `npm run predev`/`prebuild`
+web/public/draco/
+
+# ---- gunoi de sistem ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- doar local (conventia repo-ului atwww-threejs-scenes) ----
+# log-urile de sesiune si comenzile agentului; CLAUDE.md e deja exclus la radacina
+.claude/
+# backup-urile manuale de dinainte de git
+archive/

@@ -1,0 +1,1473 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Keycap Scene — Preview</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; height:100%; background:#0b0f10; font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#e8eef0; }
+  #app { position:fixed; inset:0; }
+  canvas { display:block; }
+  #ui {
+    position:fixed; left:16px; right:16px; bottom:16px; padding:14px 16px;
+    background:rgba(14,20,22,.82); backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08); border-radius:14px;
+    display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+  }
+  #scrub { flex:1 1 320px; min-width:220px; accent-color:#4fd1c5; }
+  button {
+    background:rgba(255,255,255,.07); color:#e8eef0; border:1px solid rgba(255,255,255,.12);
+    padding:7px 13px; border-radius:9px; cursor:pointer; font:inherit;
+  }
+  button:hover { background:rgba(255,255,255,.13); }
+  button.on { background:#4fd1c5; color:#06231f; border-color:#4fd1c5; font-weight:600; }
+  #time { font-variant-numeric:tabular-nums; opacity:.75; min-width:80px; }
+  #stats {
+    position:fixed; top:16px; left:16px; padding:10px 13px;
+    background:rgba(14,20,22,.82); backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08); border-radius:11px;
+    font-variant-numeric:tabular-nums; line-height:1.7; pointer-events:none;
+  }
+  #stats b { color:#4fd1c5; font-weight:600; }
+  #load {
+    position:fixed; inset:0; display:grid; place-items:center; background:#0b0f10;
+    transition:opacity .5s; font-size:15px; letter-spacing:.02em;
+  }
+  #load.hide { opacity:0; pointer-events:none; }
+  .lbl { opacity:.6; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+  #tune {
+    position:fixed; top:16px; right:16px; padding:12px 14px; width:250px;
+    background:rgba(14,20,22,.82); backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08); border-radius:11px;
+    max-height:calc(100vh - 108px); overflow-y:auto; overscroll-behavior:contain;
+  }
+  #tune::-webkit-scrollbar { width:8px; }
+  #tune::-webkit-scrollbar-thumb { background:rgba(79,209,197,.35); border-radius:4px; }
+  #tune::-webkit-scrollbar-track { background:transparent; }
+  #tune .row { display:grid; grid-template-columns:1fr 84px 40px; gap:8px; align-items:center; margin:7px 0; }
+  #tune input { accent-color:#4fd1c5; width:100%; }
+  #tune b { color:#4fd1c5; font-variant-numeric:tabular-nums; font-size:11px; text-align:right; }
+  #saved {
+    position:fixed; left:16px; bottom:88px; padding:13px 15px; max-width:340px; display:none;
+    background:rgba(14,20,22,.94); backdrop-filter:blur(14px);
+    border:1px solid #4fd1c5; border-radius:12px;
+  }
+  #saved a { color:#4fd1c5; font-weight:600; text-decoration:none; word-break:break-all; display:block; }
+  #saved a:hover { text-decoration:underline; }
+  #saved .sub { opacity:.6; font-size:11px; margin-top:6px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.176.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.176.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="stats">
+  <div><span class="lbl">FPS</span> <b id="fps">–</b></div>
+  <div><span class="lbl">Draw calls</span> <b id="calls">–</b></div>
+  <div><span class="lbl">Triunghiuri</span> <b id="tris">–</b></div>
+</div>
+<div id="ui">
+  <button id="play" class="on">⏸ Pauză</button>
+  <input id="scrub" type="range" min="0" max="1000" value="0">
+  <span id="time">0.00 / 0.00 s</span>
+  <button id="camtoggle">🎥 Cameră Blender</button>
+  <button id="hideswitch">Switch-uri: ON</button>
+  <select id="focuspick" style="background:rgba(255,255,255,.07);color:#e8eef0;border:1px solid rgba(255,255,255,.12);padding:7px 10px;border-radius:9px;font:inherit">
+    <option value="">— focus piesă switch —</option>
+    <option value="Solid 87">carcasă sus (sticlă)</option>
+    <option value="Solid 154">carcasă jos (sticlă)</option>
+    <option value="Solid 193">piesă translucidă</option>
+    <option value="Solid 208">stem albastru</option>
+    <option value="Solid 368">contact metalic</option>
+    <option value="Solid 372">piesă albă</option>
+    <option value="Pipe">arc + pini</option>
+  </select>
+  <span style="width:1px;height:24px;background:rgba(255,255,255,.12)"></span>
+  <button id="stepmode" title="Evidențiază pe rând fiecare element (← → pentru navigare)">Pași: OFF</button>
+  <button id="stepprev" title="Pasul anterior (←)">◀</button>
+  <span id="steplabel" style="min-width:120px;font-variant-numeric:tabular-nums;opacity:.85">–</span>
+  <button id="stepnext" title="Pasul următor (→)">▶</button>
+  <span style="width:1px;height:24px;background:rgba(255,255,255,.12)"></span>
+  <button id="grab" title="Descarcă frame-ul curent ca PNG (tasta S)">⬇ PNG</button>
+  <select id="grabscale" style="background:rgba(255,255,255,.07);color:#e8eef0;border:1px solid rgba(255,255,255,.12);padding:7px 10px;border-radius:9px;font:inherit">
+    <option value="1">1×</option>
+    <option value="2" selected>2×</option>
+    <option value="3">3×</option>
+    <option value="4">4×</option>
+  </select>
+  <button id="grabalpha" title="Fundal transparent — util ca să pui render-ul peste alt fundal în Figma">Fundal: opac</button>
+</div>
+<div id="tune">
+  <div class="row"><span class="lbl">Exposure</span><input id="s_exp" type="range" min="0" max="200" value="54"><b id="v_exp">0.54</b></div>
+  <div class="row"><span class="lbl">Environment (global)</span><input id="s_env" type="range" min="0" max="200" value="35"><b id="v_env">0.35</b></div>
+  <div class="row"><span class="lbl">Ceață</span><input id="s_fog" type="range" min="0" max="100" value="18"><b id="v_fog">0.18</b></div>
+  <div class="row"><span class="lbl">Lumina principală</span><input id="s_key" type="range" min="0" max="1600" value="900"><b id="v_key">9.00</b></div>
+  <div class="row"><span class="lbl">Lumina frontală</span><input id="s_fill" type="range" min="0" max="400" value="200"><b id="v_fill">2.00</b></div>
+  <div class="row"><span class="lbl">Ambient</span><input id="s_amb" type="range" min="0" max="100" value="12"><b id="v_amb">0.12</b></div>
+  <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:10px 0">
+  <!-- Emisia e pârghia PRINCIPALĂ a paletei: 50 din 51 de materiale ale scenei
+       sunt emisie coaptă (verificat în chunk-ul JSON al GLB-ului), deci nici
+       luminile, nici environment-ul nu o mișcă. 1.00 -> 0.20, ales pe sweep
+       măsurat: luminanța medie a cadrului scade de la 145 la ~40, cât are
+       cadrul de referință din outro. -->
+  <div class="row"><span class="lbl">Birou: emisie</span><input id="s_emi" type="range" min="4" max="160" value="60"><b id="v_emi">0.60</b></div>
+  <!-- 0.80, nu 0.18 (ales de user în browser, 2026-09-08): la 0.18 pegboard-ul se
+       retrăgea prea mult în cadrul larg. Cu switch-ul ridicat pe albedo, piesele se
+       citesc și pe un fundal luminos, deci nu mai e nevoie să-l stingem. -->
+  <div class="row"><span class="lbl">Fundal: emisie</span><input id="s_bgemi" type="range" min="2" max="160" value="80"><b id="v_bgemi">0.80</b></div>
+  <div class="row"><span class="lbl">Birou: reflexii</span><input id="s_dref" type="range" min="0" max="400" value="180"><b id="v_dref">1.80</b></div>
+  <div class="row"><span class="lbl">Birou: roughness</span><input id="s_drgh" type="range" min="0" max="100" value="58"><b id="v_drgh">0.58</b></div>
+  <div class="row"><span class="lbl">Birou: specular</span><input id="s_dspec" type="range" min="0" max="300" value="130"><b id="v_dspec">1.30</b></div>
+  <div class="row"><span class="lbl">Birou: sticlă</span><input id="s_dglass" type="range" min="0" max="100" value="45"><b id="v_dglass">0.45</b></div>
+  <div class="row"><span class="lbl">Noise TV (quad vechi)</span><input id="s_tv" type="range" min="0" max="100" value="0"><b id="v_tv">0.00</b></div>
+  <div style="margin:8px 0 2px"><button id="envtoggle" class="on" style="width:100%">Reflexii din scenă</button></div>
+  <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:10px 0">
+  <div class="row"><span class="lbl">Switch: luminozitate</span><input id="s_swc" type="range" min="10" max="400" value="200"><b id="v_swc">2.00</b></div>
+  <div class="row"><span class="lbl">Switch: la dezvăluire</span><input id="s_swc2" type="range" min="10" max="900" value="400"><b id="v_swc2">4.00</b></div>
+  <div class="row"><span class="lbl">Tastă: luminozitate</span><input id="s_kc" type="range" min="10" max="400" value="100"><b id="v_kc">1.00</b></div>
+  <div class="row"><span class="lbl">Tastă: la dezvăluire</span><input id="s_kc2" type="range" min="10" max="900" value="400"><b id="v_kc2">4.00</b></div>
+  <div class="row"><span class="lbl">Carcasă: opacitate</span><input id="s_op" type="range" min="5" max="100" value="55"><b id="v_op">0.55</b></div>
+  <div class="row"><span class="lbl">Switch: roughness</span><input id="s_rgh" type="range" min="0" max="100" value="64"><b id="v_rgh">0.64</b></div>
+  <div class="row"><span class="lbl">Piese închise: luciu</span><input id="s_dgl" type="range" min="2" max="100" value="15"><b id="v_dgl">0.15</b></div>
+  <div class="row"><span class="lbl">Switch: env</span><input id="s_senv" type="range" min="0" max="8000" value="4300"><b id="v_senv">43.00</b></div>
+  <div class="row"><span class="lbl">Taste: env</span><input id="s_kenv" type="range" min="0" max="4000" value="800"><b id="v_kenv">8.00</b></div>
+  <div class="row"><span class="lbl">Mat: relief</span><input id="s_nrm" type="range" min="0" max="100" value="25"><b id="v_nrm">0.25</b></div>
+  <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:10px 0">
+  <div class="lbl" style="margin-bottom:6px">Piese switch — boost individual</div>
+  <div class="row"><span class="lbl">arc + pini</span><input id="s_pArc" type="range" min="10" max="800" value="100"><b id="v_pArc">1.00</b></div>
+  <div class="row"><span class="lbl">contact metalic</span><input id="s_pCon" type="range" min="10" max="800" value="100"><b id="v_pCon">1.00</b></div>
+  <div class="row"><span class="lbl">piesă albă</span><input id="s_pAlb" type="range" min="10" max="800" value="100"><b id="v_pAlb">1.00</b></div>
+  <div class="row"><span class="lbl">piesă translucidă</span><input id="s_pTra" type="range" min="10" max="800" value="100"><b id="v_pTra">1.00</b></div>
+  <div class="row"><span class="lbl">carcasă sus</span><input id="s_pSus" type="range" min="10" max="800" value="100"><b id="v_pSus">1.00</b></div>
+  <div class="row"><span class="lbl">carcasă jos</span><input id="s_pJos" type="range" min="10" max="800" value="100"><b id="v_pJos">1.00</b></div>
+  <div class="row"><span class="lbl">stem albastru</span><input id="s_pStem" type="range" min="10" max="800" value="100"><b id="v_pStem">1.00</b></div>
+
+  <div class="lbl" style="margin-bottom:6px">Gradare finală (paleta din outro)</div>
+  <div class="row"><span class="lbl">Contrast</span><input id="s_con" type="range" min="50" max="250" value="108"><b id="v_con">1.08</b></div>
+  <div class="row"><span class="lbl">Saturație</span><input id="s_sat" type="range" min="0" max="200" value="80"><b id="v_sat">0.80</b></div>
+  <div class="row"><span class="lbl">Câștig R</span><input id="s_gr" type="range" min="50" max="200" value="93"><b id="v_gr">0.93</b></div>
+  <div class="row"><span class="lbl">Câștig G</span><input id="s_gg" type="range" min="50" max="200" value="100"><b id="v_gg">1.00</b></div>
+  <div class="row"><span class="lbl">Câștig B</span><input id="s_gb" type="range" min="50" max="200" value="128"><b id="v_gb">1.28</b></div>
+  <div class="row"><span class="lbl">Lift (negru)</span><input id="s_lift" type="range" min="-50" max="50" value="0"><b id="v_lift">0.00</b></div>
+  <div class="row"><span class="lbl">Vignetă</span><input id="s_gvig" type="range" min="0" max="100" value="20"><b id="v_gvig">0.20</b></div>
+  <div class="row"><span class="lbl">Vignetă: întindere</span><input id="s_gvgr" type="range" min="0" max="100" value="61"><b id="v_gvgr">0.61</b></div>
+  <div class="row"><span class="lbl">Vignetă: formă</span><input id="s_gvgp" type="range" min="200" max="800" value="400"><b id="v_gvgp">4.00</b></div>
+  <div class="row"><span class="lbl">Noise</span><input id="s_gnz" type="range" min="0" max="100" value="4"><b id="v_gnz">0.04</b></div>
+  <div class="row"><span class="lbl">Noise: granulație</span><input id="s_gng" type="range" min="50" max="600" value="200"><b id="v_gng">2.00</b></div>
+  <div class="row"><span class="lbl">Noise: duritate</span><input id="s_gnp" type="range" min="100" max="900" value="500"><b id="v_gnp">5.00</b></div>
+
+  <div class="lbl" style="margin-bottom:6px">Contur de evidențiere</div>
+  <div class="row" style="grid-template-columns:1fr 84px 40px">
+    <span class="lbl">Culoare</span>
+    <input id="olcol" type="color" value="#5cff9d" style="height:20px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:5px;background:none">
+    <b></b>
+  </div>
+  <div class="row"><span class="lbl">Grosime</span><input id="s_olt" type="range" min="0" max="80" value="16"><b id="v_olt">1.60</b></div>
+  <div class="row"><span class="lbl">Intensitate</span><input id="s_ols" type="range" min="0" max="120" value="40"><b id="v_ols">4.00</b></div>
+  <div class="row"><span class="lbl">Glow</span><input id="s_olg" type="range" min="0" max="100" value="35"><b id="v_olg">0.35</b></div>
+  <div style="margin:4px 0"><button id="olpulse" style="width:100%">Puls: oprit</button></div>
+  <hr style="border:0;border-top:1px solid rgba(255,255,255,.08);margin:10px 0">
+  <div class="lbl" style="margin-bottom:6px">Fundal (scrim în spatele tastaturii)</div>
+  <!-- Opacitatea e ȚINTA la finalul tranziției, nu valoarea de acum: scrim-ul
+       se aprinde singur între „Start” și „Sfârșit” de mai jos. Ca să-l vezi la
+       maxim, du scrub-ul după momentul de sfârșit. -->
+  <div class="row"><span class="lbl">Opacitate (la final)</span><input id="s_bgo" type="range" min="0" max="100" value="100"><b id="v_bgo">1.00</b></div>
+  <div class="row"><span class="lbl">Start tranziție (s)</span><input id="s_rvs" type="range" min="0" max="625" value="300"><b id="v_rvs">3.00</b></div>
+  <div class="row"><span class="lbl">Sfârșit tranziție (s)</span><input id="s_rve" type="range" min="0" max="625" value="460"><b id="v_rve">4.60</b></div>
+  <!-- NU 0: planșa nu trebuie să treacă prin negru cât timp scrim-ul e încă parțial
+       transparent (materialele de fundal au albedo negru, deci „stins" = negru). -->
+  <div class="row"><span class="lbl">Planșă: rest la final</span><input id="s_bgemif" type="range" min="0" max="100" value="20"><b id="v_bgemif">0.20</b></div>
+  <!-- Distanța la care se așază placa, măsurată de la centrul tastaturii. Trebuie să
+       cadă ÎNTRE subiect (coloana explodată, ~0.12 m adâncime) și planșă (pegboard la
+       ~0.31 m în spate), altfel ori taie piesele, ori ajunge în spatele pegboard-ului
+       și nu-l mai acoperă. 0.18 e în mijlocul ferestrei. -->
+  <div class="row"><span class="lbl">Scrim: distanță</span><input id="s_bgd" type="range" min="2" max="200" value="12"><b id="v_bgd">0.12</b></div>
+  <div style="margin:4px 0"><button id="scrimface" class="on" style="width:100%" title="Placa se reașază perpendicular pe cameră în fiecare cadru. Oprit = plan fix în scenă, cu Z/Y de mai jos.">Scrim: spre cameră</button></div>
+  <div class="row"><span class="lbl">Distanță (Z)</span><input id="s_bgz" type="range" min="-38" max="6" value="-20"><b id="v_bgz">-0.20</b></div>
+  <div class="row"><span class="lbl">Înălțime (Y)</span><input id="s_bgy" type="range" min="70" max="230" value="139"><b id="v_bgy">1.39</b></div>
+  <div class="row"><span class="lbl">Mărime</span><input id="s_bgs" type="range" min="40" max="300" value="100"><b id="v_bgs">1.00</b></div>
+  <div class="row"><span class="lbl">Estompare margini</span><input id="s_bge" type="range" min="0" max="45" value="12"><b id="v_bge">0.12</b></div>
+  <div class="row" style="grid-template-columns:1fr 84px 40px">
+    <span class="lbl">Culoare</span>
+    <input id="bgc1" type="color" value="#0c3b38" style="height:20px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:5px;background:none">
+    <b></b>
+  </div>
+  <div class="row"><span class="lbl">Vignetă: intensitate</span><input id="s_vig" type="range" min="0" max="100" value="55"><b id="v_vig">0.55</b></div>
+  <div class="row"><span class="lbl">Vignetă: întindere</span><input id="s_vgr" type="range" min="0" max="100" value="70"><b id="v_vgr">0.70</b></div>
+  <div class="lbl" style="margin:10px 0 6px">Imagine pe scrim</div>
+  <div class="row" style="grid-template-columns:1fr 40px 40px;gap:6px">
+    <button id="imgpick">Încarcă imagine…</button>
+    <button id="imginv" class="on" title="Sursa e albă cu text negru">⇄</button>
+    <button id="imgclr" title="Scoate imaginea">✕</button>
+  </div>
+  <input id="imgfile" type="file" accept="image/*" style="display:none">
+  <div class="row"><span class="lbl">Mărime</span><input id="s_ims" type="range" min="5" max="250" value="90"><b id="v_ims">0.90</b></div>
+  <div class="row"><span class="lbl">Poziție X</span><input id="s_imx" type="range" min="-100" max="100" value="0"><b id="v_imx">0.00</b></div>
+  <div class="row"><span class="lbl">Poziție Y</span><input id="s_imy" type="range" min="-100" max="100" value="0"><b id="v_imy">0.00</b></div>
+  <div class="row"><span class="lbl">Intensitate</span><input id="s_imi" type="range" min="0" max="100" value="85"><b id="v_imi">0.85</b></div>
+  <div class="row" style="grid-template-columns:1fr 84px 40px">
+    <span class="lbl">Culoare text</span>
+    <input id="imgink" type="color" value="#ffffff" style="height:20px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:5px;background:none">
+    <b></b>
+  </div>
+</div>
+<div id="saved"></div>
+<div id="load">Se încarcă scena (8.8 MB)…</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+const app = document.getElementById('app');
+
+// ---------- renderer ----------
+// alpha + preserveDrawingBuffer: necesare pentru exportul PNG (fundal transparent
+// și citirea canvas-ului după render). preserveDrawingBuffer costă foarte puțin aici.
+const renderer = new THREE.WebGLRenderer({
+  antialias: true, powerPreference: 'high-performance',
+  alpha: true, preserveDrawingBuffer: true,
+});
+const BASE_PR = Math.min(devicePixelRatio, 2);
+renderer.setPixelRatio(BASE_PR);
+renderer.info.autoReset = false;   // resetăm manual în renderFrame(), vezi acolo
+renderer.setSize(innerWidth, innerHeight);
+// >>> setările care fac scena să arate ca în Blender (Filmic + exposure -0.9 EV)
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// RĂMÂNE 0.54, ca în original. Coborât la 0.40 (2026-09-08) ca să potrivesc
+// luminanța medie cu cea a outro-ului, apoi REVENIT: stingând tot cadrul, dispărea
+// lumina coaptă de deasupra biroului, care e caracterul scenei. Lecția: ținta nu e
+// o luminanță medie, e RAPORTUL dintre subiect și fundal. Paleta se face din
+// gradare + dimmer-ul de fundal; exposure-ul rămâne unde era.
+renderer.toneMappingExposure = 0.54;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+// PALETA PRELUATĂ DIN OUTRO (2026-09-08). Fundalul nu mai e neutrul #0b0f10, ci
+// exact petrolul din outro_preview.html — aceeași culoare LINIARĂ, ca cele două
+// capete ale paginii să se lege. Ceața vine din același loc: în outro estompează
+// depărtarea câmpului de taste, aici închide colțurile biroului și scoate scena
+// din senzația de "verde-mentă plat".
+const BG = new THREE.Color().setRGB(0.01628, 0.04684, 0.04732, THREE.LinearSRGBColorSpace);
+scene.background = BG;
+// ⚠️ Densitatea NU se copiază din outro. Acolo e 2.12, dar acolo camera stă la
+// câțiva centimetri de un câmp infinit. Aici camera merge de la 2.35 m la 0.48 m:
+// la 2.12, factorul FogExp2 = 1 - exp(-(d·z)²) e ~1.00 la 2.35 m, deci biroul
+// dispare complet în fundal (verificat, cadru integral gol). 0.18 dă ~11% la cadrul
+// larg și ~0.5% la close-up — indiciu de adâncime, nu perdea.
+scene.fog = new THREE.FogExp2(BG.getHex(), 0.18);
+
+// ---------- environment (dă reflexii pe birou + cutting mat) ----------
+// Două surse de reflexii:
+//  - "studio": RoomEnvironment generic (luminos, reflexii albe — NU seamănă cu Blender)
+//  - "scenă":  cubemap capturat din chiar scena încărcată, deasupra biroului —
+//              reflexii verzui-întunecate, exact ce vedea Cycles. Default după load.
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envStudio = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+let envScene = null, useSceneEnv = true;
+scene.environment = envStudio;       // până se încarcă GLB-ul
+// RĂMÂNE 0.35. Nu se ridică global — încercat pe 5.0 (2026-09-08) și e greșit:
+// 50 din 51 de materiale ale scenei sunt emisie coaptă, iar IBL-ul SPECULAR se
+// adaugă și pe ele, indiferent de albedo. Plus biroul, care are clearcoat. Efectul
+// a fost tot cadrul larg spălat în cyan aprins — exact invers de ținta „petrol
+// închis". Creșterea de environment se face PER MATERIAL, doar pe switch și taste
+// (vezi envMapIntensity la calibrări, sliderele „Switch: env" / „Taste: env").
+scene.environmentIntensity = 0.35;
+
+// ---------- lumini: keycaps + switch-urile sunt PBR (albedo), au NEVOIE de lumină ----------
+// valori derivate din Blender: Top_main (36.8W) + Top_front (7.5W), culoare (0.72,1.0,0.84)
+// 2.5 -> 6.0 și 0.6 -> 1.5 (2026-09-08). Astea sunt SINGURA pârghie reală pe hero:
+// piesele de switch și tastele sunt singurele materiale PBR din scenă, iar
+// environment-ul nu le mișcă (măsurat: env global 0.35->2.0 dă imagine identică —
+// dielectrici închiși, F0 0.04, albedo 0.02-0.2 => IBL neglijabil). Odată ce
+// exposure-ul a coborât la 0.40 pentru paletă, hero-ul a coborât cu el și trebuie
+// ridicat separat. Verificat că NU strică paleta: luminanța pe tot cadrul rămâne
+// 41.4 (ținta 40.1) — piesele ocupă prea puțini pixeli ca să conteze.
+const LIGHT_COL = 0xb8ffd6;
+const keyLight = new THREE.DirectionalLight(LIGHT_COL, 9.0);
+keyLight.position.set(0.24, 2.1, 0.3);      // Blender (0.24,-0.3,2.1) -> three.js Y-up
+scene.add(keyLight);
+const fillLight = new THREE.DirectionalLight(LIGHT_COL, 2.0);
+fillLight.position.set(0, 1.45, 1.2);       // Blender (0,-1.2,1.45)
+scene.add(fillLight);
+const ambient = new THREE.AmbientLight(0x2a4a3e, 0.12);
+scene.add(ambient);
+
+// Notă (2026-09-09): aici a stat o „lumină de vizor" (direcțională legată de cameră),
+// adăugată cât timp credeam că piesele verticale nu se văd din cauza N·L ≈ 0. Cauza
+// reală era ordinea de desenare a scrim-ului (vezi nota de la scrimMat). Măsurat după
+// reparare: lumina aducea 250.1 vs 249.7 pe arc și 223.3 vs 217.1 pe stem, adică
+// nimic. Scoasă, ca să nu rămână o lumină pusă pentru o cauză greșită.
+
+// ---------- scrim: plan vertical între perete și tastatură ----------
+// Măsurat din GLB: peretele e la Z -0.44..-0.39, pegboard-ul la Z ~ -0.38, iar
+// switch-ul exploded + keycaps la Z -0.05..+0.07. Deci avem ~0.33 m de spațiu.
+// Marginea de jos stă pe birou (blatul e la Y 0.742), ca să nu se vadă capătul.
+// O singură culoare plată + o vignetă separată pe margini (2026-08-03, cererea userului).
+// Istoric, ca să nu se reia un drum deja respins: 4 poli cu ponderi inverse pătratice
+// (versiunea din preview_BACKUP_pre_cleanup.html) -> gradient vertical + 3 pete în
+// mișcare, paleta lui inspiring.nk.studio -> culoare unică. Ambele au fost respinse.
+// tonemapping_fragment + colorspace_fragment la final sunt OBLIGATORII: fără ele
+// culoarea ar sări când pornești conturul, pentru că pe calea cu composer
+// OutputPass aplică tone mapping peste toată imaginea, iar pe calea directă nu.
+// Prefixul programului le injectează deja variantele _pars pentru ShaderMaterial.
+// ⚠️ depthTest RĂMÂNE PORNIT. Încercat cu `depthTest: false` + `renderOrder: -20`
+// (2026-09-09), pe ideea greșită că așa placa se desenează prima: `renderOrder`
+// sortează doar ÎN INTERIORUL grupului transparent, iar grupul transparent se
+// desenează DUPĂ tot ce e opac. Rezultatul: scrim-ul acoperea toată geometria opacă
+// și supravieţuiau doar piesele transparente. Măsurat pe piese: cele 3 translucide
+// (Solid 87/154/193) se vedeau, cele 4 opace (Pipe, Solid 208/368/372) dispăreau.
+// Cu depth test pornit și placa așezată DINCOLO de subiect (layoutScrimCam), ordinea
+// se rezolvă singură: subiectul scrie adâncime în pasul opac, iar placa cade în
+// spatele lui. Planșa de pegboard nu blochează placa fiindcă, în timpul stingerii,
+// îi punem depthWrite = false (vezi applyReveal).
+const scrimMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, depthTest: true, side: THREE.DoubleSide,
+  uniforms: {
+    uOpacity: { value: 0 },
+    uEdge:    { value: 0.12 },    // estomparea marginilor, în fracțiune de lățime
+    uHW:      { value: 1.30 / 3.8 },
+    cBase:    { value: new THREE.Color('#0c3b38') },   // singura culoare de fundal
+    uVig:     { value: 0.55 },    // intensitatea vignetei (0 = fără)
+    uVigR:    { value: 0.30 },    // de unde începe: mic = se întinde spre centru
+    // imagine peste scrim: NU se desenează ca poză, i se ia doar cerneala.
+    // Sursa e alb-cu-text-negru => luminanța mică = cerneală, deci fundalul alb
+    // dispare în gradientul verde și rămân doar liniile, colorate cu uInk.
+    uTex:      { value: null },
+    uHasTex:   { value: 0.0 },
+    uTexScale: { value: 0.90 },              // înălțimea imaginii, fracțiune din înălțimea planului
+    uTexOff:   { value: new THREE.Vector2(0, 0) },
+    uTexAsp:   { value: 1.0 },               // W/H al imaginii încărcate
+    uPlaneAsp: { value: 3.8 / 1.30 },        // W/H al planului
+    uInk:      { value: new THREE.Color('#ffffff') },
+    uInkAmt:   { value: 0.85 },
+    uInvert:   { value: 1.0 },               // 1 = sursă albă cu text negru; 0 = deja pe fundal închis
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    }`,
+  fragmentShader: `
+    uniform vec3 cBase, uInk;
+    uniform float uOpacity, uEdge, uHW, uVig, uVigR;
+    uniform sampler2D uTex;
+    uniform float uHasTex, uTexScale, uTexAsp, uPlaneAsp, uInkAmt, uInvert;
+    uniform vec2 uTexOff;
+    varying vec2 vUv;
+    void main() {
+      vec2 uv = vUv;
+      vec3 col = cBase;                  // o singură culoare, plată
+
+      // ---- imaginea: se ia doar cerneala, nu pixelii ----
+      // Potrivire care păstrează raportul imaginii: înălțimea imaginii = uTexScale din
+      // înălțimea planului, lățimea rezultă din uTexAsp corectat cu cât e turtit planul
+      // (altfel un desen portret s-ar întinde pe 3.8 m de lățime).
+      float ink = 0.0;
+      if ( uHasTex > 0.5 ) {
+        float s = max( uTexScale, 1e-3 );
+        vec2 k = vec2( uPlaneAsp / ( max( uTexAsp, 1e-3 ) * s ), 1.0 / s );
+        vec2 tuv = ( uv - vec2( 0.5 ) - uTexOff ) * k + vec2( 0.5 );
+        vec2 in2 = step( vec2( 0.0 ), tuv ) * step( tuv, vec2( 1.0 ) );
+        vec4 src = texture2D( uTex, tuv );
+        float lum = dot( src.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+        // uInvert 1: alb = fundal (dispare), negru = cerneală. uInvert 0: exact pe dos.
+        ink = mix( lum, 1.0 - lum, uInvert ) * src.a * in2.x * in2.y * uInkAmt;
+        ink = clamp( ink, 0.0, 1.0 );
+        col = mix( col, uInk, ink );
+      }
+
+      // ---- vignetă: întunecă spre margini, peste tot (inclusiv peste text) ----
+      // Distanță de tip dreptunghi rotunjit (norma a 4-a), nu cerc: planul e 2.9:1, iar
+      // un cerc ar mânca tot sus-jos și aproape nimic pe lateral. Așa urmează marginile.
+      vec2 vd = abs( uv - 0.5 ) * 2.0;
+      float vr = pow( pow( vd.x, 4.0 ) + pow( vd.y, 4.0 ), 0.25 );
+      col *= 1.0 - smoothstep( uVigR, 1.0, vr ) * uVig;
+
+      // margini estompate: lateral și sus. Jos rămâne plin — e ascuns de birou.
+      float e = max( uEdge, 1e-3 );
+      float fx = smoothstep( 0.0, e, uv.x ) * smoothstep( 1.0, 1.0 - e, uv.x );
+      float fy = smoothstep( 1.0, 1.0 - e / uHW, uv.y );
+      // cerneala își aduce propria opacitate, ca textul să se vadă și cu scrim aproape stins
+      float a = clamp( uOpacity + ink * ( 1.0 - uOpacity ), 0.0, 1.0 );
+      gl_FragColor = vec4( col, a * fx * fy );
+
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+});
+// Uniformele scrim-ului, declarate AICI și nu jos, lângă restul sliderelor de scrim:
+// `applyReveal()` și `updateScrimVis()` le ating, iar de la 2026-09-09 le cheamă și
+// binduri care rulează mai sus în modul (s_swc, s_kc, s_rvs...). Cu `const U` jos, am
+// primit „Cannot access 'U' before initialization" — zona moartă temporală, exact
+// capcana pe care CLAUDE.md o listează. Aici nu mai poate fi devansată de nimic.
+const U = scrimMat.uniforms;
+
+const scrim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), scrimMat);
+const SCRIM_W = 3.8, SCRIM_H = 1.30;
+scrim.position.set(0, 1.39, -0.20);
+scrim.scale.set(SCRIM_W, SCRIM_H, 1);
+scrim.visible = false;            // invizibil => nu intră în cubemap-ul de reflexii
+scrim.renderOrder = -20;          // primul dintre transparente: e cel mai în spate
+scene.add(scrim);
+function layoutScrim(size, y, z) {
+  scrim.scale.set(SCRIM_W * size, SCRIM_H * size, 1);
+  scrim.position.set(0, y, z);
+}
+
+// ---------- scrim orientat spre cameră (2026-09-09) ----------
+// Un plan FIX nu poate acoperi tot zborul camerei: în tranziție camera coboară de
+// sus și se vede peste marginea lui de sus, ca o linie orizontală dură pe la mijlocul
+// cadrului. Mărirea planului NU rezolvă — verificat la 3× și la z -0.35, banda taie
+// exact în același loc, pentru că problema e unghiul, nu dimensiunea.
+// Rețeta e cea din outro.html (layoutBackdrop): placa se reașază în FIECARE cadru
+// perpendicular pe cameră, dimensionată exact pe frustum. Distanța nu contează pentru
+// ocluzie (depthTest e oprit), doar pentru dimensionare — o ținem legată de cât e
+// camera de tastatură, ca placa să nu ajungă absurd de mare în cadrul larg.
+const SCRIM_TARGET = new THREE.Vector3(0, 0.78, 0);   // centrul tastaturii
+const _scrimFwd = new THREE.Vector3();
+// scrimMargin: distanța plăcii dincolo de centrul tastaturii. Trebuie să cadă ÎNTRE
+// subiect (coloana explodată, ~0.12 m) și planșă (pegboard la ~0.31 m în spate) —
+// vezi nota de la sliderul „Scrim: distanță". Prea mult => ajunge în spatele
+// pegboard-ului și nu-l mai acoperă; prea puțin => taie piesele.
+let scrimCamFacing = true, scrimMargin = 0.12;
+// Ancora NU e centrul tastaturii. Când camera e sus și privește în jos, pegboard-ul
+// (pe perete, mai sus) e MAI APROAPE de cameră decât tastatura — deci „distanța la
+// tastatură + margine" așeza placa în SPATELE planșei, care o ocluziona. Verificat:
+// la t=4.00 pegboard-ul rămânea neacoperit, apoi la 4.60 sărea brusc la acoperit.
+// Ancora corectă e SUBIECTUL: centroidul coloanei explodate.
+const _sa = new THREE.Vector3(), _sp = new THREE.Vector3();
+function scrimAnchor() {
+  const keys = Object.keys(pieceMeshes);
+  if (!keys.length) return SCRIM_TARGET;
+  _sa.set(0, 0, 0);
+  for (const k of keys) _sa.add(pieceMeshes[k].getWorldPosition(_sp));
+  return _sa.multiplyScalar(1 / keys.length);
+}
+// Intervalul de ADÂNCIME (distanța în fața camerei) ocupat de un set de mesh-uri.
+// Pe cutii de încadrare, cele 8 colțuri duse în spațiul camerei — NU pe sfere de
+// încadrare: raza sferei unui panou de 3,8 m e ~0.75 m și face calculul inutilizabil.
+const _v8 = new THREE.Vector3(), _mi = new THREE.Matrix4();
+function viewDepthRange(objs, cam) {
+  _mi.copy(cam.matrixWorld).invert();
+  let near = Infinity, far = -Infinity;
+  for (const o of objs) {
+    if (!o || !o.visible) continue;
+    const g = o.geometry;
+    if (!g) continue;
+    if (!g.boundingBox) g.computeBoundingBox();
+    const b = g.boundingBox;
+    for (let i = 0; i < 8; i++) {
+      _v8.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z);
+      o.localToWorld(_v8).applyMatrix4(_mi);
+      const d = -_v8.z;
+      if (d < near) near = d;
+      if (d > far) far = d;
+    }
+  }
+  return [near, far];
+}
+
+function layoutScrimCam(cam) {
+  // Placa trebuie să cadă ÎNTRE subiect și planșă, în ADÂNCIME DE CAMERĂ — nu la o
+  // distanță radială față de un punct. Motivul, măsurat (2026-09-14): pegboard-ul NU
+  // e la adâncime constantă. Cu camera sus și înclinată, partea lui de sus e mai
+  // aproape de cameră decât placa și o ocluzionează, iar partea de jos e mai departe
+  // și e acoperită — se vedea ca o muchie orizontală dură pe la o treime din cadru
+  // (banda de sus 91.2 vs banda de jos 41.4 la t=4.00).
+  // Deci: dincolo de cel mai îndepărtat punct al subiectului, dar înaintea celui mai
+  // apropiat punct al planșei. Dacă fereastra e goală (subiectul ajunge lipit de
+  // planșă), prioritatea e acoperirea planșei — altfel reapare muchia.
+  cam.updateMatrixWorld();
+  const subj = viewDepthRange(Object.values(pieceMeshes), cam);
+  const bg = viewDepthRange(bgMeshes, cam);
+  let dist = (isFinite(subj[1]) ? subj[1] : cam.position.distanceTo(SCRIM_TARGET)) + scrimMargin;
+  if (isFinite(bg[0])) dist = Math.min(dist, bg[0] - 0.01);
+  dist = Math.max(dist, cam.near + 0.02);
+  const h = 2 * Math.tan(cam.fov * 0.5 * Math.PI / 180) * dist;
+  const w = h * cam.aspect;
+  U.uHW.value = h / w;
+  // Estomparea marginilor se OPREȘTE în modul orientat spre cameră. Ea există ca să
+  // ascundă granița unui plan care stă în scenă; un fundal care umple cadrul nu are
+  // nicio graniță de ascuns, iar estomparea îl făcea să nu acopere marginile — se
+  // vedea ca o muchie orizontală dură pe la o treime din cadru (2026-09-14).
+  // Închiderea marginilor rămâne treaba vignetei, care e separată.
+  U.uEdge.value = 0;
+  scrim.scale.set(w * 1.02 * scrimS, h * 1.02 * scrimS, 1);
+  scrim.quaternion.copy(cam.quaternion);
+  scrim.position.copy(cam.position).addScaledVector(
+    _scrimFwd.set(0, 0, -1).applyQuaternion(cam.quaternion), dist);
+}
+
+// ---------- noise TV: static verzui pe tot ecranul, pâlpâie în fiecare cadru ----------
+const noiseScene = new THREE.Scene();
+const noiseCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const noiseMat = new THREE.ShaderMaterial({
+  transparent: true, depthTest: false, depthWrite: false,
+  uniforms: {
+    uTime:    { value: 0 },
+    uOpacity: { value: 0.30 },
+    uColor:   { value: new THREE.Color(0x9fe8d4) },  // verde-teal ca biroul
+    uPix:     { value: 2.0 },                         // mărimea "puricelui" în pixeli
+  },
+  vertexShader: `void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: `
+    uniform float uTime, uOpacity, uPix;
+    uniform vec3 uColor;
+    void main(){
+      vec2 ip = floor(gl_FragCoord.xy / uPix);
+      float n = fract(sin(dot(ip + vec2(uTime*61.7, uTime*23.3), vec2(12.9898,78.233))) * 43758.5453);
+      // doar scânteile luminoase rămân => static de TV, nu ceață uniformă
+      gl_FragColor = vec4(uColor, uOpacity * pow(n, 5.0));
+    }`,
+});
+noiseScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), noiseMat));
+
+// ---------- camere ----------
+const orbitCam = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 100);
+orbitCam.position.set(0.6, 1.35, -1.1);
+const controls = new OrbitControls(orbitCam, renderer.domElement);
+controls.target.set(0, 0.78, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxDistance = 6;
+
+let blenderCam = null, activeCam = orbitCam, useBlenderCam = false;
+
+// ---------- lanț de postprocesare (doar pentru conturul de evidențiere) ----------
+// Îl folosim DOAR când e ceva selectat; altfel randăm direct și păstrăm FPS-ul.
+// OutputPass e obligatoriu: el face tone mapping + conversia în sRGB, pe care
+// randarea într-un render target NU le aplică.
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, orbitCam);
+const outputPass = new OutputPass();
+
+// Contur de siluetă REALĂ (nu shell umflat): OutlinePass detectează marginea în
+// spațiu-ecran, deci grosimea e uniformă și merge și pe piese subțiri — arcul,
+// lamela de contact, pinii — unde un shell scalat se rupe.
+// E ULTIMUL pass, după OutputPass: astfel conturul nu mai trece prin tone mapping
+// și culoarea aleasă iese exact.
+const outlinePass = new OutlinePass(new THREE.Vector2(innerWidth, innerHeight), scene, orbitCam);
+outlinePass.edgeStrength = 4.0;
+outlinePass.edgeGlow = 0.35;
+outlinePass.edgeThickness = 1.6;
+outlinePass.pulsePeriod = 0;
+outlinePass.visibleEdgeColor.set('#5cff9d');   // marginea vizibilă
+outlinePass.hiddenEdgeColor.set('#1c6b45');    // partea acoperită de alte piese
+
+// ---------- gradare finală: portată din outro_preview.html (2026-09-08) ----------
+// Aici stă tot caracterul "desaturat, cu marginile închise" al outro-ului. Vine
+// ULTIMA, după OutputPass și după contur, din același motiv pentru care conturul
+// vine după OutputPass: lucrează pe imaginea deja tone-mapată, în spațiu de afișare.
+// Noise-ul e ACELAȘI static de TV care era desenat separat ca quad peste scenă
+// (vezi noiseMat mai sus, acum stins din slider): mutat aici ca să treacă prin
+// aceeași gradare ca restul imaginii, nu peste ea.
+const gradePass = new ShaderPass({
+  uniforms: {
+    tDiffuse: { value: null },
+    uVig:  { value: 0.20 }, uVigR: { value: 0.61 }, uVigP: { value: 4.0 },
+    uNoise:{ value: 0.04 }, uGrain:{ value: 2.0 },  uPow:  { value: 5.0 },
+    uContrast: { value: 1.08 }, uSat: { value: 0.80 }, uLift: { value: 0.0 },
+    uGainR: { value: 0.93 }, uGainG: { value: 1.0 }, uGainB: { value: 1.28 },
+    uTime: { value: 0 },
+    uNzCol: { value: new THREE.Color(0x9fe8d4) },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    uniform float uVig, uVigR, uVigP, uNoise, uGrain, uPow, uContrast, uSat, uLift, uTime;
+    uniform float uGainR, uGainG, uGainB;
+    uniform vec3 uNzCol;
+    varying vec2 vUv;
+    void main(){
+      vec4 src = texture2D( tDiffuse, vUv );
+      vec3 c = src.rgb;
+
+      // gradare simplă: lift pe negru, contrast în jurul lui 0.5, apoi saturație
+      c += uLift;
+      c = ( c - 0.5 ) * uContrast + 0.5;
+      float l = dot( c, vec3( 0.2126, 0.7152, 0.0722 ) );
+      c = mix( vec3( l ), c, uSat );
+
+      // balans pe canale — fără el intro-ul citește „verde", nu „petrol", chiar la
+      // luminanța corectă. Măsurat pe cadrul de referință din outro: R:G:B ajunge
+      // la 0.351 : 1.000 : 1.004, deci G și B EGALE. Texturile coapte ale biroului
+      // sunt verzi-dominante: B stă cu ~22% sub G. Astea sunt singurele valori din
+      // gradare care nu vin din outro_preview.html — vin din diferența măsurată
+      // între cele două scene. Pune-le pe 1.00 ca să le scoți.
+      c *= vec3( uGainR, uGainG, uGainB );
+
+      // vignetă: distanță de tip dreptunghi rotunjit (norma uVigP), nu cerc, ca să
+      // urmeze marginile unui cadru lat în loc să mănânce sus-jos
+      vec2 vd = abs( vUv - 0.5 ) * 2.0;
+      float vr = pow( pow( vd.x, uVigP ) + pow( vd.y, uVigP ), 1.0 / uVigP );
+      c *= 1.0 - smoothstep( uVigR, 1.0, vr ) * uVig;
+
+      // Static de TV. Trei detalii, al doilea e ușor de greșit:
+      //  - grila e în PIXELI (gl_FragCoord), nu în UV, altfel puricii se întind
+      //    odată cu rezoluția;
+      //  - timpul intră cu multiplicatori DIFERIȚI pe cele două axe. Adunat identic,
+      //    grila alunecă în diagonală cu o celulă pe cadru;
+      //  - pow(n, uPow) păstrează doar scânteile luminoase => static, nu ceață.
+      vec2 ip = floor( gl_FragCoord.xy / max( uGrain, 1.0 ) );
+      float n = fract( sin( dot( ip + vec2( uTime * 61.7, uTime * 23.3 ),
+                                 vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+      c += uNzCol * ( uNoise * pow( n, uPow ) );
+
+      // alpha-ul SURSEI, nu 1.0: preview.html exportă PNG cu fundal transparent
+      // (butonul „Fundal: opac/transparent"), iar un alpha forțat l-ar face opac.
+      // Varianta din outro_preview.html scrie 1.0 — acolo nu există exportul ăsta.
+      gl_FragColor = vec4( clamp( c, 0.0, 1.0 ), src.a );
+    }`,
+});
+
+composer.addPass(renderPass);
+composer.addPass(outputPass);
+composer.addPass(outlinePass);
+composer.addPass(gradePass);
+composer.setPixelRatio(BASE_PR);
+composer.setSize(innerWidth, innerHeight);
+// Înainte, composer-ul se folosea DOAR când era ceva selectat, ca să nu plătim
+// pass-urile degeaba. Nu mai merge: gradarea trebuie să se aplice mereu, altfel
+// paleta ar sări între "selectat" și "neselectat". Deci randăm mereu prin composer
+// (ca outro-ul) și plătim OutputPass + GradePass pe fiecare cadru.
+const composerActive = () => true;
+
+function syncPassCameras() {
+  renderPass.camera = activeCam;
+  outlinePass.renderCamera = activeCam;
+}
+
+// ---------- load ----------
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+const loader = new GLTFLoader();
+loader.setDRACOLoader(draco);
+
+let mixer = null, action = null, duration = 0, switchGroup = [], gltfRoot = null;
+const switchMats = [], matNormals = [], glassMats = [], deskMats = [], emissiveMats = [], keycapMats = [];
+const bgEmissiveMats = [];   // perete + pegboard: dimmer separat, vezi calibrările
+const bgMeshes = [];         // mesh-urile lor, ca să le ascundem când scrim-ul preia cadrul
+// Declarat AICI, nu jos lângă bind(): applySliders() e chemat din callback-ul de
+// load, iar un `const` declarat mai jos ar fi în zona moartă temporală dacă load-ul
+// ar fi vreodată sincron (cache). Aceeași precauție ca în outro.html.
+const sliderUpdaters = [];
+
+// ---------- DEZVĂLUIREA SCRIM-ULUI (2026-09-09) ----------
+// Scrim-ul nu mai e un fundal static aprins din slider: apare pe măsură ce tasta și
+// switch-ul ies din carcasă, iar plansa de pegboard din spate se stinge sub el. Tot
+// ce depinde de faza asta se calculează într-un singur loc, `applyReveal()`, chemat
+// din `syncUI()` — adică pe ORICE schimbare de timp, fie din scrub, fie din redare.
+let revT = 0;                       // timpul curent din clip, în secunde
+let revStart = 3.00, revEnd = 4.60; // fereastra tranziției (3.00 = cererea userului)
+let scrimTgt = 1.0;                 // opacitatea scrim-ului la finalul tranziției
+let bgEmiBase = 0.80, bgEmiFloor = 0.0;   // emisia planșei: de la ... la
+let swcBase = 2.0, swcTgt = 4.0;    // luminozitatea switch-ului: repaus -> dezvăluit
+let kcBase = 1.0, kcTgt = 4.0;      // idem pentru tastă
+const pieceMats = {};               // "Pipe" -> material CLONAT (boost individual)
+const pieceBoost = {};              // "Pipe" -> multiplicator peste luminozitatea globală
+// Piesele închise: arcul (#0A0C0C) și contactul metalic (#111A18), ~0.003 în linear.
+// Prima încercare (2026-09-09) le-a scos harta și le-a dat culoare plată deschisă —
+// respins de user: le voia NEGRE, doar mai lizibile. Deci albedo-ul rămâne cel din
+// atlas, iar vizibilitatea vine din LUCIU: roughness mic pe un dielectric
+// (metalness 0) dă F0 = 0.04, adică un highlight ALB strâns pe un corp negru — exact
+// cum arată un arc de oțel. ⚠️ NU metalness ridicat: la metale F0 = albedo, iar un
+// albedo negru dă specular negru, deci ar fi ieșit invers.
+const DARK_PIECES = { 'Pipe': 1, 'Solid 368': 1 };
+const darkMats = [];                // clonele lor, ca să aibă roughness propriu
+const pieceMeshes = {};   // "Solid 87" -> mesh-ul din switch-ul exploded (SW087)
+
+loader.load('../web/public/models/keycap_scene_web.glb', (gltf) => {
+  scene.add(gltf.scene);
+  gltfRoot = gltf.scene;
+  gltf.scene.updateMatrixWorld(true);
+
+  if (gltf.cameras.length) {
+    blenderCam = gltf.cameras[0];
+    blenderCam.aspect = innerWidth / innerHeight;
+    blenderCam.near = 0.01; blenderCam.far = 100;
+    blenderCam.updateProjectionMatrix();
+  }
+
+  if (gltf.animations.length) {
+    mixer = new THREE.AnimationMixer(gltf.scene);
+    action = mixer.clipAction(gltf.animations[0]);   // "Scene" — un singur clip cu tot
+    action.play();
+    duration = gltf.animations[0].duration;
+    scrub.max = 1000;
+    setProgress(0);
+  }
+
+  // grupează nodurile de switch (pentru testul de performanță)
+  gltf.scene.traverse(o => { if (/^SW_\d+/.test(o.name)) switchGroup.push(o); });
+
+  // Piesele switch-ului EXPLODAT sunt copiii nodului SW_087 — exact ca la celelalte
+  // 83 de switch-uri. Regula veche („mesh FĂRĂ strămoș SW_xxx") nu găsea NIMIC:
+  // verificat pe GLB (2026-09-09), `pieceMeshes` ieșea GOL, deci modul „pași" avea
+  // doar keycap-ul și dropdown-ul de piese era mort. Bug preexistent, din export:
+  // regula fusese scrisă pe numele din .blend, nu pe ce a ieșit în glTF, unde
+  // nodurile sunt `Pipe.001`, `Solid 87.002`, ... sub `SW_087` (exact lista din
+  // keycap_rig.json → explode_center_switch.parts_bottom_to_top).
+  // Nodurile SW_087 au obiecte Mesh proprii chiar dacă partajează geometria cu
+  // celelalte switch-uri, deci un material pus aici atinge DOAR switch-ul explodat.
+  const sw087 = gltf.scene.getObjectByName('SW_087');
+  if (!sw087) console.warn('SW_087 nu există în GLB — piesele nu pot fi izolate');
+  // ⚠️ GLTFLoader SANITIZEAZĂ numele: punctele cad și spațiile devin underscore, deci
+  // `Solid 87.002` din GLB ajunge în scenă ca `Solid_87002`, iar `Pipe.001` ca
+  // `Pipe001`. Un regex scris pe numele din GLB găsea doar `Pipe`. Aici acceptăm
+  // ambele forme și normalizăm cheia la forma din STEP_LABELS („Solid 87").
+  (sw087 || gltf.scene).traverse(o => {
+    if (!o.isMesh) return;
+    const m = o.name.match(/^(?:Solid[ _]?(87|154|193|208|368|372)|(Pipe))/);
+    if (!m) return;
+    const key = m[2] ? 'Pipe' : 'Solid ' + m[1];
+    if (!pieceMeshes[key]) pieceMeshes[key] = o;
+  });
+  console.log('piese switch:', Object.keys(pieceMeshes),
+    'noduri SW_087:', sw087 ? sw087.children.map(c => c.name) : null);
+  buildSteps(gltf.scene);
+
+  // ---------- CALIBRĂRI DE MATERIAL (de dus în proiectul final) ----------
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+  const seen = new Set();
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    for (const mat of (Array.isArray(o.material) ? o.material : [o.material])) {
+      if (!mat || seen.has(mat.uuid)) continue;
+      seen.add(mat.uuid);
+
+      // 1) filtrare anizotropă — esențial: fără ea texturile privite în unghi se "mânjesc"
+      for (const k of ['map','emissiveMap','normalMap','roughnessMap','metalnessMap']) {
+        if (mat[k]) { mat[k].anisotropy = maxAniso; mat[k].needsUpdate = true; }
+      }
+
+      // 2) SWITCH-URI: în GLB vin ca emisie coaptă (plate, neluminate). Le convertim în
+      //    PBR real — emissiveMap devine albedo — ca să primească lumină și să capete volum.
+      //    Atlasul e culoare plată per piesă, deci toată forma vine din shading.
+      if (/switch_atlas|switch_glass/i.test(mat.name)) {
+        if (mat.emissiveMap && !mat.map) mat.map = mat.emissiveMap;
+        mat.emissive.setScalar(0);
+        mat.emissiveIntensity = 0;
+        // 2.0, nu 1.0 (ales de user în browser, 2026-09-08): atlasul de switch al
+        // intro-ului are culori plate mai închise decât materialul din outro, care
+        // are set PBR complet (baseColor + metalRough + normal). Lumina singură nu
+        // acoperă diferența, deci albedo-ul se ridică. Compromisul asumat: culorile
+        // pieselor ies mai deschise decât valorile din DESIGN_BRIEF §3.
+        mat.color.setScalar(2);
+        // 0.40 -> 0.64: roughness-ul din outro, unde aceleași piese citesc ca volume.
+        // envMapIntensity 43: contribuția de environment e produsul
+        // scene.environmentIntensity (0.35) × envMapIntensity, deci 43 dă ~15
+        // efectiv — cât primeau piesele când ridicasem greșit environment-ul global
+        // la 5.0. Aceeași lumină pe switch, dar restul scenei rămâne neatins.
+        mat.roughness = 0.64;
+        mat.metalness = 0.0;
+        mat.envMapIntensity = 43.0;
+        switchMats.push(mat);
+
+        // 2b) carcasa: TRANSLUCIDITATE REALĂ. depthWrite=false ca să se vadă piesele
+        //     interne prin ea; DoubleSide pentru că pereții sunt subțiri.
+        if (/switch_glass/i.test(mat.name)) {
+          mat.transparent = true;
+          mat.opacity = 0.55;
+          mat.depthWrite = false;
+          mat.side = THREE.DoubleSide;
+          glassMats.push(mat);
+        }
+      }
+
+      // 2c) TASTE: singurul material PBR real din tot GLB-ul (verificat în chunk-ul
+      //     JSON: 50 din 51 de materiale sunt emisie coaptă, doar keycaps_atlas are
+      //     baseColor + normal). Albedo-ul e deja copt corect — de aceea NU se
+      //     portează aici patch-ul de shader din outro_preview.html, care exista
+      //     doar pentru că GLB-ul de outro exportase textura brută. Singurul lucru
+      //     de reglat e cât environment primesc.
+      if (/keycaps_atlas/i.test(mat.name)) {
+        mat.envMapIntensity = 8.0;
+        keycapMats.push(mat);
+      }
+
+      // 3) cutting mat: normal map-ul la putere plină inventează șanțuri;
+      //    suprafața reală e plană cu gradient
+      if (/cork_board|CuttingMat/i.test(mat.name) && mat.normalScale) {
+        matNormals.push(mat); mat.normalScale.set(0.25, 0.25);
+      }
+
+      // 4) BIROU: reflexii reale din environment peste emisia coaptă.
+      //    GLB-ul aduce deja roughnessMap per-pixel (Image_1, canalul G) +
+      //    KHR_materials_specular (boost 1.53) => MeshPhysicalMaterial.
+      //    Sliderul de roughness e MULTIPLICATOR peste hartă, nu valoare fixă.
+      if (/table_desk|Desk/i.test(mat.name)) {
+        mat.roughness = 0.58;          // satinat: sheen larg, nu lac
+        mat.envMapIntensity = 1.8;
+        if ('specularIntensity' in mat) mat.specularIntensity = 1.3;
+        // strat de sticlă peste lemn: reflexii clare deasupra satinului
+        if ('clearcoat' in mat) { mat.clearcoat = 0.45; mat.clearcoatRoughness = 0.12; }
+        deskMats.push(mat);
+      }
+
+      // 5) materialele coapte-emisive, în DOUĂ grupuri cu dimmere separate.
+      //    De ce nu unul singur (2026-09-08): lumina coaptă de deasupra biroului e
+      //    caracterul scenei și trebuie să rămână, dar în cadrul final fundalul e
+      //    pegboard-ul, tot emisiv — deci nu depinde de lumini și nicio creștere de
+      //    lumină pe piese nu le poate face mai luminoase decât el. În outro piesele
+      //    se citesc tocmai pentru că fundalul e aproape negru. Split-ul lasă biroul
+      //    luminat și coboară separat FUNDALUL, deci ambele cadre pot fi corecte.
+      //    Switch-urile sunt excluse: le-am convertit deja în PBR (emisia lor e 0).
+      if (mat.emissiveMap && !/switch_atlas|switch_glass/i.test(mat.name)) {
+        // fundal = perete + pegboard + ce e prins pe el (blueprints, sticky notes).
+        // `doc_table_*` NU intră aici: alea stau pe birou.
+        if (/wall|Pegboard|document 1\.|StickyNote/i.test(mat.name)) {
+          bgEmissiveMats.push(mat);
+          if (!bgMeshes.includes(o)) bgMeshes.push(o);   // ca să le putem ascunde la k≈1
+        } else emissiveMats.push(mat);
+      }
+      mat.needsUpdate = true;
+    }
+  });
+  console.log('materiale calibrate:', {
+    switch: switchMats.length, sticla: glassMats.length,
+    mat: matNormals.length, aniso: maxAniso
+  });
+
+  // ---------- material propriu pentru fiecare piesă a switch-ului exploded ----------
+  // Toate cele 7 piese partajează `switch_atlas_Baked`, deci un singur slider de
+  // luminozitate le mișcă pe toate — inutil când arcul (#0A0C0C) și contactul metalic
+  // (#111A18) sunt aproape negre în atlas, iar restul e deja bun. Clonăm materialul
+  // DOAR pe piesele lui SW087 (cele unice, fără strămoș SW_xxx), deci cele 84 de
+  // switch-uri de fundal păstrează materialul comun și nu plătim draw call-uri în plus.
+  // Clonele intră în switchMats/glassMats ca să rămână sub sliderele de roughness,
+  // env și opacitate; culoarea lor o suprascrie applyReveal() cu boost-ul individual.
+  for (const [key, mesh] of Object.entries(pieceMeshes)) {
+    const src = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    if (!src || !/switch_atlas|switch_glass/i.test(src.name)) continue;
+    const c = src.clone();
+    c.name = src.name + '_' + key.replace(/\s+/g, '');
+    mesh.material = c;
+    if (DARK_PIECES[key]) { darkMats.push(c); }
+    switchMats.push(c);
+    if (glassMats.includes(src)) glassMats.push(c);
+    pieceMats[key] = c;
+  }
+  console.log('piese cu material propriu:', Object.keys(pieceMats));
+
+
+  // ---------- environment din scenă: cubemap capturat deasupra biroului ----------
+  // Reflexiile devin ce e REAL în jur (perete verde, pegboard, lumina de sus),
+  // nu studioul generic — asta dă biroului aspectul "sticlos închis" din Blender.
+  gltf.scene.updateMatrixWorld(true);
+  const cubeRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
+  const cubeCam = new THREE.CubeCamera(0.05, 60, cubeRT);
+  cubeCam.position.set(0, 1.0, 0);          // ~25 cm deasupra biroului
+  scene.add(cubeCam);
+  cubeCam.update(renderer, scene);
+  scene.remove(cubeCam);
+  envScene = pmrem.fromCubemap(cubeRT.texture).texture;
+  if (useSceneEnv) scene.environment = envScene;
+
+  // ⚠️ OBLIGATORIU, nu cosmetic: bind() își apelează upd() la parsarea modulului,
+  // adică ÎNAINTE de load. Atunci listele de materiale (emissiveMats, switchMats,
+  // deskMats, keycapMats) sunt încă GOALE, deci valorile implicite ale sliderelor
+  // nu ajung niciodată pe materiale — sliderul „Scenă: emisie" arăta 0.20, iar
+  // materialele rămâneau la 1.0. Bug prins la măsurarea paletei (2026-09-08):
+  // luminanța ieșea 130 în loc de 40, cu aceleași valori care în test dădeau 33.
+  applySliders();
+
+  document.getElementById('load').classList.add('hide');
+  console.log('GLB încărcat:', {
+    animations: gltf.animations.map(a => `${a.name} (${a.duration.toFixed(2)}s)`),
+    cameras: gltf.cameras.length, switchNodes: switchGroup.length,
+    deskMats: deskMats.map(m => ({ rough: !!m.roughnessMap, phys: !!m.isMeshPhysicalMaterial }))
+  });
+}, (e) => {
+  if (e.total) document.getElementById('load').textContent =
+    `Se încarcă… ${Math.round(e.loaded / e.total * 100)}%`;
+}, (err) => {
+  document.getElementById('load').textContent = 'Eroare: ' + err.message;
+  console.error(err);
+});
+
+
+// ---------- UI ----------
+const scrub = document.getElementById('scrub');
+const timeEl = document.getElementById('time');
+const playBtn = document.getElementById('play');
+let playing = true;
+
+function setProgress(p) {
+  if (!action) return;
+  action.paused = true;
+  action.time = THREE.MathUtils.clamp(p, 0, 1) * duration;
+  mixer.update(0);
+  syncUI();
+}
+function syncUI() {
+  if (!action) return;
+  scrub.value = String((action.time / duration) * 1000);
+  timeEl.textContent = `${action.time.toFixed(2)} / ${duration.toFixed(2)} s`;
+  // singurul punct din care se alimentează faza de dezvăluire: prinde și scrub-ul
+  // manual și redarea, fără să dublăm logica în două locuri
+  revT = action.time;
+  applyReveal();
+}
+scrub.addEventListener('input', () => { playing = false; playBtn.classList.remove('on'); playBtn.textContent = '▶ Redă'; setProgress(scrub.value / 1000); });
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.classList.toggle('on', playing);
+  playBtn.textContent = playing ? '⏸ Pauză' : '▶ Redă';
+  if (action) action.paused = !playing;
+});
+document.getElementById('camtoggle').addEventListener('click', (e) => {
+  if (!blenderCam) return;
+  useBlenderCam = !useBlenderCam;
+  activeCam = useBlenderCam ? blenderCam : orbitCam;
+  controls.enabled = !useBlenderCam;
+  syncPassCameras();
+  e.target.classList.toggle('on', useBlenderCam);
+  e.target.textContent = useBlenderCam ? '🎥 Cameră Blender' : '🖱 Orbit liber';
+});
+document.getElementById('hideswitch').addEventListener('click', (e) => {
+  const on = switchGroup[0] ? !switchGroup[0].visible : true;
+  switchGroup.forEach(o => o.visible = on);
+  e.target.textContent = 'Switch-uri: ' + (on ? 'ON' : 'OFF');
+  e.target.classList.toggle('on', !on);
+});
+
+// ---------- contur + orbit pe o piesă anume (din dropdown-ul de jos) ----------
+document.getElementById('focuspick').addEventListener('change', (e) => {
+  const key = e.target.value;
+  if (!key || !pieceMeshes[key]) {
+    outlinePass.selectedObjects = [];
+    controls.target.set(0, 0.78, 0);      // înapoi pe tastatură
+    return;
+  }
+  const mesh = pieceMeshes[key];
+  outlinePass.selectedObjects = [mesh];
+  // orbit în jurul piesei: ținta pe centrul ei, camera trasă aproape
+  if (useBlenderCam) document.getElementById('camtoggle').click();
+  const box = new THREE.Box3().setFromObject(mesh);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3()).length();
+  const dist = Math.max(size * 2.4, 0.06);
+  const dir = orbitCam.position.clone().sub(controls.target).normalize();
+  controls.target.copy(center);
+  orbitCam.position.copy(center).add(dir.multiplyScalar(dist));
+});
+
+// ---------- PAȘI EXPLICATIVI: fiecare element evidențiat pe rând ----------
+// Ordinea nu e hardcodată: o luăm din poziția reală a pieselor la FINALUL clipului,
+// de sus în jos — exact ordinea în care se explică un switch demontat.
+const STEP_LABELS = {
+  'Solid 87': 'carcasă sus', 'Solid 154': 'carcasă jos', 'Solid 193': 'piesă translucidă',
+  'Solid 208': 'stem albastru', 'Solid 368': 'contact metalic', 'Solid 372': 'piesă albă',
+  'Pipe': 'arc + pini',
+};
+const steps = [];
+let stepMode = false, stepIdx = 0;
+
+function buildSteps(root) {
+  const t0 = action ? action.time : 0, p0 = action ? action.paused : true;
+  if (action) { action.paused = true; action.time = duration; mixer.update(0); root.updateMatrixWorld(true); }
+  const wp = new THREE.Vector3();
+  const yOf = (m) => {
+    if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+    return wp.copy(m.geometry.boundingSphere.center).applyMatrix4(m.matrixWorld).y;
+  };
+  // keycap-ul switch-ului exploded = cel care ajunge cel mai sus la finalul animației
+  let topCap = null, topY = -Infinity;
+  root.traverse(o => {
+    if (!o.isMesh || !/^key_cap/.test(o.name)) return;
+    const y = yOf(o);
+    if (y > topY) { topY = y; topCap = o; }
+  });
+  const list = [];
+  if (topCap) list.push({ mesh: topCap, label: 'keycap' });
+  for (const [k, m] of Object.entries(pieceMeshes)) list.push({ mesh: m, label: STEP_LABELS[k] || k });
+  list.forEach(s => { s.y = yOf(s.mesh); });
+  list.sort((a, b) => b.y - a.y);          // de sus în jos
+  if (action) { action.time = t0; action.paused = p0; mixer.update(0); root.updateMatrixWorld(true); }
+  steps.push(...list);
+  console.log('pași explicativi:', steps.map((s, i) => `${i + 1}. ${s.label} — ${s.mesh.name}`));
+}
+
+const stepLabelEl = document.getElementById('steplabel');
+function showStep(i) {
+  if (!steps.length) return;
+  stepIdx = ((i % steps.length) + steps.length) % steps.length;
+  const s = steps[stepIdx];
+  outlinePass.selectedObjects = [s.mesh];
+  stepLabelEl.textContent = `${stepIdx + 1}/${steps.length} · ${s.label}`;
+}
+function setStepMode(on) {
+  stepMode = on && steps.length > 0;
+  const btn = document.getElementById('stepmode');
+  btn.classList.toggle('on', stepMode);
+  btn.textContent = 'Pași: ' + (stepMode ? 'ON' : 'OFF');
+  if (stepMode) {
+    // pașii se explică pe scena deja explodată => oprim redarea și sărim la final
+    playing = false;
+    playBtn.classList.remove('on'); playBtn.textContent = '▶ Redă';
+    if (action) setProgress(1);
+    showStep(stepIdx);
+  } else {
+    outlinePass.selectedObjects = [];
+    stepLabelEl.textContent = '–';
+  }
+}
+document.getElementById('stepmode').addEventListener('click', () => setStepMode(!stepMode));
+document.getElementById('stepprev').addEventListener('click', () => { if (stepMode) showStep(stepIdx - 1); });
+document.getElementById('stepnext').addEventListener('click', () => {
+  if (!stepMode) setStepMode(true); else showStep(stepIdx + 1);
+});
+addEventListener('keydown', (e) => {
+  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (e.key === 'ArrowRight' && stepMode) { e.preventDefault(); showStep(stepIdx + 1); }
+  if (e.key === 'ArrowLeft'  && stepMode) { e.preventDefault(); showStep(stepIdx - 1); }
+});
+
+// ---------- slidere de calibrare ----------
+function bind(id, valId, fn, div) {
+  const s = document.getElementById(id), v = document.getElementById(valId);
+  const upd = () => { const x = s.value / div; v.textContent = x.toFixed(2); fn(x); };
+  s.addEventListener('input', upd);
+  sliderUpdaters.push(upd);
+  upd();
+}
+// Re-aplică toate sliderele. Chemat din callback-ul de load, după ce listele de
+// materiale s-au populat — vezi nota de acolo. Fără asta, orice slider care scrie
+// pe materiale din GLB e decorativ până îl atinge userul cu mâna.
+function applySliders() { sliderUpdaters.forEach(u => u()); }
+bind('s_exp',  'v_exp',  x => renderer.toneMappingExposure = x, 100);
+bind('s_env',  'v_env',  x => scene.environmentIntensity = x, 100);
+bind('s_key',  'v_key',  x => keyLight.intensity = x, 100);
+bind('s_fill', 'v_fill', x => fillLight.intensity = x, 100);
+bind('s_amb',  'v_amb',  x => ambient.intensity = x, 100);
+// Sliderele care intră în faza de dezvăluire NU scriu direct pe materiale: pun doar
+// valoarea de bază și lasă applyReveal() să compună. Altfel două căi ar scrie pe
+// aceeași proprietate și ultima mișcare de slider ar bate faza curentă.
+bind('s_swc',  'v_swc',  x => { swcBase = x; applyReveal(); }, 100);
+bind('s_swc2', 'v_swc2', x => { swcTgt  = x; applyReveal(); }, 100);
+bind('s_kc',   'v_kc',   x => { kcBase  = x; applyReveal(); }, 100);
+bind('s_kc2',  'v_kc2',  x => { kcTgt   = x; applyReveal(); }, 100);
+bind('s_rvs',  'v_rvs',  x => { revStart = x; applyReveal(); }, 100);
+bind('s_rve',  'v_rve',  x => { revEnd   = x; applyReveal(); }, 100);
+bind('s_bgemif','v_bgemif',x => { bgEmiFloor = x; applyReveal(); }, 100);
+bind('s_bgd', 'v_bgd', x => { scrimMargin = x; }, 100);
+document.getElementById('scrimface').addEventListener('click', (e) => {
+  scrimCamFacing = !scrimCamFacing;
+  e.target.classList.toggle('on', scrimCamFacing);
+  e.target.textContent = scrimCamFacing ? 'Scrim: spre cameră' : 'Scrim: plan fix';
+  // la revenirea pe plan fix, depth test-ul trebuie repornit, altfel placa ar rămâne
+  // fundal și ar ignora peretele; și reașezăm din sliderele Z/Y/Mărime
+  scrim.renderOrder = scrimCamFacing ? -20 : -1;
+  if (!scrimCamFacing) { scrim.rotation.set(0, 0, 0); layoutScrim(scrimS, scrimY, scrimZ); }
+});
+// boost individual per piesă (multiplicator peste luminozitatea globală a switch-ului)
+for (const [id, key] of Object.entries({
+  s_pArc: 'Pipe', s_pCon: 'Solid 368', s_pAlb: 'Solid 372', s_pTra: 'Solid 193',
+  s_pSus: 'Solid 87', s_pJos: 'Solid 154', s_pStem: 'Solid 208',
+})) {
+  bind(id, 'v' + id.slice(1), x => { pieceBoost[key] = x; applyReveal(); }, 100);
+}
+bind('s_op',   'v_op',   x => glassMats.forEach(m => { m.opacity = x; m.needsUpdate = true; }), 100);
+// sare peste piesele închise: ele au propriul slider de luciu, altfel roughness-ul
+// global le-ar șterge highlight-ul de fiecare dată când e atins
+bind('s_rgh',  'v_rgh',  x => switchMats.forEach(m => {
+  if (!darkMats.includes(m)) { m.roughness = x; m.needsUpdate = true; }
+}), 100);
+bind('s_dgl',  'v_dgl',  x => darkMats.forEach(m => { m.roughness = x; m.needsUpdate = true; }), 100);
+bind('s_nrm',  'v_nrm',  x => matNormals.forEach(m => m.normalScale.set(x, x)), 100);
+bind('s_emi',  'v_emi',  x => emissiveMats.forEach(m => m.emissiveIntensity = x), 100);
+bind('s_bgemi','v_bgemi',x => { bgEmiBase = x; applyReveal(); }, 100);
+bind('s_dref', 'v_dref', x => deskMats.forEach(m => { m.envMapIntensity = x; m.needsUpdate = true; }), 100);
+bind('s_drgh', 'v_drgh', x => deskMats.forEach(m => { m.roughness = x; m.needsUpdate = true; }), 100);
+bind('s_dspec','v_dspec',x => deskMats.forEach(m => { if ('specularIntensity' in m) m.specularIntensity = x; }), 100);
+bind('s_dglass','v_dglass',x => deskMats.forEach(m => { if ('clearcoat' in m) { m.clearcoat = x; m.needsUpdate = true; } }), 100);
+bind('s_tv',  'v_tv',   x => noiseMat.uniforms.uOpacity.value = x, 100);
+bind('s_fog', 'v_fog',  x => { if (scene.fog) scene.fog.density = x; }, 100);
+bind('s_senv','v_senv', x => switchMats.forEach(m => { m.envMapIntensity = x; m.needsUpdate = true; }), 100);
+bind('s_kenv','v_kenv', x => keycapMats.forEach(m => { m.envMapIntensity = x; m.needsUpdate = true; }), 100);
+// ---------- gradare finală (paleta din outro) ----------
+const G = gradePass.uniforms;
+bind('s_con',  'v_con',  x => G.uContrast.value = x, 100);
+bind('s_sat',  'v_sat',  x => G.uSat.value = x, 100);
+bind('s_lift', 'v_lift', x => G.uLift.value = x, 100);
+bind('s_gr',   'v_gr',   x => G.uGainR.value = x, 100);
+bind('s_gg',   'v_gg',   x => G.uGainG.value = x, 100);
+bind('s_gb',   'v_gb',   x => G.uGainB.value = x, 100);
+bind('s_gvig', 'v_gvig', x => G.uVig.value = x, 100);
+bind('s_gvgr', 'v_gvgr', x => G.uVigR.value = x, 100);
+bind('s_gvgp', 'v_gvgp', x => G.uVigP.value = x, 100);
+bind('s_gnz',  'v_gnz',  x => G.uNoise.value = x, 100);
+bind('s_gng',  'v_gng',  x => G.uGrain.value = x, 100);
+bind('s_gnp',  'v_gnp',  x => G.uPow.value = x, 100);
+// ---------- contur de evidențiere ----------
+bind('s_olt', 'v_olt', x => outlinePass.edgeThickness = x, 10);
+bind('s_ols', 'v_ols', x => outlinePass.edgeStrength = x, 10);
+bind('s_olg', 'v_olg', x => outlinePass.edgeGlow = x, 100);
+document.getElementById('olcol').addEventListener('input', (e) => {
+  outlinePass.visibleEdgeColor.set(e.target.value);
+  // marginea acoperită: aceeași nuanță, mult mai stinsă
+  outlinePass.hiddenEdgeColor.set(e.target.value).multiplyScalar(0.35);
+});
+document.getElementById('olpulse').addEventListener('click', (e) => {
+  outlinePass.pulsePeriod = outlinePass.pulsePeriod > 0 ? 0 : 2;
+  const on = outlinePass.pulsePeriod > 0;
+  e.target.classList.toggle('on', on);
+  e.target.textContent = 'Puls: ' + (on ? 'pornit' : 'oprit');
+});
+
+// ---------- scrim ----------
+let scrimZ = -0.20, scrimY = 1.39, scrimS = 1.0;
+
+// Faza de dezvăluire, într-un singur loc. k = 0 înainte de revStart, 1 după revEnd,
+// smoothstep între ele (nu liniar: pornirea și oprirea trebuie să nu se simtă ca un
+// prag). Cheamă și sliderele: fiecare din ele doar scrie o valoare de bază și apoi
+// re-cheamă funcția asta, ca să nu existe două căi care scriu pe aceleași materiale.
+function applyReveal() {
+  const k = revEnd > revStart
+    ? THREE.MathUtils.smoothstep(revT, revStart, revEnd)
+    : (revT >= revStart ? 1 : 0);
+
+  // 1) scrim-ul apare
+  U.uOpacity.value = scrimTgt * k;
+  updateScrimVis();
+
+  // 2) planșa din spate e ACOPERITĂ de scrim, nu stinsă prin transparență.
+  //    ⚠️ Încercat (2026-09-09) fade pe `opacity` + `transparent` + `depthWrite=false`
+  //    pe materialele de fundal. E GREȘIT din principiu, iar măsurătoarea din
+  //    2026-09-14 arată de ce: TOATE cele 21 de materiale de fundal au
+  //    `baseColorFactor = 000000`. Sunt emisie pură, deci culoarea difuză e NEGRU, iar
+  //    tot ce se vede vine din `emissive`. Scăzând și emisia și opacitatea, cele două
+  //    scăderi se înmulțesc (0.547 × 0.684) și pe deasupra se amestecă cu ce e în
+  //    spate — hârtiile ieșeau negre, cu grila de găuri a pegboard-ului vizibilă prin
+  //    ele. Pe un albedo negru NU se poate face un fade curat prin transparență.
+  //    Soluția: materialele rămân OPACE, iar scrim-ul e așezat geometric ÎNTRE
+  //    subiect și planșă (vezi layoutScrimCam + scrimMargin) și o acoperă normal, prin
+  //    depth. Emisia coboară doar până la un PRAG (`bgEmiFloor`), nu la 0, ca planșa să
+  //    se retragă în spate fără să treacă prin negru cât timp scrim-ul e încă parțial.
+  const bge = bgEmiBase + (bgEmiFloor - bgEmiBase) * k;
+  bgEmissiveMats.forEach(m => { m.emissiveIntensity = bge; });
+  // la capăt le scoatem de tot: scrim-ul e opac acolo, deci nu se vede nicio diferență,
+  // dar scăpăm de draw call-uri și de orice reziduu pe margini
+  bgMeshes.forEach(o => o.visible = k < 0.995);
+
+  // 3) switch-ul și tasta se luminează cât timp scrim-ul urcă
+  const sw = swcBase + (swcTgt - swcBase) * k;
+  switchMats.forEach(m => m.color.setScalar(sw));
+  const kc = kcBase + (kcTgt - kcBase) * k;
+  keycapMats.forEach(m => m.color.setScalar(kc));
+
+  // 4) piesele individuale: sliderul e multiplicator peste albedo-ul din atlas,
+  //    pentru toate la fel. Pe piesele închise el aproape nu contează (albedo ~0.003);
+  //    acolo lizibilitatea vine din luciu, vezi DARK_PIECES.
+  for (const [key, mat] of Object.entries(pieceMats)) {
+    const b = pieceBoost[key] === undefined ? 1 : pieceBoost[key];
+    mat.color.setScalar(sw * b);
+  }
+}
+// planul se ascunde doar dacă NU are nimic de arătat: nici fundal, nici cerneală.
+// (invizibil => nu intră nici în cubemap-ul de reflexii)
+function updateScrimVis() {
+  const hasInk = U.uHasTex.value > 0.5 && U.uInkAmt.value > 0.005;
+  scrim.visible = U.uOpacity.value > 0.005 || hasInk;
+}
+bind('s_bgo', 'v_bgo', x => { scrimTgt = x; applyReveal(); }, 100);
+bind('s_bgz', 'v_bgz', x => { scrimZ = x; layoutScrim(scrimS, scrimY, scrimZ); }, 100);
+bind('s_bgy', 'v_bgy', x => { scrimY = x; layoutScrim(scrimS, scrimY, scrimZ); }, 100);
+bind('s_bgs', 'v_bgs', x => { scrimS = x; layoutScrim(scrimS, scrimY, scrimZ); }, 100);
+bind('s_bge', 'v_bge', x => U.uEdge.value = x, 100);
+bind('s_vig', 'v_vig', x => U.uVig.value = x, 100);
+// sliderul e „cât se întinde spre centru", deci invers față de pragul din shader
+bind('s_vgr', 'v_vgr', x => U.uVigR.value = 1 - x, 100);
+document.getElementById('bgc1').addEventListener('input',
+  (e) => U.cBase.value.set(e.target.value));
+
+// ---------- imaginea de pe scrim ----------
+// Nu se desenează ca poză: shader-ul îi ia doar luminanța ca mască de cerneală, deci
+// fundalul alb al desenului se topește în gradientul verde și liniile ies în uInk.
+// Desenul e linii subțiri => mipmap + anizotropie, altfel sfârâie rău în perspectivă.
+bind('s_ims', 'v_ims', x => U.uTexScale.value = x, 100);
+bind('s_imx', 'v_imx', x => U.uTexOff.value.x = x, 100);
+bind('s_imy', 'v_imy', x => U.uTexOff.value.y = x, 100);
+bind('s_imi', 'v_imi', x => { U.uInkAmt.value = x; updateScrimVis(); }, 100);
+document.getElementById('imgink').addEventListener('input',
+  (e) => U.uInk.value.set(e.target.value));
+
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+let scrimTexUrl = null;                    // obiect-URL de eliberat la înlocuire
+function setScrimTexture(tex, w, h) {
+  const old = U.uTex.value;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.anisotropy = maxAniso;
+  tex.needsUpdate = true;
+  U.uTex.value = tex;
+  U.uHasTex.value = 1.0;
+  U.uTexAsp.value = w / h;
+  if (old) old.dispose();
+  // scrimul pornește cu opacitate 0, deci fără asta ai vedea textul plutind pe nimic:
+  // la prima imagine aprindem fundalul verde (sliderul rămâne stăpân după aceea)
+  if (U.uOpacity.value < 0.005) {
+    const s = document.getElementById('s_bgo');
+    s.value = 85;
+    s.dispatchEvent(new Event('input'));
+  }
+  updateScrimVis();
+  console.log(`scrim: imagine ${w}×${h} (raport ${(w / h).toFixed(3)})`);
+}
+function loadScrimImage(url, revokeAfter) {
+  new THREE.TextureLoader().load(url, (tex) => {
+    const img = tex.image;
+    setScrimTexture(tex, img.width, img.height);
+    if (revokeAfter) URL.revokeObjectURL(url);
+  }, undefined, () => {
+    if (revokeAfter) URL.revokeObjectURL(url);
+    console.warn('scrim: nu am putut încărca imaginea', url);
+  });
+}
+const imgFile = document.getElementById('imgfile');
+document.getElementById('imgpick').addEventListener('click', () => imgFile.click());
+imgFile.addEventListener('change', () => {
+  const f = imgFile.files && imgFile.files[0];
+  if (!f) return;
+  if (scrimTexUrl) URL.revokeObjectURL(scrimTexUrl);
+  scrimTexUrl = URL.createObjectURL(f);
+  loadScrimImage(scrimTexUrl, false);
+  imgFile.value = '';                      // ca să se declanșeze și la același fișier
+});
+document.getElementById('imgclr').addEventListener('click', () => {
+  if (U.uTex.value) U.uTex.value.dispose();
+  U.uTex.value = null;
+  U.uHasTex.value = 0.0;
+  if (scrimTexUrl) { URL.revokeObjectURL(scrimTexUrl); scrimTexUrl = null; }
+  updateScrimVis();
+});
+document.getElementById('imginv').addEventListener('click', (e) => {
+  const on = U.uInvert.value < 0.5;        // devine 1 = sursă albă cu text negru
+  U.uInvert.value = on ? 1.0 : 0.0;
+  e.target.classList.toggle('on', on);
+  e.target.title = on ? 'Sursa e albă cu text negru' : 'Sursa e deja pe fundal închis';
+});
+// dacă există assets/scrim.png (sau .jpg), se încarcă singură la pornire
+for (const p of ['../source/assets/scrim.png', '../source/assets/scrim.jpg']) {
+  fetch(p, { method: 'HEAD' }).then(r => { if (r.ok) loadScrimImage(p, false); }).catch(() => {});
+}
+// drag & drop peste pagină: la fel ca butonul de încărcare
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', (e) => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f || !f.type.startsWith('image/')) return;
+  e.preventDefault();
+  if (scrimTexUrl) URL.revokeObjectURL(scrimTexUrl);
+  scrimTexUrl = URL.createObjectURL(f);
+  loadScrimImage(scrimTexUrl, false);
+});
+
+document.getElementById('envtoggle').addEventListener('click', (e) => {
+  useSceneEnv = !useSceneEnv;
+  scene.environment = (useSceneEnv && envScene) ? envScene : envStudio;
+  e.target.classList.toggle('on', useSceneEnv);
+  e.target.textContent = useSceneEnv ? 'Reflexii din scenă' : 'Reflexii studio';
+});
+// ---------- export PNG al frame-ului curent (pentru Figma) ----------
+// Randăm o dată la rezoluția cerută, citim canvas-ul, apoi revenim.
+// UI-ul e DOM peste canvas, deci NU intră în imagine — iese doar render-ul curat.
+let grabAlpha = false, grabbing = false;
+const grabBtn = document.getElementById('grab');
+document.getElementById('grabalpha').addEventListener('click', (e) => {
+  grabAlpha = !grabAlpha;
+  e.target.classList.toggle('on', grabAlpha);
+  e.target.textContent = 'Fundal: ' + (grabAlpha ? 'transparent' : 'opac');
+});
+
+// toBlob e asincron; îl împachetăm în promisiune și punem o plasă de siguranță,
+// pentru că pe pânze foarte mari poate întoarce null sau poate rămâne blocat
+function canvasToBlob(cv) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (b) => { if (!done) { done = true; resolve(b); } };
+    try { cv.toBlob(finish, 'image/png'); }
+    catch (err) { console.warn('toBlob a aruncat:', err); finish(null); }
+    setTimeout(() => finish(null), 25000);
+  });
+}
+
+async function grabPNG() {
+  if (grabbing) return;
+  grabbing = true;                       // loop-ul nu randează cât timp exportăm
+  const say = (t) => { grabBtn.textContent = t; };
+  const reset = () => setTimeout(() => say('⬇ PNG'), 4000);
+  say('… randez');
+
+  const want = parseFloat(document.getElementById('grabscale').value);
+  const maxDim = renderer.capabilities.maxTextureSize || 8192;
+  const longSide = Math.max(innerWidth, innerHeight);
+  // Plafon de suprafață: peste el fie browserul refuză să codeze pânza, fie
+  // target-urile HalfFloat ale composer-ului (active doar cu DOF) umplu VRAM-ul.
+  // Plafonul se ia după CONTUR, nu după composer. Din 2026-09-08 composer-ul rulează
+  // mereu (gradarea), deci `composerActive()` e mereu true — legat de el, plafonul ar
+  // fi coborât permanent la 18 MPx și exporturile pentru Figma ar fi ieșit mai mici
+  // decât înainte, fără motiv: pass-urile scumpe sunt cele de contur, nu gradarea.
+  const areaCap = outlinePass.selectedObjects.length > 0 ? 18e6 : 34e6;
+  const clampPR = (s) => Math.max(0.5, Math.min(
+    BASE_PR * s, maxDim / longSide, Math.sqrt(areaCap / (innerWidth * innerHeight))));
+  // dacă cea mai mare rezoluție eșuează, coborâm automat în loc să tăcem
+  const cands = [];
+  for (const s of [want, want * 0.7, want * 0.5, 1]) {
+    const pr = clampPR(s);
+    if (!cands.some(p => Math.abs(p - pr) < 0.02)) cands.push(pr);
+  }
+
+  const oldBg = scene.background, oldPix = noiseMat.uniforms.uPix.value;
+  const cv = renderer.domElement;
+  let blob = null, w = 0, h = 0;
+  try {
+    if (grabAlpha) scene.background = null;
+    for (const pr of cands) {
+      noiseMat.uniforms.uPix.value = oldPix * (pr / BASE_PR);  // granula de noise rămâne la fel
+      renderer.setPixelRatio(pr);
+      renderer.setSize(innerWidth, innerHeight);
+      if (composerActive()) { composer.setPixelRatio(pr); composer.setSize(innerWidth, innerHeight); }
+      renderFrame();
+      w = cv.width; h = cv.height;
+      say(`… codez ${w}×${h}`);
+      blob = await canvasToBlob(cv);
+      if (blob && blob.size > 0) break;
+      console.warn(`export eșuat la ${w}×${h} — încerc mai mic`);
+      blob = null;
+    }
+  } catch (err) {
+    console.error('export PNG:', err);
+    say('⚠ ' + err.message); reset(); return;
+  } finally {
+    scene.background = oldBg;
+    noiseMat.uniforms.uPix.value = oldPix;
+    renderer.setPixelRatio(BASE_PR);
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setPixelRatio(BASE_PR);
+    composer.setSize(innerWidth, innerHeight);
+    grabbing = false;
+  }
+
+  if (!blob) { say('⚠ pânză prea mare'); reset(); return; }
+
+  const t = action ? action.time : 0;
+  const frame = Math.round(t * 24) + 1;                     // scena Blender e la 24 fps
+  const name = `keycap_f${String(frame).padStart(3, '0')}_${t.toFixed(2)}s_${w}x${h}`
+             + (grabAlpha ? '_alpha' : '') + '.png';
+  const url = URL.createObjectURL(blob);
+  const mb = (blob.size / 1048576).toFixed(2);
+
+  // Link pe care dai click TU. Click-ul programatic din callback-ul lui toBlob
+  // pierde contextul de "user activation", iar browserul blochează în silență
+  // al doilea download și pe următoarele — de aceea butonul mergea o singură dată.
+  const box = document.getElementById('saved');
+  box.innerHTML = '';
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.textContent = '⬇ ' + name;
+  const sub = document.createElement('div');
+  sub.className = 'sub';
+  sub.textContent = `${w}×${h} · ${mb} MB · click pentru a salva`;
+  const close = document.createElement('button');
+  close.textContent = 'închide'; close.style.marginTop = '8px';
+  close.onclick = () => { box.style.display = 'none'; URL.revokeObjectURL(url); };
+  box.append(a, sub, close);
+  box.style.display = 'block';
+
+  a.addEventListener('click', () => { say('✓ salvat'); reset(); });
+  say(`✓ gata · ${mb} MB`);
+  console.log('imagine pregătită:', name, mb + ' MB');
+  reset();
+}
+grabBtn.addEventListener('click', grabPNG);
+addEventListener('keydown', (e) => {
+  if (e.key === 's' && !e.metaKey && !e.ctrlKey && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
+    e.preventDefault(); grabPNG();
+  }
+});
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+let fpsT = 0, frames = 0;
+const fpsEl = document.getElementById('fps'), callsEl = document.getElementById('calls'),
+      trisEl = document.getElementById('tris');
+
+// randarea unui cadru — folosită și de loop și de exportul PNG, ca imaginea salvată
+// să fie identică cu ce e pe ecran
+function renderFrame() {
+  // info se resetează la fiecare renderer.render(); îl resetăm manual o dată pe cadru
+  // ca statisticile să însumeze TOT cadrul (scenă + pașii conturului + overlay),
+  // altfel afișau doar quad-ul de noise: 1 draw call, 2 triunghiuri.
+  renderer.info.reset();
+  // placa se reașază în fiecare cadru în fața camerei (camera se mișcă tot timpul).
+  // În renderFrame, nu în bucla de redare: așa și exportul PNG randează corect.
+  if (scrimCamFacing && scrim.visible) layoutScrimCam(activeCam);
+  outlinePass.enabled = outlinePass.selectedObjects.length > 0;
+  // mereu prin composer: gradarea din gradePass trebuie să prindă fiecare cadru
+  syncPassCameras();
+  gradePass.uniforms.uTime.value = performance.now() / 1000;
+  composer.render();
+  // quad-ul vechi de noise: rămâne în cod, dar stins din slider (gradePass îl are
+  // acum înăuntru). Dacă sliderul „Noise TV" e ridicat, se adună peste gradare.
+  if (noiseMat.uniforms.uOpacity.value > 0.004) {
+    noiseMat.uniforms.uTime.value = performance.now() / 1000;
+    renderer.autoClear = false;
+    renderer.render(noiseScene, noiseCam);
+    renderer.autoClear = true;
+  }
+}
+
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  if (grabbing) return;          // exportul PNG controlează randarea; nu-i schimbăm cadrul
+  if (mixer && playing) {
+    action.paused = false;
+    mixer.update(dt);
+    if (action.time >= duration - 0.01) { action.time = 0; }
+    syncUI();
+  }
+  if (!useBlenderCam) controls.update();
+  renderFrame();
+
+  frames++; fpsT += dt;
+  if (fpsT >= 0.5) {
+    fpsEl.textContent = Math.round(frames / fpsT);
+    callsEl.textContent = renderer.info.render.calls;
+    trisEl.textContent = renderer.info.render.triangles.toLocaleString('ro-RO');
+    frames = 0; fpsT = 0;
+  }
+});
+
+addEventListener('resize', () => {
+  renderer.setPixelRatio(BASE_PR);
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setPixelRatio(BASE_PR);
+  composer.setSize(innerWidth, innerHeight);
+  for (const c of [orbitCam, blenderCam]) {
+    if (!c) continue;
+    c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix();
+  }
+  syncPassCameras();
+});
+</script>
+</body>
+</html>

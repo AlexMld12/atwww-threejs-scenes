@@ -1,0 +1,102 @@
+/* Canvas-ul 3D e FIX pe ecran; scroll-ul mișcă doar trackul de mai jos. */
+#main { position: fixed; inset: 0; z-index: 0; }
+#main canvas { display: block; }
+
+/* Preloader-ul e un STRAT PROPRIU peste tot, cu randerul lui. Vezi nota din modul
+   pentru de ce nu e în același canvas. Se stinge la reveal și se scoate din DOM. */
+#pl { position: fixed; inset: 0; z-index: 2; background: #051b1c; }
+#pl canvas { display: block; }
+
+/* Trackul de scroll — LOCAL DOAR. În Webflow înălțimea vine din secțiunile sticky,
+   exact ca în command-center-slider (`#scroll-spacer`). Nu-l duce în producție. */
+#track { position: relative; z-index: 1; pointer-events: none; }
+.seg { height: 600vh; }
+#seg-steps { height: 800vh; }
+#seg-outro { height: 500vh; }
+
+/* Scroll-ul e blocat cât rulează preloader-ul, cât se stinge blur-ul ȘI cât intră
+   titlul: nu are sens să avansezi în scenă înainte ca ea să fie limpede.
+   ⚠️ Blocarea se face ASCUNZÂND TRACKUL, nu cu `overflow: hidden`. Trackul e singurul
+   lucru care dă înălțime paginii (tot restul e `position: fixed`), deci fără el
+   documentul are exact înălțimea ferestrei și nu are unde să se ducă — verificat,
+   `scrollTo(0, 500)` lasă `scrollY` pe 0. Un `overflow: hidden` ar fi făcut același
+   lucru, dar ar fi șters și bara de scroll, iar reapariția ei la deblocare mișcă tot
+   layoutul cu 15 px. Vezi nota din `base.css`. */
+body.locked #track { display: none; }
+
+/* ---------------------------------------------------------------- poarta de desktop
+   Sub 992 px nu livrăm experiența: se vede un CADRU STATIC din scenă, blurat, iar peste
+   el mesajul. Comutarea e PUR CSS, ca să fie instantanee la redimensionare; partea de
+   JS (ce nu se mai încarcă deloc) se decide o singură dată, în `main.js`.
+   ⚠️ Pragul 992 px e scris în TREI locuri — aici, în `GATE_W` din `main.js` și în cel
+   din scenă. Dacă îl schimbi, schimbă-l în toate.
+
+   ⚠️ NU mai e scena vie dedesubt. Prima variantă încărca tot (three, cele 8,8 MB ale
+   intro-ului, preloaderul), desena câteva cadre și le bluura din CSS — adică plătea
+   toată experiența ca să arate o pată. Pe deasupra, mesajul stătea peste nav și peste
+   titlu, care se citeau prin el. Acum modulele nici nu se cer (import dinamic în
+   `main.js`), DOM-ul paginii e ascuns, iar fundalul e o imagine de 640 px cu blurul deja
+   COPT în ea: fără filtru la runtime, fără WebGL, fără preloader. */
+#gate { display: none; }
+/* ⚠️ Fără WebGL 2 (vezi `showNoGL` în `main.js`): aceeași poartă ca pe mobil, pe orice
+   lățime. Regulile sunt DUBLATE din media query-ul de mai jos, nu mutate, ca poarta de
+   mobil să rămână exact cum a fost verificată. */
+html.no-webgl #main, html.no-webgl #pl, html.no-webgl #track,
+html.no-webgl #content, html.no-webgl #dbg { display: none; }
+html.no-webgl #gate {
+  display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: var(--z-nav);
+  padding: 0 var(--pad-nav);
+  background:
+    linear-gradient(var(--c-bg-55), var(--c-bg-55)),
+    url('/gate-bg.webp') center / cover no-repeat,
+    var(--c-bg);
+}
+html.no-webgl #gate p {
+  margin: 0; text-align: center;
+  font: 500 clamp(15px, 4.2vw, 19px)/1.7 var(--font-mono);
+  letter-spacing: 0.06em; color: var(--c-ink);
+}
+html.no-webgl, html.no-webgl body { overflow: hidden; height: 100%; }
+
+@media (max-width: 991.98px) {
+
+  /* Nimic din experiență nu se mai vede: canvas-ul și preloaderul sunt goale (modulele
+     nu se încarcă), iar conținutul paginii ar fi trecut prin mesaj. */
+  #main, #pl, #track, #content, #dbg { display: none; }
+
+  /* `html.is-ready` rămâne, deși pe mobil clasa se pune imediat din `main.js`: așa
+     poarta are aceeași intrare în fade și nu pocnește la primul cadru. */
+  html.is-ready #gate {
+    display: grid; place-items: center;
+    position: fixed; inset: 0; z-index: var(--z-nav);
+    padding: 0 var(--pad-nav);
+    /* Cadrul static al scenei, deja blurat în fișier, plus stratul de închidere peste el
+       (ACELAȘI 55% ca înainte), ca textul alb să aibă contrast. Ordinea în `background`
+       e de sus în jos, deci gradientul plat stă PESTE imagine. */
+    background:
+      linear-gradient(var(--c-bg-55), var(--c-bg-55)),
+      url('/gate-bg.webp') center / cover no-repeat,
+      var(--c-bg);
+    animation: gate-in 520ms ease-out both;
+  }
+  @keyframes gate-in { from { opacity: 0 } to { opacity: 1 } }
+  #gate p {
+    margin: 0; text-align: center;
+    font: 500 clamp(15px, 4.2vw, 19px)/1.7 var(--font-mono);
+    letter-spacing: 0.06em;
+    color: var(--c-ink);
+    text-wrap: balance;
+  }
+  /* Fără scroll: toată experiența e condusă de scroll, deci nu are ce oferi. */
+  html, body { overflow: hidden; height: 100%; }
+}
+
+/* CSS cerut de Lenis. `scroll-behavior: auto` e obligatoriu: un `smooth` din CSS
+   s-ar bate cu interpolarea lui Lenis. */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+/* ⚠️ `.lenis-stopped { overflow: hidden }` din documentația Lenis e SCOASĂ intenționat.
+   Ar fi tăiat bara de scroll exact în intervalul în care noi o vrem prezentă (Lenis
+   pornește oprit, cât rulează preloaderul), și ar fi bătut `html { overflow-y: scroll }`
+   prin specificitate. Oprirea scroll-ului o face ascunderea trackului, de mai sus. */

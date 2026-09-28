@@ -1,0 +1,31 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #04100f; }
+
+/* ⚠️ BARA DE SCROLL EXISTĂ DE LA PRIMUL CADRU ȘI NU DISPARE NICIODATĂ.
+   Cât ține preloaderul pagina e blocată; dacă blocarea se face cu `overflow: hidden`,
+   bara dispare, iar în clipa deblocării reapare și îngustează zona utilă cu lățimea ei —
+   adică TOT layoutul sare spre stânga exact când se termină animația de intrare.
+   Măsurat: 1440 px blocat → 1425 px deblocat, salt de 15 px.
+   ⚠️ `scrollbar-gutter: stable` NU rezolvă asta, deși pare exact unealta potrivită.
+   Măsurat pe viu, cu proprietatea calculată confirmată `stable`: cu `overflow: hidden`
+   pe body → 1440 (culoarul nu se rezervă), cu document scurt → tot 1440. Chrome îl
+   onorează doar când elementul chiar are bară. Deci soluția e `overflow-y: scroll`:
+   banda e desenată mereu, în toate stările, și lățimea utilă rămâne 1425 peste tot.
+   ⚠️ Blocarea nu se mai face din `overflow`, ci ascunzând `#track` (vezi `scene.css`):
+   fără track documentul are exact înălțimea ferestrei, deci nu are unde să se ducă.
+   Verificat: `scrollTo(0, 500)` lasă `scrollY` pe 0.
+   Pe ecran mic regula se anulează — vezi media query-ul din `scene.css`. */
+html { overflow-y: scroll; }
+
+/* ⚠️ ANTIALIASING CONSTANT, altfel textul „se limpezește" la finalul fiecărei animații.
+   Chrome desenează textul obișnuit cu antialiasing pe subpixeli (LCD), dar în clipa în
+   care elementul primește `filter`, `opacity < 1` sau o transformare, îl mută pe un
+   strat propriu de compozitare și trece pe antialiasing în tonuri de gri. Diferența se
+   vede ca „litere ușor blurate cât ține animația, clare după" — exact ce se reclama.
+   Forțat pe gri peste tot, cele două stări sunt IDENTICE, deci nu mai există saltul.
+   Costul e că textul iese cu un fir mai subțire; pe alb-pe-închis e oricum de dorit. */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

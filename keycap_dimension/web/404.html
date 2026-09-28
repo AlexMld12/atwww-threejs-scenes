@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en" class="is-404">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Aceeasi plasa ca in `index.html`: fundalul si ascunderea continutului stau INLINE,
+     ca intre parsarea HTML-ului si injectarea CSS-ului din modul sa nu se vada pagina
+     nestilizata. -->
+<style>
+  html { background: #04100f; color-scheme: dark; }
+  body { margin: 0; background: #04100f; }
+  #content { opacity: 0; }
+</style>
+<title>404 — Key not found · SUBKEY</title>
+<meta name="robots" content="noindex">
+</head>
+<body>
+
+<!-- ======================================================================
+     PAGINA DE 404. Un singur ecran (100vh, fara scroll), fara scena 3D: refoloseste
+     nav-ul, colturile de jos si efectele de text ale paginii principale.
+     Tema: tasta apasata nu e legata la nimic — keycap-ul a sarit de pe switch.
+     Desenul e conturul switch-ului INCHIS din preloader (`source/preloader/`), acelasi
+     vocabular de blueprint cu care se deschide site-ul. Vezi `docs/SITE_FLOW.md`.
+     ====================================================================== -->
+<main id="content">
+
+  <nav class="nav">
+    <div class="nav__left">
+    <a class="nav__logo" href="/" aria-label="SUBKEY — home">
+      <svg width="70" height="13" viewBox="0 0 70 13" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+        <path d="M5.76195 12.8572C4.79898 12.8572 3.98416 12.7303 3.31749 12.4763C2.6614 12.2117 2.127 11.8678 1.7143 11.4445C1.31218 11.0212 1.01059 10.5609 0.80953 10.0636C0.619052 9.55563 0.50794 9.05827 0.476194 8.57149H2.9524C2.97357 8.95245 3.08997 9.31753 3.30161 9.66674C3.51325 10.0159 3.83072 10.3017 4.254 10.5239C4.67728 10.7461 5.20639 10.8572 5.84131 10.8572C6.52915 10.8572 7.03709 10.7197 7.36514 10.4445C7.70376 10.1588 7.87308 9.78843 7.87308 9.3334C7.87308 8.89954 7.72493 8.54504 7.42863 8.2699C7.14291 7.99477 6.76196 7.77783 6.28576 7.6191L4.4921 7.01592C3.92066 6.82545 3.3704 6.59264 2.84129 6.31751C2.32277 6.03179 1.89419 5.66142 1.55557 5.20639C1.21694 4.74077 1.04763 4.14818 1.04763 3.42859C1.04763 2.68785 1.23281 2.0635 1.60319 1.55556C1.98414 1.04762 2.50266 0.661377 3.15875 0.396825C3.82543 0.132273 4.58734 -3.36284e-06 5.44449 -3.36284e-06C6.54502 -3.36284e-06 7.41275 0.185183 8.04768 0.555557C8.68261 0.92593 9.14293 1.39683 9.42864 1.96827C9.72494 2.52912 9.90484 3.11642 9.96833 3.73018H7.49212C7.47096 3.43389 7.3863 3.15346 7.23815 2.88891C7.10058 2.61377 6.87836 2.39155 6.57148 2.22224C6.2646 2.05292 5.8519 1.96827 5.33337 1.96827C4.75136 1.96827 4.31749 2.08996 4.03178 2.33335C3.75664 2.57674 3.61908 2.88362 3.61908 3.25399C3.61908 3.65611 3.76193 3.97886 4.04765 4.22225C4.34395 4.46564 4.73549 4.67199 5.22226 4.8413L7.01593 5.44448C7.59794 5.63496 8.14821 5.87306 8.66673 6.15877C9.18526 6.44449 9.60854 6.82545 9.93658 7.30164C10.2752 7.76725 10.4445 8.38101 10.4445 9.14292C10.4445 10.2964 10.0318 11.2064 9.20642 11.8731C8.3916 12.5292 7.24344 12.8572 5.76195 12.8572ZM16.5666 12.8572C14.7782 12.8572 13.4449 12.3969 12.5666 11.4763C11.6988 10.5451 11.265 9.217 11.265 7.49212V0.238093H13.9634V7.41275C13.9634 8.42863 14.1539 9.22229 14.5348 9.79372C14.9264 10.3652 15.6142 10.6509 16.5983 10.6509C17.5931 10.6509 18.2809 10.3652 18.6618 9.79372C19.0428 9.22229 19.2333 8.42863 19.2333 7.41275V0.238093H21.8682V7.49212C21.8682 9.217 21.4344 10.5451 20.5666 11.4763C19.6989 12.3969 18.3655 12.8572 16.5666 12.8572ZM23.557 12.6191V0.238093H28.4142C29.9591 0.238093 31.0756 0.518519 31.7634 1.07937C32.4512 1.64022 32.7951 2.39684 32.7951 3.34923C32.7951 3.96299 32.647 4.46035 32.3507 4.8413C32.0544 5.22226 31.6047 5.50268 31.0015 5.68258V6.06354C31.8057 6.24343 32.4142 6.56089 32.8269 7.01592C33.2502 7.47095 33.4618 8.13233 33.4618 9.00007C33.4618 10.09 33.102 10.9683 32.3824 11.635C31.6734 12.2911 30.4988 12.6191 28.8586 12.6191H23.557ZM26.0967 10.7144H28.5094C29.3136 10.7144 29.8956 10.5556 30.2554 10.2382C30.6152 9.91013 30.7951 9.46568 30.7951 8.90483C30.7951 8.28048 30.5941 7.82545 30.1919 7.53974C29.7898 7.24344 29.229 7.09529 28.5094 7.09529H26.0967V10.7144ZM26.0967 5.22226H28.2237C28.8269 5.22226 29.3031 5.10056 29.6523 4.85718C30.0121 4.60321 30.1919 4.21167 30.1919 3.68256C30.1919 2.6561 29.5359 2.14287 28.2237 2.14287H26.0967V5.22226ZM34.5742 12.6191V0.238093H37.1774V5.00003H38.1298L41.6853 0.238093H44.6377V0.333332L40.352 5.92068L45.3362 12.5239V12.6191H42.1615L38.1298 7.09529H37.1774V12.6191H34.5742ZM46.075 12.6191V0.238093H54.5195V2.33335H48.7099V5.06353H53.1862V7.00005H48.7099V10.5239H54.6148V12.6191H46.075ZM58.8333 12.6191V7.47624L54.8809 0.333332V0.238093H57.7539L59.3095 3.09526C59.4576 3.35981 59.6005 3.63495 59.7381 3.92066C59.8862 4.1958 60.0291 4.51326 60.1666 4.87305H60.4841C60.6322 4.51326 60.7751 4.1958 60.9127 3.92066C61.0608 3.63495 61.2037 3.35981 61.3412 3.09526L62.8492 0.238093H65.4524V0.333332L61.5 7.50799V12.6191H58.8333Z" fill="currentColor"/>
+        <path d="M67.927 0.619141C69.0546 0.619151 69.969 1.53355 69.969 2.66113C69.9688 3.78857 69.0545 4.70214 67.927 4.70215C66.7995 4.70215 65.8852 3.78858 65.885 2.66113C65.885 1.53354 66.7994 0.619141 67.927 0.619141ZM67.1018 3.32812V3.72949H68.7092V3.32812H67.1018Z" fill="currentColor"/>
+      </svg>
+    </a>
+    </div>
+
+    <!-- Aceleasi liniute ca pe pagina principala; aici blocul e centrat pe ECRAN, nu pe
+         coloana 3D (nu exista scena). -->
+    <div class="nav__mid">
+      <div class="nav__mid-a">
+        <span class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="nav__section" id="nav-section">ERROR 404</span>
+        <span class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      </div>
+    </div>
+
+    <!-- In locul lui ABOUT: GO BACK, cu acelasi patrat, dar cu sageata lui BACK inauntru. -->
+    <div class="nav__right">
+      <span class="nav__sid">S.404</span>
+      <a class="nav__about" href="/" data-go-back><span class="nav__about-t">GO BACK</span><span class="nav__i nav__i--arrow" aria-hidden="true">
+        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11.4199 3.77226H10.7344V0.39067L11.4199 0.39067V3.77226Z" fill="white" fill-opacity="0.8"/>
+          <path d="M3.95512 6.95307C3.82128 7.08691 3.60434 7.08691 3.4705 6.95307L0.100377 3.67034C-0.033459 3.53651 -0.033459 3.31957 0.100377 3.18573L3.4705 0.100378C3.60434 -0.0334592 3.82128 -0.0334592 3.95512 0.100378C4.08895 0.234214 4.08895 0.451155 3.95512 0.584992L1.17001 3.08533L11.4219 3.08532V3.77075L1.17001 3.77075L3.95512 6.46845C4.08895 6.60229 4.08895 6.81923 3.95512 6.95307Z" fill="white" fill-opacity="0.8"/>
+        </svg>
+      </span></a>
+    </div>
+  </nav>
+
+  <section class="nf">
+    <div class="nf__copy">
+      <h1 data-split aria-label="This key is not mapped">This key is<br>[ <b>not</b> ] mapped</h1>
+      <p class="nf__sub">You pressed something the board doesn't know. The switch closed, the
+        signal left &mdash; but nothing was waiting on the other end.</p>
+      <a class="nf__cta" href="/"><span class="nf__cta-t">[ RETURN TO HOME ]</span><svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M11.4199 3.77226H10.7344V0.39067L11.4199 0.39067V3.77226Z" fill="currentColor"/>
+          <path d="M3.95512 6.95307C3.82128 7.08691 3.60434 7.08691 3.4705 6.95307L0.100377 3.67034C-0.033459 3.53651 -0.033459 3.31957 0.100377 3.18573L3.4705 0.100378C3.60434 -0.0334592 3.82128 -0.0334592 3.95512 0.100378C4.08895 0.234214 4.08895 0.451155 3.95512 0.584992L1.17001 3.08533L11.4219 3.08532V3.77075L1.17001 3.77075L3.95512 6.46845C4.08895 6.60229 4.08895 6.81923 3.95512 6.95307Z" fill="currentColor"/>
+        </svg></a>
+    </div>
+
+    <!-- Desenul se insereaza din `src/404.js` (SVG-ul brut din `src/assets/`), ca sa i se
+         poata ridica keycap-ul separat. Eticheta de dedesubt imita cota unui blueprint. -->
+    <figure class="nf__art" aria-hidden="true">
+      <div class="nf__draw" id="nf-draw"><span class="nf__scan"></span></div>
+      <figcaption class="nf__tag"><span>K+04+04</span><span>KEYCAP — NOT MAPPED</span></figcaption>
+    </figure>
+  </section>
+
+  <div class="foot">
+    <div class="foot__l">
+      <p class="foot__socials nf__on"><span class="foot__lead">SOCIALS</span> / <a href="https://www.linkedin.com/company/atwww/posts/?feedView=all" target="_blank" rel="noopener">IN</a> / <a href="https://x.com/Atwww_" target="_blank" rel="noopener">X</a></p>
+    </div>
+    <div class="foot__r">
+      <div class="foot__info" id="hud">
+        <p data-hud="l1">SCAN MODE: FAILED</p>
+        <p data-hud="l2">TARGET: NOT FOUND</p>
+        <p data-hud="l3">ALT 0M | SPEED 0 KM/H</p>
+        <p data-hud="l4">1 KEYPRESS / 0 SIGNAL / 404 NO ROUTE</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script type="module" src="/src/404.js"></script>
+</body>
+</html>

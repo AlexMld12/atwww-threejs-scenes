@@ -1,0 +1,148 @@
+/* Pagina de 404 — UN ecran, fără scroll. Nav-ul și colțurile vin din `sections.css`;
+   aici stă doar ce e propriu paginii. */
+
+/* ⚠️ `base.css` pune `overflow-y: scroll` pe html (bara de scroll trebuie să existe din
+   primul cadru pe pagina principală). Aici nu e nimic de derulat, deci o bară goală ar fi
+   doar o bandă gri: se scoate. */
+html.is-404, html.is-404 body { height: 100%; overflow: hidden; }
+/* Fundalul: aceeași culoare ca pagina, cu o grilă de planșetă de tăiat — biroul din scenă
+   stă pe una. 48 px, abia vizibilă. */
+html.is-404 body {
+  background:
+    linear-gradient(rgba(32, 231, 183, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, rgba(32, 231, 183, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+    var(--c-bg);
+}
+
+/* Colțul din stânga: aici socials e singurul strat, deci se vede mereu (în
+   `sections.css` e ascuns până la `.is-about`). */
+html.is-404 .foot__socials { opacity: 1; filter: none; visibility: visible; }
+.nav__i--arrow svg { width: var(--info-ico-h); height: auto; }
+/* ⚠️ Mijlocul nav-ului se centrează pe ECRAN, scos din `space-between`: cu logo-ul de
+   70 px în stânga și S.404 + GO BACK (~120 px) în dreapta, blocul cădea cu 24 px la stânga
+   centrului (măsurat: 696 în loc de 720). Pe pagina principală asta rezolvă `placeNavMid`,
+   dar acolo ancora e coloana 3D, care aici nu există.
+   `margin: auto` + `width: max-content`, nu `translateX(-50%)`: un transform fracționar
+   ar muta liniuțele pe subpixeli (vezi nota lor din `sections.css`). */
+html.is-404 .nav__mid {
+  position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content;
+}
+
+/* ---------------------------------------------------------------- conținutul */
+.nf {
+  position: absolute; inset: 0;
+  display: grid; grid-template-columns: 1fr 1fr; align-items: center;
+  padding: 0 var(--pad-nav) 0 var(--hero-left);
+}
+.nf h1 { max-width: var(--hero-max); }
+.nf .ch { display: inline-block; white-space: pre; }
+/* Paragraful și butonul, cu aceeași retragere față de titlu ca în footer-ul paginii
+   principale (paragraf la 166.61, titlu la 122 → 44.6 px). */
+.nf__sub {
+  margin: var(--gap-outro) 0 0 calc(var(--outro-p-left) - var(--outro-left));
+  max-width: var(--outro-p-max);
+  font: 400 var(--fs-body)/var(--lh-foot) var(--font-foot);
+  letter-spacing: var(--ls-foot);
+  color: var(--c-ink);
+}
+/* Butonul: același component ca BACK din About (#ABE52D 10% → 20%, contur 20% → 100%),
+   doar mai mare, fiindcă e acțiunea principală a paginii. */
+.nf__cta {
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 34px; padding: 0 14px;
+  margin: 28px 0 0 calc(var(--outro-p-left) - var(--outro-left));
+  border: var(--info-bd) solid var(--c-ink-20); border-radius: 2px;
+  background: var(--c-back-bg);
+  font: 400 var(--fs-nav)/1 var(--font-mono);
+  letter-spacing: var(--ls-nav);
+  transition: border-color var(--hover-ms) var(--ease-out-quart),
+              background-color var(--hover-ms) var(--ease-out-quart);
+}
+/* ⚠️ `#content` în selector: `#content a { color: inherit }` (1-0-1) ar câștiga altfel. */
+#content .nf__cta { color: var(--c-ink); }
+#content .nf__cta:hover, #content .nf__cta:focus-visible {
+  border-color: var(--c-ink); background: var(--c-back-bg-h); outline: none;
+}
+.nf__cta svg { display: block; width: var(--back-ico); height: auto; }
+
+/* ---------------------------------------------------------------- desenul */
+/* ⚠️ Înălțimea se dă DESENULUI, iar lățimea iese din `aspect-ratio`. Prima versiune
+   dădea înălțimea figurii și lăsa desenul să „umple" cu `flex: 1`: pe coloana îngustă
+   de mobil lățimea venea din coloană, nu din înălțime, iar switch-ul ieșea peste titlu. */
+.nf__art {
+  margin: 0; justify-self: center;
+  display: flex; flex-direction: column; align-items: center;
+}
+.nf__draw {
+  position: relative; height: min(50vh, 480px); width: auto;
+  aspect-ratio: 753.78 / 996.41;
+}
+.nf__tag { align-self: stretch; }
+.nf__draw svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* culoarea vine de aici, nu din atributul SVG-ului (CSS bate atributele de prezentare) */
+.nf__draw #switch-exploded { stroke: var(--c-mint); stroke-width: 3.5; }
+/* Keycap-ul a sărit de pe switch: plutește deasupra, punctat — tasta care nu e legată
+   la nimic. Unitățile din `transform` sunt unitățile viewBox-ului, nu pixeli de ecran. */
+.nf__draw #p8_keycap {
+  stroke-dasharray: 14 10;
+  transform-box: fill-box; transform-origin: 50% 50%;
+  animation: nf-float 4.2s ease-in-out infinite;
+}
+/* Umbra lui: conturul la locul unde AR trebui să fie, abia vizibil (vezi `404.js`). */
+.nf__draw .nf__ghost { stroke-opacity: 0.16; stroke-dasharray: 3 9; }
+@keyframes nf-float {
+  0%, 100% { transform: translateY(-120px) rotate(-3deg); }
+  50%      { transform: translateY(-146px) rotate(-1deg); }
+}
+/* Bara de scanner, același vocabular ca pe hârtiile din scenă: trece de sus în jos. */
+.nf__scan {
+  position: absolute; left: -8%; right: -8%; top: 0; height: 1px;
+  background: var(--c-mint);
+  box-shadow: 0 0 12px 1px rgba(32, 231, 183, 0.55);
+  opacity: 0.55;
+  animation: nf-scan 3.6s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+@keyframes nf-scan {
+  0%   { top: 4%;  opacity: 0; }
+  10%  { opacity: 0.55; }
+  90%  { opacity: 0.55; }
+  100% { top: 96%; opacity: 0; }
+}
+.nf__tag {
+  display: flex; justify-content: space-between; gap: 24px;
+  margin-top: 18px; padding-top: 8px;
+  border-top: var(--info-bd) solid var(--c-ink-20);
+  font: 300 var(--fs-nav)/var(--lh-nav) var(--font-mono);
+  letter-spacing: var(--ls-nav);
+  color: var(--c-ink-40);
+}
+
+/* intră după titlu, din blur, ca blocurile de jos */
+html.is-ready .nf__sub,
+html.is-ready .nf__cta,
+html.is-ready .nf__art { animation: piece-in 900ms cubic-bezier(.16, .84, .3, 1) both; }
+html.is-ready .nf__sub { animation-delay: 700ms; }
+html.is-ready .nf__cta { animation-delay: 850ms; }
+html.is-ready .nf__art { animation-delay: 250ms; }
+
+/* ---------------------------------------------------------------- ecran îngust
+   Pagina principală n-are variantă de mobil, dar un 404 poate veni de oriunde: aici
+   coloanele se pun una sub alta și dispar liniuțele din nav, care n-ar mai încăpea. */
+@media (max-width: 900px) {
+  .nf { grid-template-columns: 1fr; align-content: center; gap: 28px;
+        padding: 64px var(--pad-nav) 96px; }
+  .nf__art { order: -1; }
+  .nf__draw { height: 28vh; }
+  .nf h1 { font-size: 48px; }
+  .nf h1 b { font-size: 44px; }
+  .nf__sub, .nf__cta { margin-left: 0; }
+  .ticks { display: none; }
+  .nav__sid { display: none; }
+  #hud p:nth-child(n+3) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf__draw #p8_keycap { animation: none; transform: translateY(-120px) rotate(-3deg); }
+  .nf__scan { display: none; }
+  html.is-ready .nf__sub, html.is-ready .nf__cta, html.is-ready .nf__art { animation: none; }
+}
