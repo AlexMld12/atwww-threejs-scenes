@@ -1,0 +1,23 @@
+/* Singurul CSS importat de `main.js`. Ordinea contează: fonturi, tokeni, bază, apoi
+   componentele. Fiecare secțiune nouă primește fișierul ei. */
+@import './fonts.css';
+@import './tokens.css';
+@import './base.css';
+@import './ui.css';
+@import './header.css';
+@import './hero.css';
+@import './pillars.css';
+@import './gallery.css';
+@import './join.css';
+@import './travel.css';
+@import './footer.css';
+@import './analysis.css';
+
+#kelv-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}

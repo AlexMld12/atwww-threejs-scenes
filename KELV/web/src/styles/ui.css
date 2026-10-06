@@ -1,0 +1,178 @@
+/* Elemente și animații comune tuturor secțiunilor. */
+
+/* Text mono (THREE STEPS…, JOIN CLUB, BUY NOW): IBM Plex Mono 14/18, majuscule */
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-mono);
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   JOIN CLUB / BUY NOW — fixe pe ecran, la 32 px de jos
+   În machetă sunt redesenate în fiecare secțiune, la același loc față de josul cadrului
+   de 850 — adică sticky (cererea userului, 2026-10-05). z 50, ca header-ul.
+   Sublinierea e un element, nu `text-decoration`: trebuie să alunece (vezi mai jos).
+   Poziția ei: 16 px sub vârful rândului de 18, 1 px grosime — măsurat pe PDF (linia
+   e la y 681.5 pentru un rând care începe la 665).
+   ========================================================================== */
+.cta {
+  position: absolute;              /* în stratul fix `.chrome` (header.css) = ecranul */
+  bottom: var(--cta-bottom);
+  display: inline-block;
+  overflow: hidden;              /* linia iese din cadru când alunecă */
+  text-decoration: none;
+}
+.cta--l { left: var(--pad-edge); }
+.cta--r { right: var(--pad-edge); }
+/* Pe Ancient Wisdom CTA-urile urcă în MIJLOCUL ecranului, ca să facă loc titlului și
+   paragrafului (macheta: top 416 în cadrul de 850 = centrul − 9). Se animă `bottom`,
+   nu `transform` — regula textului clar în mișcare. */
+/* `--cta-shift` (0 → 1) îl scrie src/ui/gallery.js DIN SCROLL, nu e o tranziție în timp:
+   ordinea „header + linkuri jos → linkurile urcă → apar textele" trebuie să țină și la
+   scroll rapid (cu o tranziție de 0.9 s, linkurile urcau DUPĂ ce apăreau textele și
+   treceau peste ele — raportat de user, 2026-10-06). Tranziția scurtă doar netezește
+   pașii de scroll. */
+.cta {
+  bottom: calc(var(--cta-bottom) + (50% - var(--cta-mid) - var(--cta-bottom)) * var(--cta-shift, 0));
+  color: var(--hdr-ink);
+  transition: bottom 0.15s linear, opacity 0.5s var(--ease-p2o);
+}
+
+/* Pe galerie header-ul și CTA-urile DISPAR (macheta: cadrul galeriei nu le are) și revin
+   pe Ancient Wisdom. Pune/scoate clasa src/ui/gallery.js. */
+.site-header { transition: opacity 0.5s var(--ease-p2o); }
+html.chrome-off .site-header,
+html.chrome-off .cta,
+html.cta-off .cta { opacity: 0; pointer-events: none; }   /* cta-off: în footer (travel.js) */
+html.chrome-off .site-header a, html.chrome-off .site-header button { pointer-events: none; }
+.cta__line {
+  position: absolute;
+  left: 0;
+  top: clamp(16px, 0.93023vw, 0.93023vw);
+  width: 100%;
+  /* ⚠️ `border-top`, NU `height` + `background` (raportat de user, 2026-10-06: linia
+     ieșea mai groasă decât sublinierea inițială). Peste 1720 px lățime sau la scalări
+     de 125%, `height: clamp(1px, …)` dă 1.1–1.4 pixeli de ecran → linie moale, groasă.
+     Grosimea unui border e rotunjită de browser la pixeli întregi de ecran — exact ca
+     `text-decoration` din prima variantă, pe care o ținea userul ca referință. */
+  height: 0;
+  border-top: clamp(1px, 0.05814vw, 0.05814vw) solid currentColor;
+  pointer-events: none;
+}
+/* drinksom.eu: `animate-[navUnderlineSweep_900ms_ease-in-out]`, keyframe-urile copiate
+   întocmai din CSS-ul lor. Linia pleacă spre dreapta (pare că se scurtează 100% → 0%),
+   dispare, sare în stânga și intră înapoi din stânga. Pornită de src/ui/hover.js. */
+.cta__line.is-sweeping { animation: navUnderlineSweep 0.9s ease-in-out; }
+@keyframes navUnderlineSweep {
+  0%   { opacity: 1; transform: translateX(0); }
+  44%  { opacity: 1; transform: translateX(104%); }
+  50%  { opacity: 0; transform: translateX(104%); }
+  51%  { opacity: 0; transform: translateX(-104%); }
+  57%  { opacity: 1; transform: translateX(-104%); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* ==========================================================================
+   Textul care se rulează literă cu literă — TOATE butoanele site-ului (cererea userului,
+   2026-10-06): OPEN SHOP, SEND FORM, … Marcaj: `data-roll-host` pe buton,
+   `data-roll` pe textul lui.
+   Fiecare literă = o coloană cu două copii, într-un cadru de un rând cu overflow
+   ascuns. La hover coloana urcă cu un rând (= o copie). Durata și curba sunt ale lui
+   drinksom.eu (`TextReveal`: 0.4 s, [.95, 0, .05, 1]).
+   Decalajul și ordinea sunt ale userului:
+     · 2026-10-05: 0.005 s pe literă — prea mic, „nu prea se observă că pleacă literă
+       cu literă"; 2026-10-06: mărit la `--roll-stagger` (0.03 s), să arate ca un VAL.
+     · Valul pornește de la ULTIMA literă spre prima (`--ri` = indexul invers); la ieșire
+       animația e inversată, deci se întoarce pornind de la PRIMA (`--i`).
+   `transition-delay` se ia din starea în care INTRĂ elementul: hover-ul are `--ri`,
+   repausul are `--i`.
+   ========================================================================== */
+:root { --roll-stagger: 0.03s; }
+.roll {
+  display: inline-flex;
+  /* ⚠️ `flex-start`, nu implicitul `stretch`: altfel fiecare coloană se turtește la
+     înălțimea cadrului (un rând), iar `translateY(-50%)` urca doar o jumătate de rând —
+     la final literele rămâneau tăiate la mijloc. */
+  align-items: flex-start;
+  height: 1.16em;
+  line-height: 1.16;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.roll__ch {
+  position: relative;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  /* ⚠️ `top`, NU `transform` (textul era NECLAR în timpul animației — raportat de user,
+     2026-10-06). Un `transform` animat urcă literele pe un strat de compozitare: textul
+     e rasterizat o dată ca imagine și apoi deplasat la poziții fracționare de pixel, deci
+     se vede moale cât se mișcă. În plus, ținta `-50%` = −15.08 px lăsa literele între
+     pixeli și DUPĂ oprire. Cu `top`, textul se repictează în fiecare cadru și Chrome îi
+     aliniază linia de bază la pixel. Costul de layout e neglijabil: 9 litere.
+     Măsurat (pixeli intermediari / pixeli de text, mai mic = mai clar): repaus 0.584;
+     cu transform 0.72–0.85 în mișcare; cu `top` 0.62 constant, cât în repaus. */
+  transition: top 0.4s cubic-bezier(0.95, 0, 0.05, 1);
+  transition-delay: calc(var(--i) * var(--roll-stagger));
+}
+/* ⚠️ `:not(:disabled)`: un buton inactiv (SEND FORM înainte de checkbox) nu se animă */
+@media (hover: hover) {
+  [data-roll-host]:not(:disabled):hover .roll__ch { top: -1.16em; transition-delay: calc(var(--ri) * var(--roll-stagger)); }
+}
+[data-roll-host]:not(:disabled):focus-visible .roll__ch { top: -1.16em; transition-delay: calc(var(--ri) * var(--roll-stagger)); }
+
+/* săgeata oricărui buton cu text rulat: spre colțul dreapta-sus la hover — valorile lui
+   drinksom.eu: `rotate(-45deg)`, 0.6 s cubic-bezier(0.25, 0.46, 0.45, 0.94); la ieșire
+   se întoarce pe aceeași curbă (o tranziție CSS e reversibilă de la sine). La ei, la fel,
+   doar pe butonul activ. */
+[data-roll-host] > svg { transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+@media (hover: hover) { [data-roll-host]:not(:disabled):hover > svg { transform: rotate(-45deg); } }
+[data-roll-host]:not(:disabled):focus-visible > svg { transform: rotate(-45deg); }
+
+/* ==========================================================================
+   Reveal-ul textelor (src/ui/reveal.js)
+   drinksom.eu: `{opacity: 0, y: 30, filter: blur(4px)}` → vizibil, 0.8 s, ease
+   [.76, 0, .24, 1]. Scale-ul 0.96 e cererea userului („puțin scaled down").
+   Ținta (`.rv`) e un RÂND al paragrafului sau, la titlul mare, rândul întreg.
+   ⚠️ Doar sub `.js` (clasa pusă de scriptul din <head>): fără JS textul ar rămâne
+   invizibil pentru totdeauna.
+   ⚠️ Până când JS-ul a spart paragraful în rânduri (`.rv-ready`), host-ul e ascuns cu
+   totul — altfel textul s-ar vedea întreg o clipă, apoi ar dispărea ca să apară iar.
+   ⚠️ Se animă `transform`; elementele care au nevoie de centrare folosesc proprietatea
+   separată `translate` (ex. `.hero__mega`, `.hero__para`), deci nu se bat între ele.
+   ========================================================================== */
+:root {
+  --rv-y:    clamp(30px, 1.74419vw, 1.74419vw);
+  --rv-blur: clamp(4px, 0.23256vw, 0.23256vw);
+  --rv-scale: 0.96;
+  --rv-ease: cubic-bezier(0.76, 0, 0.24, 1);
+}
+.js [data-reveal]:not(.rv-ready) { visibility: hidden; }
+.rv-line { display: block; }
+.js .rv {
+  opacity: 0;
+  transform: translateY(var(--rv-y)) scale(var(--rv-scale));
+  filter: blur(var(--rv-blur));
+  transition: opacity 0.8s var(--rv-ease), transform 0.8s var(--rv-ease), filter 0.8s var(--rv-ease);
+  transition-delay: var(--rv-delay, 0s);
+}
+.js .rv.is-in { opacity: 1; transform: none; filter: none; }
+
+/* Titlul mare: DOAR blur → clar (cererea userului, 2026-10-06). Fără mișcare, fără
+   scale, fără opacitate. Pornește de la blur-ul pe care îl au A-ul și S-ul
+   (`--mega-blur`, 6 px în machetă), deci la început tot rândul arată ca ele; la final
+   doar ele rămân blurate — au filtrul lor propriu, pe care acesta nu-l atinge. */
+.js .rv.rv--blur {
+  opacity: 1;
+  transform: none;
+  filter: blur(var(--mega-blur));
+  transition: filter 0.8s var(--rv-ease);
+  transition-delay: var(--rv-delay, 0s);
+}
+.js .rv.rv--blur.is-in { filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .js .rv, .js .rv.rv--blur { opacity: 1; transform: none; filter: none; transition: none; }
+  .roll__ch, .cta__line.is-sweeping { transition: none; animation: none; }
+}

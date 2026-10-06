@@ -1,0 +1,116 @@
+/* ==========================================================================
+   HERO — un ecran întreg (100vh) + restul în flux sub el (859 px în machetă).
+   Structura e cea a site-ului de referință (drinksom.eu): primul ecran ține produsele și
+   textele de sus, iar titlul mare și paragraful vin DUPĂ el. Vezi `--hero-rest` în
+   tokens.css pentru de ce ecranul machetei e de 850.
+
+   Poziții: x față de marginea de care e lipit elementul sau față de centrul paginii
+   (720 în machetă); y față de vârful hero-ului (primul ecran) sau față de capătul
+   primului ecran, `calc(100vh + Δ)` (partea de jos).
+
+   ORDINEA STRATURILOR (din ordinea de desenare din PDF):
+     0  fundal navy + strălucirea cyan
+     1  titlul mare BEYOND / ALWAYS / STATE OF MIND, alb 20%  — STĂ ÎN SPATELE produselor
+     2  produsele: placeholder-ul acum, canvas-ul three.js după ce vin GLB-urile
+     5  textele mici (info, paragraf)
+   Cardul cu spuma NU mai e aici: e fundalul secțiunii 2 (pillars.css), care intră peste
+   capătul hero-ului și se mărește la scroll.
+   ⚠️ NU există vignetă. PDF-ul conține o pereche (culoare #031346 + mască de luminanță)
+   la 20..1398 × 1104..2482, dar pixelii randării Figma se explică EXACT doar prin
+   strălucire compusă normal peste navy (măsurat în 7 puncte, abatere ≤ 2/255) — vigneta
+   nu contribuie cu nimic vizibil. Pusă în pagină, desena un dreptunghi închis.
+   ⚠️ `.hero` NU are z-index / transform / opacity: dacă ar crea un context de
+   stivuire propriu, canvas-ul fix al scenei (z 2, în afara hero-ului) nu s-ar mai
+   putea intercala între straturile lui.
+   ========================================================================== */
+.hero {
+  position: relative;
+  height: calc(100vh + var(--hero-rest));
+  /* ⚠️ tăiat DOAR pe orizontală. Strălucirea continuă în machetă până la y 2378, adică
+     ~670 px sub capătul hero-ului: acolo e fundalul din jurul cardului care se mărește,
+     cât timp cardul e încă mic. Cu `overflow: clip` pe ambele axe apărea o muchie
+     orizontală dură la capătul hero-ului. */
+  overflow-x: clip;
+  background: var(--c-navy);
+}
+.hero > * { position: absolute; }
+
+/* ---- 0. strălucirea ---- */
+.hero__glow {
+  z-index: 0;
+  left: calc(50% - var(--glow-x));
+  top: var(--glow-y);
+  width: var(--glow-w);
+  height: var(--glow-h);
+  max-width: none;
+  pointer-events: none;
+}
+
+/* ---- 1. titlul mare ----
+   BEYOND și STATE OF MIND: Archivo ExtraCondensed ExtraBold (eroare de lățime pe glife
+   1.4 px față de 32 px la Black). ALWAYS: Archivo Expanded Black. Mărimea 130.3 vine din
+   înălțimea majusculei (89.4 px în PDF / 0.686).
+   Spațierea: literă cu literă, vezi mai jos (înainte: letter-spacing pe rând, rezolvat în
+   browser pe lățime — lățimea ieșea bună, dar perechi ca E-Y se atingeau). */
+.hero__mega {
+  z-index: 1;
+  left: calc(50% - var(--mega-x));
+  top: calc(100vh + var(--mega-dy));
+  color: var(--c-ink-20);
+  font-size: var(--fs-mega);
+  line-height: var(--lh-mega);
+  text-align: left;               /* rândurile încep la pen-ul lor din PDF (prima literă are --m) */
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hero__mega > span { display: block; }
+.mega-cond { font-family: var(--font-cond); font-weight: 800; }
+.mega-exp  { font-family: var(--font-exp);  font-weight: 900; }
+/* ⚠️ Literă cu literă, NU letter-spacing (user, 2026-10-06: „literele intră una în alta").
+   Fiecare literă (<i>) are marginea care îi pune cerneala exact unde e în PDF — calculată
+   de tools/mega_spacing.py din metricile fontului, în em, deci valabilă și în footer
+   (același titlu ×1.4152). Un singur letter-spacing pe rând nu putea reproduce golurile
+   din Figma (B→E 5.3, E→Y 2.8, Y→O −5.6 px), iar kerning-ul lui Chrome lipea E-Y.
+   Spațiile dintre cuvinte sunt incluse în margini; textul accesibil stă în aria-label. */
+.hero__mega i, .footer__mega i {
+  display: inline-block;
+  margin-left: var(--m, 0);
+  font-style: normal;
+  font-kerning: none;
+  letter-spacing: 0;
+}
+/* A-ul și S-ul din capete sunt, în PDF, imagini blurate — doar ele, nu tot cuvântul */
+.mega-exp .blur { filter: blur(var(--mega-blur)); }
+
+/* ---- 2. produsele ---- */
+/* ⚠️ Randarea din Figma e doar REZERVA: produsele sunt 3D (scene/index.js) și intră
+   animat după ce se încarcă. Imaginea apare numai dacă 3D-ul nu merge (`html.no-3d`: fără
+   WebGL sau GLB-urile nu s-au încărcat). Nu „imagine până vin modelele": ar fi dispărut
+   brusc chiar când produsele 3D urcă în cadru — o dublură. */
+.hero__placeholder { visibility: hidden; }
+html.no-3d .hero__placeholder { visibility: visible; }
+.hero__placeholder {
+  z-index: 2;
+  left: calc(50% - var(--prod-x));
+  top: var(--prod-y);
+  width: var(--prod-w);
+  height: var(--prod-h);
+  max-width: none;
+}
+
+/* ---- 5. textele ---- */
+.hero__info { z-index: 5; width: var(--w-mono); }
+.hero__info--l { left: var(--info-l-left); top: var(--info-l-top); }
+.hero__info--r { right: var(--info-r-right); top: calc(100vh + var(--info-r-dy)); text-align: right; }
+
+.hero__para {
+  z-index: 5;
+  left: calc(50% - var(--para-dx));
+  top: calc(100vh + var(--para-dy));
+  translate: -50% 0;
+  width: var(--para-w);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
+  text-align: center;
+}

@@ -1,0 +1,139 @@
+/* ==========================================================================
+   HEADER — fix pe tot site-ul. În machetă e redesenat identic în vârful fiecărei
+   secțiuni, deci în pagină e un singur element `position: fixed`.
+   ========================================================================== */
+/* ==========================================================================
+   STRATUL FIX (header + CTA-uri) și CULOAREA PE FUNDAL DESCHIS
+   Pe fundalurile deschise (secțiunea 7) header-ul și CTA-urile trec pe #17110F, butonul
+   pe închis cu text alb, liniuțele pe portocaliu (macheta, cadrul 6369).
+   ⚠️ Schimbarea se face PE PIXEL, nu pe tot elementul odată (cererea userului,
+   2026-10-06: „ca și cum ar fi cu difference — când un element atinge fundalul deschis,
+   să se schimbe real, treptat"). Stratul `.chrome` există de două ori:
+     · originalul (alb), decupat cu un poligon care EXCLUDE banda deschisă din ecran;
+     · copia `.chrome--dark` (src/ui/chrome.js), decupată exact PE banda deschisă.
+   Banda = intersecția secțiunilor `[data-theme="light"]` cu ecranul; capetele ei în
+   `--lb-a` / `--lb-b` (px de la vârful ecranului), scrise în fiecare cadru.
+   ⚠️ NU `mix-blend-mode: difference`: alb peste navy ar da 252/239/199 (alb-gălbui), nu
+   albul din machetă, iar peste imagini culori aleatoare.
+   ⚠️ Decupajul oprește și click-urile pe partea ascunsă — de aceea copia are linkurile
+   active (pointer-events), iar hover-ul fiecărei variante merge pe stratul vizibil.
+   ========================================================================== */
+:root {
+  --hdr-ink: var(--c-ink);
+  --hdr-tick: var(--c-ink);
+  --hdr-btn-bg: var(--c-ink);
+  --hdr-btn-fg: var(--c-black);
+  --lb-a: 0px;
+  --lb-b: 0px;
+}
+.chrome {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;            /* doar copiii interactivi prind click-uri */
+  clip-path: polygon(0 0, 100% 0, 100% var(--lb-a), 0 var(--lb-a), 0 var(--lb-b),
+                     100% var(--lb-b), 100% 100%, 0 100%);
+}
+.chrome--dark {
+  --hdr-ink: var(--c-dark);
+  --hdr-tick: var(--c-orange);
+  --hdr-btn-bg: var(--c-dark);
+  --hdr-btn-fg: var(--c-ink);
+  clip-path: inset(var(--lb-a) 0 calc(100% - var(--lb-b)) 0);
+}
+.site-header {
+  position: absolute;
+  inset: 0 0 auto 0;
+}
+.site-header a, .site-header button, .cta { pointer-events: auto; }
+
+/* ---- bara de liniuțe ----
+   În machetă: 219 liniuțe de 1.5 × 13, la pas de 6.5, de la x=10 la 1428.5.
+   `--ticks-lit` = câte sunt aprinse — progresul pe tot site-ul: 0 sus, toate la capătul
+   footer-ului (cererea userului). Îl scrie src/ui/ticks.js. ⚠️ Cele 52 din machetă NU
+   sunt starea inițială: sunt doar cadrul de Figma surprins la jumătatea scroll-ului.
+
+   ⚠️ „PE LIVE PAR DE DIMENSIUNI DIFERITE" — aceeași problemă ca la SUBKEY, aici mai
+   gravă: 1.5 px și pasul de 6.5 px cad pe JUMĂTĂȚI de pixel chiar la scalare 100%.
+   Măsurat pe captură la DPR 1: liniuțele ieșeau alternativ de 1 și 2 pixeli (cerneală
+   239 vs 478), cu pas alternativ 6 / 7. La 125% (implicit pe laptopuri Windows) se
+   strică altfel, dar tot inegal.
+   Rezolvarea: src/ui/ticks.js rotunjește la PIXELI ÎNTREGI DE ECRAN (nu CSS) lățimea,
+   pasul, înălțimea și originea barei, și le scrie în `--tk-*`. Tokenii clamp rămân sursa
+   (`--tick-w` / `--tick-pitch` / `--tick-h` / `--pad-edge`); `--tk-*` sunt doar valorile
+   lor aliniate la grila ecranului, pe care le folosește desenul.
+   ⚠️ Desenul e o PLACĂ care se repetă (`background-size` = pasul, `repeat-x`), nu un
+   `repeating-linear-gradient`: placa e rasterizată o dată și copiată, deci toate
+   liniuțele ies identice; gradientul repetat se recalculează pe toată lungimea și își
+   acumulează eroarea de poziție. */
+.ticks {
+  --ticks-lit: 0;
+  position: absolute;
+  top: var(--tk-y, var(--pad-edge));
+  left: var(--tk-x, var(--pad-edge));
+  width: var(--tk-len, calc(100% - 2 * var(--pad-edge)));
+  height: var(--tk-h, var(--tick-h));
+}
+.ticks::before, .ticks__lit {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  background-image: linear-gradient(to right,
+    var(--hdr-tick) 0 var(--tk-w, var(--tick-w)), transparent 0);
+  background-size: var(--tk-p, var(--tick-pitch)) 100%;
+  background-repeat: repeat-x;
+}
+.ticks::before { right: 0; opacity: var(--tick-dim); }
+.ticks__lit { width: calc(var(--tk-p, var(--tick-pitch)) * var(--ticks-lit)); }
+
+/* ---- rândul logo / titlu / buton: toate trei centrate vertical pe y = 60.5 ---- */
+.head-row {
+  position: absolute;
+  top: var(--head-top);
+  left: var(--pad-edge);
+  right: var(--pad-edge);
+  height: var(--head-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo { width: var(--logo-w); color: var(--hdr-ink); }
+.logo svg { width: 100%; height: auto; }
+
+.head-title {
+  position: absolute;
+  /* `left: 50%` e față de rând, nu de pagină; rândul are margini egale (10/10), deci
+     centrul lui e tot centrul paginii */
+  left: calc(50% + var(--title-dx));
+  top: 50%;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: var(--title-gap);
+  font-size: var(--fs-title);
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.head-title__a { font-family: var(--font-exp);  font-weight: 900; letter-spacing: -0.06em;  color: var(--c-orange); }
+.head-title__b { font-family: var(--font-cond); font-weight: 700; letter-spacing: -0.014em; color: var(--hdr-ink); }
+
+.btn-shop {
+  display: flex;
+  align-items: center;
+  gap: var(--btn-gap);
+  width: var(--btn-w);
+  height: 100%;
+  padding-left: var(--btn-pad);
+  background: var(--hdr-btn-bg);
+  color: var(--hdr-btn-fg);
+  border-radius: var(--btn-radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-btn);
+  letter-spacing: var(--ls-btn);
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.btn-shop svg { width: var(--arrow-w); height: auto; flex: none; }

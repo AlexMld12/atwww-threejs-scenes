@@ -1,0 +1,20 @@
+# ---- generat, se reface din npm ----
+web/node_modules/
+web/dist/
+# decoderul Draco se copiaza din node_modules de `npm run predev`/`prebuild`
+web/public/draco/
+
+# ---- macheta Figma: 40 MB, ramane doar pe disc ----
+# Repo-ul e PUBLIC; PDF-ul e sursa de adevar pentru masuratori (tools/extract_figma.py).
+# Daca muti proiectul, copiaza-l manual (originalul: C:\ATWWW\KELV\Homepage.pdf).
+docs/reference/
+
+# ---- gunoi de sistem ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- doar local (conventia repo-ului atwww-threejs-scenes) ----
+# log-urile de sesiune si comenzile agentului; CLAUDE.md e deja exclus la radacina
+.claude/
+archive/

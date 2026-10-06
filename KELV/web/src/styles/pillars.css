@@ -1,0 +1,217 @@
+/* ==========================================================================
+   02–04 · PILLARS (Mental Focus / Stamina Boost / Imune Control)
+   Copiat din drinksom.eu („power-pillars", citit din DOM + codul lor, 2026-10-05/06):
+     section  320vh, începe EXACT la capătul hero-ului
+       .sticky  top 0, 100vh, overflow hidden      ← se fixează când ajunge sus
+         .zoom-card  100vh × 100%, scalat din centru ← scale + raza din `--e`
+           fundalurile pilonilor, suprapuse (opacitatea o scrie pillars.js)
+         cercurile, produsul, titlul, textele      ← apar când cardul e full-bleed
+   Timeline-ul (pillars.js): primele 30% din partea fixată = pauză, apoi pilonii.
+
+   Pozițiile vin din cele trei cadre de 850 ale machetei (1709 / 2559 / 3409). Pe
+   verticală se ancorează de CENTRUL ecranului (425 în cadru), ca pe drinksom
+   (`top: 50%` + offset): pe un ecran mai înalt sau mai scund compoziția rămâne în mijloc.
+   ⚠️ Secțiunea NU are fundal: în jurul cardului cât e mic trebuie să se vadă strălucirea
+   hero-ului, care continuă dedesubt (vezi `overflow-x: clip` din hero.css).
+   ========================================================================== */
+.pillars {
+  position: relative;
+  height: 320vh;
+  z-index: 3;          /* peste strălucirea și produsele hero-ului; sub textele fixe */
+}
+.pillars__sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.zoom-card {
+  --e: 0;
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  transform-origin: center center;
+  transform: scale(calc(var(--zoom-min) + (1 - var(--zoom-min)) * var(--e)));
+  border-radius: min(var(--zoom-r-max), calc(var(--zoom-r-k) * (1 - var(--e))));
+  will-change: transform;
+}
+/* Fundalurile sunt copte din randarea PDF-ului (tools/extract_pillars.py), deci
+   tenta și vignetele din Figma sunt deja în pixeli. */
+.pillar-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---- elementele care apar când cardul e full-bleed ----
+   drinksom: la intrare (`N >= 1`) titlul vine din {opacity 0, y 30, blur 6} în 0.9 s
+   power3.out la +0.25 s, textul din dreapta din {y 25, blur 4} în 0.8 s power2.out la
+   +0.4 s, tagline-ul din {y 15} în 0.7 s la +0.55 s. La ieșire toate pleacă împreună:
+   {opacity 0, scale 0.96, y −6, blur 8} în 0.3 s power2.out.
+   Starea de pornire a intrării o pune pillars.js (`.pl-pre`, fără tranziție), apoi scoate
+   clasa — de aici cele două stări de „ascuns". */
+.pl-el {
+  position: absolute;
+  z-index: 4;
+  opacity: 0;
+  transform: translateY(calc(-1 * clamp(6px, 0.34884vw, 0.34884vw))) scale(0.96);
+  filter: blur(clamp(8px, 0.46512vw, 0.46512vw));
+  transition: opacity 0.3s var(--ease-p2o), transform 0.3s var(--ease-p2o), filter 0.3s var(--ease-p2o);
+  pointer-events: none;
+}
+.pillars__sticky.is-on .pl-el { opacity: 1; transform: none; filter: none; }
+.pillars__sticky.is-on .pillar-title { transition: opacity 0.9s var(--ease-p3o) 0.25s, transform 0.9s var(--ease-p3o) 0.25s, filter 0.9s var(--ease-p3o) 0.25s; }
+.pillars__sticky.is-on .pillar-copy  { transition: opacity 0.8s var(--ease-p2o) 0.4s,  transform 0.8s var(--ease-p2o) 0.4s,  filter 0.8s var(--ease-p2o) 0.4s; }
+.pillars__sticky.is-on .pillar-tag   { transition: opacity 0.7s var(--ease-p2o) 0.55s, transform 0.7s var(--ease-p2o) 0.55s; }
+.pillars__sticky .pl-pre.pl-el { transition: none !important; }
+.pillar-title.pl-pre   { opacity: 0; transform: translateY(var(--rv-y)); filter: blur(clamp(6px, 0.34884vw, 0.34884vw)); }
+.pillar-copy.pl-pre    { opacity: 0; transform: translateY(clamp(25px, 1.45349vw, 1.45349vw)); filter: blur(var(--rv-blur)); }
+.pillar-tag.pl-pre     { opacity: 0; transform: translateY(clamp(15px, 0.87209vw, 0.87209vw)); filter: none; }
+
+/* ---- titlul: rândul 1 ExtraCondensed ExtraBold 58.4, rândul 2 Expanded Black 69.26
+   (greutățile alese după aria de cerneală, potrivire ~0.1%). Rândul 2 e portocaliu la
+   pilonii 1–2 și alb la 3 (macheta). line-height 1 + margine negativă = poziția
+   majusculelor din PDF (MENTAL la 2075.8, FOCUS la ~2127.3). ---- */
+.pillar-title {
+  left: var(--pl-title-x);
+  top: calc(50% + var(--pl-title-dy));
+  margin: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--c-ink);
+}
+.pillar-title > span { display: block; line-height: 1; }
+.pillar-title__a { font: 800 var(--fs-pl-a) var(--font-cond); letter-spacing: var(--ls-pl-a); }
+.pillar-title__b {
+  font: 900 var(--fs-pl-b) var(--font-exp);
+  letter-spacing: var(--ls-pl-b);
+  margin-top: var(--pl-title-gap);
+  color: var(--pl-accent, var(--c-orange));
+}
+/* la schimbarea pilonului: rândurile vin din blur (drinksom `.left-title-line`:
+   {opacity 0, y 14, blur 4} → 0.55 s power2.out, decalaj 0.07 s). Text blurat voit, deci
+   transform-ul e permis aici; starea finală e `transform: none` (regula textului clar). */
+.pillar-title > span { transition: opacity 0.55s var(--ease-p2o), transform 0.55s var(--ease-p2o), filter 0.55s var(--ease-p2o); }
+.pillar-title > span.is-swap { transition: none; opacity: 0; transform: translateY(clamp(14px, 0.81395vw, 0.81395vw)); filter: blur(var(--rv-blur)); }
+.pillar-title > .pillar-title__b { transition-delay: 0.07s; }
+
+/* ---- 0X/03 + paragraful ---- */
+.pillar-copy {
+  left: calc(50% + var(--pl-copy-dx));
+  top: calc(50% + var(--pl-copy-dy));
+  width: var(--pl-copy-w);
+}
+.pillar-copy__num { margin: 0; }
+.pillar-copy__id { font-weight: 600; }        /* „01" Plex Mono 600, „/03" 400 — aria de cerneală */
+.pillar-copy__desc {
+  margin: var(--pl-copy-gap) 0 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
+}
+
+/* ---- tagline-ul de jos: centrat, la același nivel cu JOIN CLUB / BUY NOW ---- */
+.pillar-tag {
+  left: 50%;
+  bottom: var(--cta-bottom);
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  translate: -50% 0;
+}
+
+/* ---- textul care se schimbă: cuvinte (paragraf) și rânduri (tagline), fiecare într-o
+   „fereastră" cu overflow ascuns. drinksom: ies cu y −110% (0.25 s power2.in, decalaj
+   0.015 s), se schimbă textul, intră din y 110% (0.5 s expo.out, decalaj 0.03 s).
+   ⚠️ Animat pe `top`, NU `transform` — regula textului clar în mișcare (CLAUDE.md). ---- */
+.sw-win { display: inline-block; overflow: hidden; vertical-align: top; }
+.sw-win--line { display: block; }
+.sw-in { position: relative; top: 0; display: inline-block; }
+.sw-win--line .sw-in { display: block; }
+.sw-in.is-out { top: calc(-1.1 * 1lh); transition: top 0.25s var(--ease-p2i); }
+.sw-in.is-below { top: calc(1.1 * 1lh); transition: none; }
+/* ⚠️ `lh`, NU `%`: la `position: relative`, `top` în procente se raportează la înălțimea
+   blocului părinte, care aici e `auto` — procentul se ignora și cuvintele nu se mișcau
+   deloc. 1lh = înălțimea rândului (21 px la paragraf, 18 la tagline) = drinksom `110%`. */
+.sw-in.is-enter { transition: top 0.5s var(--ease-expo-o); }
+
+/* ---- cercurile: trasate „cu compasul" ----
+   SVG cu `pathLength=1`: `stroke-dashoffset` 1 → 0 desenează cercul din vârf, în sensul
+   acelor de ceasornic. Inel alb 29%, 1 px — măsurat pe profilul radial al randării. */
+.pillar-rings { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.pillar-ring {
+  position: absolute;
+  left: calc(50% + var(--rx));
+  top: calc(50% + var(--ry));
+  width: calc(2 * var(--rr));
+  height: calc(2 * var(--rr));
+  translate: -50% -50%;
+  overflow: visible;
+}
+.pillar-ring circle {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.29);
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dashoffset 1.6s var(--ease-io3), opacity 0.4s ease-out;
+}
+.pillar-ring.is-drawn circle { stroke-dashoffset: 0; }
+.pillar-ring.is-gone circle { opacity: 0; transition: opacity 0.4s ease-out; }
+
+/* ---- produsul (imaginile din Figma, provizoriu) ----
+   Poziția, mărimea și rotația de repaus le interpolează pillars.js între pilonul curent și
+   următorul. Două fețe cu aceeași imagine și `backface-visibility: hidden` (spatele
+   întors, ca produsul să nu apară în oglindă când e cu spatele); imaginea se schimbă la
+   mijlocul rotației (B = 0.5, 270°), cu muchia spre ecran — deci nu se vede.
+   Tilt-ul de la mouse și rotația la click vin tot din pillars.js. */
+.pillar-product {
+  position: absolute;
+  z-index: 3;
+  left: calc(50% + var(--px, 0px));
+  top: calc(50% + var(--py, 0px));
+  width: var(--ps, 0px);
+  height: var(--ps, 0px);
+  translate: -50% -50%;
+  rotate: var(--pa, 0deg);
+  /* 1200, nu 1600: la 1600 tilt-ul de la mouse abia se vedea */
+  perspective: clamp(1200px, 69.76744vw, 69.76744vw);
+  opacity: 0;
+  transition: opacity 0.6s var(--ease-p2o);
+  pointer-events: none;
+}
+.pillars__sticky.is-on .pillar-product { opacity: 1; transition-delay: 0.25s; }
+.pillar-product__spin {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tx, 0deg)) rotateY(calc(var(--ty, 0deg) + var(--spin, 0deg)));
+}
+.pillar-product__face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.pillar-product__face--back { transform: rotateY(180deg); }
+/* zona care prinde mouse-ul: doar corpul produsului, nu tot pătratul imaginii */
+.pillar-product__hit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 86%;
+  translate: -50% -50%;
+  pointer-events: auto;
+  cursor: grab;
+}
+.pillars__sticky:not(.is-on) .pillar-product__hit { pointer-events: none; }

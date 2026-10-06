@@ -1,0 +1,124 @@
+/* ==========================================================================
+   05–06 · GALERIA → ANCIENT WISDOM
+   Copiat din drinksom.eu („origin", citit din codul lor, 2026-10-06):
+     section 280vh, începe la capătul secțiunii pillars
+       .sticky  100vh                                   ← se fixează sus
+         .gallery__zoom   grila; transform din JS:      ← translateY(−Δ·k) scale(E),
+                          originea = centrul videoclipului
+         .wisdom          titlul + paragraful            ← apar de la 70% din scroll
+   Aspectul e din Figma: trei rânduri de 420 pe navy, plăci de 705 × 400 la 10 px, fără
+   colțuri rotunjite (drinksom le rotunjește — macheta nu). Plăcile se ancorează de
+   centrul paginii (720 în machetă), rândurile de vârful grilei.
+   ========================================================================== */
+.gallery {
+  position: relative;
+  height: 280vh;
+  z-index: 3;
+}
+.gallery__sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--c-navy-g);
+  /* `cqw` în plăci = lățimea REALĂ a secțiunii (fără bara de scroll, spre deosebire de vw) */
+  container-type: inline-size;
+}
+.gallery__zoom {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;      /* originea reală (centrul video-ului) o pune gallery.js */
+  will-change: transform;
+}
+/* ⚠️ Plăcile UMPLU lățimea (cererea userului, 2026-10-06: pe un ecran mai lat de 1440,
+   plăcile de 705 px fixe lăsau margini navy, iar în Figma imaginile stau la margine).
+   Lățimea = (lățimea secțiunii − 3 goluri) / 2, înălțimea păstrează proporția din machetă
+   (705 × 400); la 1440 ies exact 705 × 400. Golul rămâne token clamp (10 px). */
+.gallery__zoom {
+  --gw: calc((100cqw - 3 * var(--g-gap)) / 2);
+  --gh: calc(var(--gw) * 400 / 705);
+}
+.g-tile {
+  position: absolute;
+  width: var(--gw);
+  height: var(--gh);
+  overflow: hidden;
+  background: var(--c-navy-g);
+}
+.g-tile img, .g-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* rândurile: fiecare rând din machetă are 420 = 10 + placa de 400 + 10, deci între plăci
+   golul VERTICAL e 20 (2 × gol), iar cel orizontal 10. La 1440: 10 / 430 / 850. */
+.g-tile--r1l, .g-tile--r1r { top: var(--g-gap); }
+.g-tile--r2l, .g-tile--video, .g-tile--r2r { top: calc(3 * var(--g-gap) + var(--gh)); }
+.g-tile--r3l, .g-tile--r3r { top: calc(5 * var(--g-gap) + 2 * var(--gh)); }
+/* coloanele: r1/r3 lipite de margini (gol de 10); r2 = video pe centru, laterale la
+   ± (placă + gol) — la 1440: −347.5 / 367.5 / 1082.5, ca în machetă */
+.g-tile--r1l, .g-tile--r3l { left: var(--g-gap); }
+.g-tile--r1r, .g-tile--r3r { right: var(--g-gap); }
+.g-tile--video { left: calc(50% - var(--gw) / 2); }
+.g-tile--r2l   { left: calc(50% - var(--gw) * 1.5 - var(--g-gap)); }
+.g-tile--r2r   { left: calc(50% + var(--gw) / 2 + var(--g-gap)); }
+
+/* masca navy peste video: 5% în grilă (macheta, cadrul galeriei), 70% pe Ancient Wisdom
+   (cadrul următor) — interpolată de JS după mărirea video-ului */
+.g-mask {
+  position: absolute;
+  inset: 0;
+  background: var(--c-navy-g);
+  opacity: var(--g-mask, 0.05);
+  pointer-events: none;
+}
+
+/* masca pe TOT ecranul (deasupra grilei, sub texte). ⚠️ Raportat de user (2026-10-06):
+   cu masca doar pe placa video, cât timp video-ul nu acoperea încă ecranul se vedeau pe
+   margini plăcile laterale nemascate — „se vede cum e tăiată". În Figma, cadrul Ancient
+   Wisdom are masca de 70% pe tot ecranul. Opacitățile celor două măști le calculează
+   gallery.js, ca peste video compunerea lor să rămână exact 5% → 70%. */
+.g-screen-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--c-navy-g);
+  opacity: var(--g-screen, 0);
+  pointer-events: none;
+}
+
+/* ---- Ancient Wisdom ---- */
+.wisdom {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: var(--g-o, 0);
+  pointer-events: none;
+}
+/* titlul: un rând, ANCIENT ExtraCondensed 800 + WISDOM Expanded 900, ambele 58.4
+   (aria de cerneală: 210001 față de 210228 în PDF) */
+.wisdom__title {
+  position: absolute;
+  left: var(--pad-edge);
+  bottom: var(--w-title-bottom);
+  margin: 0;
+  font-size: var(--fs-pl-a);
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wisdom__a { font-family: var(--font-cond); font-weight: 800; letter-spacing: var(--ls-pl-a); }
+.wisdom__b { font-family: var(--font-exp);  font-weight: 900; letter-spacing: var(--ls-pl-b); margin-left: calc(-1 * var(--w-title-gap)); }
+/* paragraful: Archivo 500, 25 / 30 (aria de cerneală: 121523 față de 120608) */
+.wisdom__text {
+  position: absolute;
+  left: var(--pad-edge);
+  bottom: var(--w-text-bottom);
+  width: var(--w-text-w);
+  margin: 0;
+  font-size: var(--fs-w-text);
+  font-weight: 500;
+  line-height: var(--lh-w-text);
+}

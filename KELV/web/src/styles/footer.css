@@ -1,0 +1,87 @@
+/* ==========================================================================
+   09 · FOOTER — cadrul 8261 → 9111 (un ecran)
+   Navy + strălucirea din hero (aceleași coordonate: xref 24 din PDF are poziția și
+   dimensiunile lui xref 126). Titlul mare e cel din hero, ×1.4152, alb 20%, ÎN SPATELE
+   produsului. Elementele se ancorează de centrul ecranului (425 în cadru), bara de jos.
+   ⚠️ Fără z-index pe `.footer` — vezi travel.css (ordinea straturilor).
+   ========================================================================== */
+.footer {
+  position: relative;
+  height: 100vh;
+  overflow: clip;
+  background: var(--c-navy);
+}
+.footer > * { position: absolute; }
+.footer__glow {
+  z-index: 0;
+  left: calc(50% - var(--glow-x));
+  top: var(--glow-y);
+  width: var(--glow-w);
+  height: var(--glow-h);
+  max-width: none;
+  pointer-events: none;
+}
+/* titlul: aceleași clase de font ca în hero (.mega-cond / .mega-exp / .blur), mărimile
+   lui proprii; letter-spacing-ul e în em, deci se scalează singur */
+.footer__mega {
+  z-index: 1;
+  left: calc(50% - var(--ft-x));
+  top: calc(50% + var(--ft-dy));
+  margin: 0;
+  color: var(--c-ink-20);
+  font-size: var(--ft-fs);
+  line-height: var(--ft-lh);
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+  --mega-blur: var(--ft-blur);
+}
+.footer__mega > span { display: block; position: relative; }
+
+
+.footer__info {
+  z-index: 5;
+  left: var(--ft-info-x);
+  top: calc(50% + var(--ft-info-dy));
+  width: var(--w-mono);
+  margin: 0;
+}
+
+/* bara: 753 × 42, colț 3, #D7EEF7 la 14%; trei grupuri — CONTACTS, politicile (gol 14),
+   WEBSITE BY ATWWW — cu goluri egale de 75 între ele (space-between), padding 14 */
+.footer__bar {
+  z-index: 5;
+  left: 50%;
+  bottom: var(--ft-bar-bottom);
+  translate: -50% 0;
+  width: var(--ft-bar-w);
+  height: var(--ft-bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--ft-bar-pad);
+  border-radius: var(--btn-radius);
+  background: rgba(215, 238, 247, 0.14);
+  font-size: var(--fs-ft-bar);
+  /* −0.022em: grupul de politici ieșea cu ~12 px mai lat decât în PDF la spațiere 0
+     (410.4 px în machetă pe 46 de goluri între litere) */
+  letter-spacing: -0.022em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.footer__bar a { text-decoration: none; transition: color 0.3s var(--ease-p2o); }
+/* hover: portocaliul site-ului (cererea userului, 2026-10-06) */
+@media (hover: hover) { .footer__bar a:hover { color: var(--c-orange); } }
+.footer__bar a:focus-visible { color: var(--c-orange); outline: none; }
+
+/* ---- bucla: copia primului ecran din hero (src/ui/loop.js) ---- */
+.loop {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--c-navy);
+}
+.loop .hero { pointer-events: none; }
+.footer__policies { display: flex; gap: var(--ft-bar-gap); }
+.footer__by { color: rgba(255, 255, 255, 0.2); }

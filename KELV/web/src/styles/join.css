@@ -1,0 +1,202 @@
+/* ==========================================================================
+   07 · BECOME SOMEONE POWERFUL
+   Cadrul machetei 6369 → 7219 (850). Fundal deschis #F0F8FC (`data-theme="light"`):
+   header-ul și CTA-urile trec pe #17110F pe pixel, unde ating fundalul (header.css). Elementele se ancorează de CENTRUL
+   ecranului pe verticală (425 în cadru) și de centrul paginii pe orizontală.
+
+   Formularul copiază comportamentul de pe drinksom.eu („join-drop", citit din codul lor):
+   eticheta plutitoare a inputului, eroarea „INVALID EMAIL ADDRESS" la ieșirea din câmp,
+   bifa care se desenează, butonul activ doar cu email valid + acord. Aspectul și stările
+   inactive sunt din MACHETĂ: rândul cu checkbox la 30%, butonul la 20% (măsurat pe
+   pixeli: #17110F peste #F0F8FC dă 174/179/180 → α 0.30; portocaliul butonului → α 0.20).
+   Checkbox-ul e disponibil abia cu email valid, butonul abia cu checkbox-ul bifat
+   (cerința userului, 2026-10-06).
+   ========================================================================== */
+.join {
+  position: relative;
+  height: 220vh;               /* 120vh de scroll fixat: întâi formularul, apoi produsul (join.js) */
+  z-index: 3;
+  background: var(--c-light);
+  color: var(--c-dark);
+}
+.join__sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---- titlul: ExtraCondensed 800, „SOM" Expanded 900, 72.41, portocaliu (aria de
+   cerneală 246640 față de 247027 în PDF) ---- */
+.join__title {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--join-title-dy));
+  translate: -50% 0;
+  margin: 0;
+  color: var(--c-orange);
+  font: 800 var(--fs-join) / var(--lh-join) var(--font-cond);
+  letter-spacing: var(--ls-pl-a);
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.join__line { display: block; position: relative; }   /* `left` = deplasare de layout, nu transform (textul clar) */
+.join__line:nth-child(1) { left: var(--join-l1-dx); }
+.join__line:nth-child(2) { left: var(--join-l2-dx); }
+.join__exp { font-family: var(--font-exp); font-weight: 900; letter-spacing: var(--ls-pl-b); }
+
+/* ---- paragraful: Plex Mono 400, 14 / 16, centrat ---- */
+.join__text {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--join-text-dy));
+  translate: -50% 0;
+  width: var(--join-text-w);
+  margin: 0;
+  line-height: var(--lh-join-text);
+  text-align: center;
+}
+
+/* ---- formularul ---- */
+.join__form {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--join-field-dy));
+  translate: -50% 0;
+  width: var(--join-field-w);
+  margin: 0;
+}
+.field { position: relative; }
+.field__input {
+  display: block;
+  width: 100%;
+  height: var(--join-field-h);
+  margin: 0;
+  padding: calc(var(--join-field-h) * 0.4) var(--join-field-pad) 0;
+  border: var(--join-border) solid rgba(255, 77, 31, 0.3);
+  border-radius: var(--join-radius);
+  background: transparent;
+  color: var(--c-dark);
+  font-size: var(--fs-btn);
+  outline: none;
+  transition: border-color 0.2s ease-out, background-color 0.2s ease-out;
+}
+.field__input:focus { border-color: rgba(255, 77, 31, 0.6); }
+.field.is-error .field__input { border-color: var(--c-orange); background: rgba(255, 77, 31, 0.05); }
+/* eticheta: în machetă stă pe mijloc, 13 px; la focus sau cu text urcă sus, mai mică
+   (drinksom: peer-focus / :not(:placeholder-shown), 0.2 s ease-out) */
+.field__label {
+  position: absolute;
+  left: var(--join-field-pad);
+  top: 50%;
+  translate: 0 -50%;
+  color: var(--c-dark);
+  font-size: var(--fs-btn);
+  line-height: 1;
+  pointer-events: none;
+  transition: top 0.2s ease-out, translate 0.2s ease-out, font-size 0.2s ease-out, opacity 0.2s ease-out;
+}
+.field__input:focus + .field__label,
+.field__input:not(:placeholder-shown) + .field__label {
+  top: var(--join-float-top);
+  translate: 0 0;
+  font-size: var(--fs-join-float);
+  opacity: 0.5;
+}
+.field__error {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 0.34884vw, 0.34884vw);
+  margin: clamp(6px, 0.34884vw, 0.34884vw) 0 0;
+  color: var(--c-orange);
+  font-size: clamp(10px, 0.58140vw, 0.58140vw);
+  letter-spacing: 0.12em;
+}
+.field__error[hidden] { display: none; }
+.field__error svg { width: clamp(14px, 0.81395vw, 0.81395vw); height: auto; flex: none; }
+
+/* ---- acordul: checkbox 14 × 14, bordură 2, colț 2; text 12 px ---- */
+.consent {
+  position: absolute;
+  left: 0;
+  top: calc(var(--join-consent-dy) - var(--join-field-dy));
+  display: flex;
+  align-items: center;
+  gap: var(--join-box-gap);
+  transition: opacity 0.3s ease-out, top 0.2s ease-out;
+}
+.field.is-error ~ .consent { top: calc(var(--join-consent-dy) - var(--join-field-dy) + clamp(20px, 1.16279vw, 1.16279vw)); }
+.consent.is-disabled { opacity: 0.3; }
+.consent__box {
+  position: relative;
+  width: var(--join-box);
+  height: var(--join-box);
+  flex: none;
+}
+.consent__input {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: var(--join-border) solid var(--c-dark);
+  border-radius: var(--join-box-r);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.consent__input:disabled { cursor: not-allowed; }
+.consent__input:checked { background: var(--c-orange); border-color: var(--c-orange); }
+.consent__input:focus-visible { outline: 2px solid rgba(255, 77, 31, 0.25); outline-offset: 1px; }
+/* bifa se desenează (drinksom: pathLength 0 → 1, ~0.4 s) */
+.consent__check {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.consent__check path { stroke-dasharray: 1 1; stroke-dashoffset: 1; transition: stroke-dashoffset 0.4s var(--ease-p2o); }
+.consent__input:checked + .consent__check path { stroke-dashoffset: 0; }
+.consent__label {
+  font-size: var(--fs-join-small);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.consent.is-disabled .consent__label { cursor: not-allowed; }
+.consent__label a { color: var(--c-orange); }
+
+/* ---- butonul: 460 × 43, colț 3, portocaliu; inactiv la 20% (macheta) ---- */
+.join__send {
+  position: absolute;
+  left: calc(50% - var(--join-send-w) / 2);
+  top: calc(var(--join-send-dy) - var(--join-field-dy));
+  width: var(--join-send-w);
+  height: var(--join-send-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap);
+  border-radius: var(--btn-radius);
+  background: var(--c-orange);
+  color: #fff;
+  font-size: var(--fs-btn);
+  letter-spacing: var(--ls-btn);
+  line-height: 1;
+  text-transform: uppercase;
+  transition: opacity 0.3s ease-out, top 0.2s ease-out;
+}
+.field.is-error ~ .join__send { top: calc(var(--join-send-dy) - var(--join-field-dy) + clamp(20px, 1.16279vw, 1.16279vw)); }
+.join__send:disabled { opacity: 0.2; cursor: not-allowed; }
+.join__send svg { width: var(--arrow-w); height: auto; flex: none; }
+
+/* ---- produsul: NU mai e aici — e `.travel-product` (travel.css), fix, ca să poată pleca
+   din secțiunea 7 și să ajungă în footer. ---- */

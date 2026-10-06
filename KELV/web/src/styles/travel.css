@@ -1,0 +1,71 @@
+/* ==========================================================================
+   08 · ZONA DE TRECERE + PRODUSUL CARE CĂLĂTOREȘTE
+   Zona 8 (cadrul 7219 → 8261, 1042 px): doar fundalul — gradientul din machetă, copt.
+   Produsul NU stă în nicio secțiune: e un strat fix (`.travel-product`), condus de
+   src/ui/travel.js de la apariția lui pe secțiunea 7 până la poziția din footer.
+   Ordinea straturilor: secțiunile (z ≤ 3) < produsul (z 4) < textele footer-ului (z 5)
+   < header + CTA-uri (z 50). Footer-ul nu are z-index, ca produsul să poată intra între
+   titlul lui (z 1, ÎN SPATELE produsului, ca în machetă) și textele lui.
+   ========================================================================== */
+.travel {
+  position: relative;
+  height: var(--travel-h);
+  z-index: 3;
+  background: var(--c-light);
+  overflow: hidden;
+}
+.travel__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---- produsul ----
+   Poza (poziție față de centrul ecranului, rotație în plan) o scrie travel.js în
+   `--tp-x / --tp-y / --tp-a`; rotația pe Y (învârtirea) în `--tp-spin`. Apariția de pe
+   secțiunea 7 e o tranziție în timp pe `.tp-reveal` (rotație −24° → 0, scale 0.55 → 1,
+   1.2 s expo.out) — pe alt element decât poza, ca tranziția să nu întârzie scrub-ul. */
+.travel-product {
+  position: fixed;
+  left: calc(50% + var(--tp-x, 0px));
+  top: calc(50% + var(--tp-y, 0px));
+  width: var(--tp-s);
+  height: var(--tp-s);
+  translate: -50% -50%;
+  rotate: var(--tp-a, 0deg);
+  z-index: 4;
+  pointer-events: none;
+  perspective: clamp(1200px, 69.76744vw, 69.76744vw);
+  --tp-s: clamp(721.6px, 41.95349vw, 41.95349vw);   /* aceeași latură în toate cadrele */
+}
+.tp-reveal {
+  position: absolute;
+  inset: 0;
+  rotate: -24deg;
+  scale: 0.55;
+  opacity: 0;
+  transition: rotate 1.2s var(--ease-expo-o), scale 1.2s var(--ease-expo-o), opacity 0.6s var(--ease-p2o);
+  transform-style: preserve-3d;
+}
+.tp-reveal.is-in { rotate: 0deg; scale: 1; opacity: 1; }
+/* ⚠️ Fără tranziție până la is-ready: în dev CSS-ul vine din modulul JS, iar elementul
+   (deja în DOM) trecea ANIMAT din starea nestilizată (vizibil, 0°, 1) în cea ascunsă
+   (−24°, 0.55, 0) — un „outro" de 1.2 s la fiecare încărcare. Măsurat prin CDP. */
+html:not(.is-ready) .tp-reveal { transition: none; }
+.tp-spin {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateY(var(--tp-spin, 0deg));
+}
+.tp-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.tp-face--back { transform: rotateY(180deg); }
