@@ -1,8 +1,8 @@
 # ---- generat, se reface din npm ----
 web/node_modules/
-web/dist/
-# decoderul Draco se copiaza din node_modules de `npm run predev`/`prebuild`
-web/public/draco/
+web/.next/
+web/next-env.d.ts
+web/*.tsbuildinfo
 
 # ---- macheta Figma: 40 MB, ramane doar pe disc ----
 # Repo-ul e PUBLIC; PDF-ul e sursa de adevar pentru masuratori (tools/extract_figma.py).

@@ -1,11 +1,8 @@
-/* Reset minim + scroll-ul Lenis. */
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
   background: var(--c-navy);
   color-scheme: dark;
-  /* banda barei de scroll există din primul cadru — altfel pagina se îngustează după
-     încărcare și tot layout-ul sare cu lățimea barei */
   overflow-y: scroll;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -16,23 +13,21 @@ body {
   background: var(--c-navy);
   color: var(--c-ink);
   font-family: var(--font-body);
-  /* ⚠️ `clip`, NU `hidden`: `overflow-x: hidden` pe body îl face container de scroll
-     (overflow-y devine `auto`), iar `position: sticky` din secțiuni se raporta la el și
-     nu se mai fixa — cardul din secțiunea 2 continua să urce după ce ajungea sus. */
+  /* clip, not hidden: hidden turns body into a scroll container and breaks position: sticky */
   overflow-x: clip;
+  visibility: hidden;
 }
+html.is-ready body { visibility: visible; }
 img, svg, canvas { display: block; }
 a { color: inherit; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 h1, h2, p { margin: 0; font-weight: inherit; }
 
-/* Lenis (din documentația lui) */
 html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
 .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
 .lenis.lenis-stopped { overflow: hidden; }
 
-/* text doar pentru cititoare de ecran */
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;

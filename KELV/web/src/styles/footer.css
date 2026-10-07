@@ -1,10 +1,3 @@
-/* ==========================================================================
-   09 · FOOTER — cadrul 8261 → 9111 (un ecran)
-   Navy + strălucirea din hero (aceleași coordonate: xref 24 din PDF are poziția și
-   dimensiunile lui xref 126). Titlul mare e cel din hero, ×1.4152, alb 20%, ÎN SPATELE
-   produsului. Elementele se ancorează de centrul ecranului (425 în cadru), bara de jos.
-   ⚠️ Fără z-index pe `.footer` — vezi travel.css (ordinea straturilor).
-   ========================================================================== */
 .footer {
   position: relative;
   height: 100vh;
@@ -21,8 +14,7 @@
   max-width: none;
   pointer-events: none;
 }
-/* titlul: aceleași clase de font ca în hero (.mega-cond / .mega-exp / .blur), mărimile
-   lui proprii; letter-spacing-ul e în em, deci se scalează singur */
+
 .footer__mega {
   z-index: 1;
   left: calc(50% - var(--ft-x));
@@ -38,7 +30,6 @@
 }
 .footer__mega > span { display: block; position: relative; }
 
-
 .footer__info {
   z-index: 5;
   left: var(--ft-info-x);
@@ -47,8 +38,6 @@
   margin: 0;
 }
 
-/* bara: 753 × 42, colț 3, #D7EEF7 la 14%; trei grupuri — CONTACTS, politicile (gol 14),
-   WEBSITE BY ATWWW — cu goluri egale de 75 între ele (space-between), padding 14 */
 .footer__bar {
   z-index: 5;
   left: 50%;
@@ -63,19 +52,16 @@
   border-radius: var(--btn-radius);
   background: rgba(215, 238, 247, 0.14);
   font-size: var(--fs-ft-bar);
-  /* −0.022em: grupul de politici ieșea cu ~12 px mai lat decât în PDF la spațiere 0
-     (410.4 px în machetă pe 46 de goluri între litere) */
   letter-spacing: -0.022em;
   line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .footer__bar a { text-decoration: none; transition: color 0.3s var(--ease-p2o); }
-/* hover: portocaliul site-ului (cererea userului, 2026-10-06) */
+
 @media (hover: hover) { .footer__bar a:hover { color: var(--c-orange); } }
 .footer__bar a:focus-visible { color: var(--c-orange); outline: none; }
 
-/* ---- bucla: copia primului ecran din hero (src/ui/loop.js) ---- */
 .loop {
   position: relative;
   height: 100vh;

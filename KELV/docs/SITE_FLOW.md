@@ -25,10 +25,10 @@ nu se trece la următoarea până când userul nu aprobă secțiunea curentă.
 ## Contractul DOM
 
 - `.site-header` — fix, z 50. `.ticks` cu `--ticks-lit` (câte liniuțe sunt aprinse) =
-  progresul pe toată pagina: 0 sus, toate la capătul footer-ului (`src/ui/ticks.js`).
+  progresul pe toată pagina: 0 sus, toate la capătul footer-ului (`src/components/chrome/Ticks.tsx`).
 - `.cta--l` / `.cta--r` (JOIN CLUB / BUY NOW) — fixe, la 32 px de jos, z 50; poziția
   verticală din `--cta-shift` (0 jos → 1 mijloc), scrisă din scroll de gallery.js.
-- `.chrome` — stratul fix cu header-ul și CTA-urile; `src/ui/chrome.js` îl clonează în
+- `.chrome` — stratul fix cu header-ul și CTA-urile; `src/components/chrome/Chrome.tsx` e randat de două ori, a doua oară ca
   `.chrome--dark` (#17110F, liniuțe portocalii, buton închis cu text alb). Originalul e
   decupat FĂRĂ banda deschisă din ecran, clona DOAR pe ea (`--lb-a` / `--lb-b`, din
   secțiunile `[data-theme="light"]`) → culoarea se schimbă pe pixel, exact unde marginea
@@ -36,15 +36,15 @@ nu se trece la următoarea până când userul nu aprobă secțiunea curentă.
 - `html.chrome-off` — header + CTA-uri ascunse (galeria).
 - `[data-roll-host]` + `[data-roll]` — ORICE buton cu text rulat literă cu literă și
   săgeată rotită (inactiv cât e `disabled`).
-- `[data-zoom-card]` — card care se mărește la intrarea secțiunii lui (`src/ui/zoom.js`):
+- `[data-zoom-card]` — card care se mărește la intrarea secțiunii lui (`src/components/home/Pillars.tsx`):
   JS scrie doar `--e`, CSS-ul face scale + raza.
 - `#kelv-canvas` — fix, tot ecranul, transparent, **z 2**. Intră între titlul mare (z 1)
   și textele hero-ului (z 5). `.hero` nu are voie să creeze context de stivuire.
 - `#content > section[data-section]` — câte una per secțiune.
 - `[data-reveal="<s>"]` (+ `data-reveal-lines` sau `data-reveal-fx="blur"`) — reveal o
-  dată la intrarea în ecran (`src/ui/reveal.js`). Pornit DUPĂ `html.is-ready`.
-- `html.is-ready` — pusă de `main.js` după CSS + fonturi (plafon 2 s; plasă în <head> la
-  3 s). Până atunci `body` e `visibility: hidden` (CSS inline din index.html).
+  dată la intrarea în ecran (`src/components/ui/Reveal.tsx`). Pornit DUPĂ `html.is-ready`.
+- `html.is-ready` — pusă de `src/lib/scroll.tsx` după CSS + fonturi (plafon 2 s; plasă în <head> la
+  3 s). Până atunci `body` e `visibility: hidden` (`base.css`; plasa e în scriptul de boot din `src/app/layout.tsx`).
 - Starea scroll-ului: `ui.scroll` (`y`, `progress`, `velocity`, `onFrame(fn)`), citită de
   scenă în același rAF. Un singur rAF pe tot site-ul.
 
@@ -53,7 +53,7 @@ nu se trece la următoarea până când userul nu aprobă secțiunea curentă.
 | Element | Măsura | Ancorare |
 |---|---|---|
 | Liniuțe | 1.5 × 13, pas 6.5, top 10, x 10 → 1428.5; 52 albe, restul 13% | stânga + dreapta 10 |
-| KELV° | 122.08 × 24.84 la (10, 48.08), vectorial (`src/assets/logo.svg`) | stânga |
+| KELV° | 122.08 × 24.84 la (10, 48.08), vectorial (`src/components/ui/icons.tsx`) | stânga |
 | FOAM CLEANSER | 27.12 px; FOAM Expanded 900 #FF4D1F −0.06em; CLEANSER ExtraCond 700 −0.014em; centrul la 726.06 | centru +6.06 |
 | OPEN SHOP | 109.58 × 43 la top 39, raza 3, Plex Mono 13 −0.04em, padding 14, săgeată 7.58 × 7 | dreapta 10 |
 | Info stânga | Plex Mono 14/18, majuscule, lățime 27 de caractere, (250.5, 343) | stânga |
@@ -112,7 +112,7 @@ Toate citite din codul drinksom.eu (chunk-ul `5baabc9d998219fd.js` + `TextReveal
 ## 02–04 · PILLARS (2026-10-06)
 
 O singură secțiune sticky, ca „power-pillars" de pe drinksom.eu. Formulele sunt copiate
-din codul lor (`src/ui/pillars.js` are antetul complet):
+din codul lor (`src/components/home/Pillars.tsx`):
 
 - 320vh; `y` = progresul prin partea fixată; primele 30% = pauză pe pilonul 1.
 - `$` = poziția continuă (curbă în două trepte), `D` = pilonul curent, `B` =
@@ -150,7 +150,7 @@ din codul lor (`src/ui/pillars.js` are antetul complet):
 ## 05–06 · GALLERY → ANCIENT WISDOM (2026-10-06)
 
 O singură secțiune sticky (280vh), ca „origin" de pe drinksom.eu; formulele copiate din
-codul lor sunt în antetul `src/ui/gallery.js`:
+codul lor sunt în antetul `src/components/home/Gallery.tsx`:
 
 - Progresul `R` netezit cu lerp 0.1 → `e`. Grila urcă până video-ul e pe centru
   (`smoothstep(e/0.35)`), apoi video-ul se mărește: discret până la 45%
@@ -208,7 +208,7 @@ codul lor sunt în antetul `src/ui/gallery.js`:
 
 ## 08–09 · PRODUSUL CARE CĂLĂTOREȘTE + FOOTER (2026-10-06)
 
-- **Produsul** e un singur strat fix (`.travel-product`, `src/ui/travel.js`), nu stă în
+- **Produsul** e un singur strat fix (`.travel-product`, `src/components/home/TravelProduct.tsx`), nu stă în
   nicio secțiune: apare pe secțiunea 7 la 60% din partea fixată (rotație + scale), apoi,
   legat de scroll, trece prin trei poze din machetă — J pe 7 (−5.85, +0.85, 10.03°), M la
   mijlocul zonei 8 (−8.7, −6, −15°), F în footer (−10.85, −56.15, 10.03°) — cu o tură
@@ -241,11 +241,11 @@ codul lor sunt în antetul `src/ui/gallery.js`:
   perechi ca E-Y (kerning-ul lui Chrome). Verificat: hero 0 px pe toate perechile, footer ≤ 1.
 - **ATWWW** → https://www.atwww.studio/ (tab nou). Linkurile din bară: hover portocaliu.
 - **Bucla** (ca pe drinksom): Lenis `infinite: true` (+ `syncTouch`, `lerp 0.14` — opțiunile
-  lor) și o copie a primului ecran din hero după footer (`[data-loop]`, `src/ui/loop.js`).
+  lor) și o copie a primului ecran din hero după footer (`.loop`, `src/components/home/Home.tsx`).
   Verificat: cadrul de la capăt = cadrul de la 0 (diferență medie 0, maximă 1/255); rotița
   în jos din footer → hero, în sus din hero → footer. Bara de liniuțe exclude copia.
   Produsul fix urcă odată cu footer-ul în buclă.
-- **Snap-ul din hero** (`src/ui/snap.js`): după 140 ms fără scroll, sub 350 px de vârf →
+- **Snap-ul din hero** (`useHeroSnap`, `src/components/home/hooks.ts`): după 140 ms fără scroll, sub 350 px de vârf →
   înapoi sus în 1.2 s easeOutCubic. Pe drinksom nu s-a putut citi / măsura (modul încărcat
   la cerere; Lenis-ul lor nu rulează în Chrome automat) — tiparul e cel de pe secțiunea lor
   cu formularul. Verificat: 196 px → 0; 720 px → rămâne.
@@ -265,20 +265,20 @@ codul lor sunt în antetul `src/ui/gallery.js`:
 
 Machete: `reference/skin-analysis/` (Start, 001–6, END V1, END V2; originalele în
 `C:\ATWWW\KELV\Skin Analysis\`). Logica: documentul „KELV° Skin Reading · quiz logic for
-development" (@Simin) — în `web/src/analysis/logic.js`, cu cele 5 cazuri de test
-(`node web/src/analysis/logic.test.mjs`, toate trec, inclusiv ID-urile kitului).
+development" (@Simin) — în `web/src/analysis/logic.ts`, cu cele 5 cazuri de test
+(`npm test` în `web/`, toate trec, inclusiv ID-urile kitului).
 
 **Intrarea:** OPEN SHOP (`href="/skin-analysis"`). Același document (History API), nu o pagină
-nouă — `src/ui/route.js`:
+nouă — `src/components/analysis/SkinAnalysis.tsx` (ruta Next `/skin-analysis`, montată din layout):
 - intrare: stratul urcă peste home (clip-path de jos în sus, 1 s, [.76,0,.24,1]), home-ul se
   întunecă dedesubt, ecranul intră în cascadă; apoi analiza devine pagina (`html.sa-on`, în
   flux, scroll Lenis fără `infinite`), home-ul e scos din flux dar rămâne așezat;
 - Back-ul browserului / logo-ul: invers — stratul coboară și descoperă home-ul la poziția
   exactă (verificat: 3000 → 3000), Forward redeschide cu răspunsurile păstrate;
 - intrarea directă / refresh pe /skin-analysis: scriptul din `<head>` pune `sa-on` din primul
-  cadru. Vercel: `web/vercel.json` rescrie /skin-analysis → index.html.
+  cadru. Next servește `/skin-analysis` ca pagină statică.
 
-**Fișiere:** `src/analysis/{logic,view,ticks}.js`, `src/styles/analysis.css`, tokenii în
+**Fișiere:** `src/analysis/logic.ts`, `src/components/analysis/`, `src/styles/analysis.css`, tokenii în
 `tokens.css` §SKIN ANALYSIS, iconițele cu `tools/extract_analysis.py` (`sa-kit.svg`, `sa-why.svg`).
 
 **Măsurat:** greutăți după aria de cerneală (titluri Expanded 800, „SKIN READING" 900,
@@ -300,22 +300,26 @@ Figma injectate) — toate ≤ 1 px (1 px = marginile pe jumătăți de pixel al
 - Coșul: fără Shopify încă — butonul emite `kelv:add-to-cart` cu proprietățile din document.
 - Mobil: neabordat (ca restul site-ului).
 
-## 01 · HERO — produsele 3D (2026-10-06, GLB-urile au venit)
+## 01 · HERO — scena HERO_130 (2026-10-06)
 
-- **Sursa:** pachetul colegului (`C:\ATWWW\KELV\KELV_PACKSHOT_PREVIEW_DEVELOPER\`), three
-  0.186.1 → site-ul urcat la aceeași versiune (cârligul lor de shader e legat de revizie).
-- **Comprimare** (`npm run models`, `web/scripts/optimize-models.js`): Draco + WebP 2048,
-  6.6 MB → 0.85 MB, extensiile de material păstrate; randare comparată: diferență medie 0.14/255.
-- **Spațiul** (`scene/index.js`): lumea în metri, camera legată de pagină în px de machetă
-  (k = max(1, lățime/1720), ca clamp); scroll = frustum decalat (mișcare rigidă, ca imaginea).
-  Canvas-ul desenează doar cât hero-ul e în ecran — inclusiv COPIA lui din buclă (altfel
-  saltul de la capăt la 0 s-ar fi văzut).
-- **Pozele** (`scene/hero-pose.js`): potrivire de siluetă pe alfa placeholder-ului, IoU 0.956.
-- **Lumina**: reglată pe culorile Figma în 8 puncte — sursă în spatele lui Foam, Foam
-  emisiv + halo aditiv, mediu navy; rig-ul lor de packshot (3 lumini albe) dădea sticle
-  gri-albe (corpul serului 125 vs 35 în Figma). Restul diferenței = compozitarea din Figma.
-- **Mișcarea** (nu e în Figma; userul: „cum crezi că e mai bine"): intrare (urcă 120 px +
-  o tură scurtă, 1.6 s expo.out, decalaj 0.12 s, canvas-ul se aprinde în 0.7 s), plutire
-  ±6 px / 6.5 s, înclinare după mouse ±0.06 rad. Nimic cu „reduce motion".
+- **Sursa:** scena colegului `C:\ATWWW\KELV\KELV_HERO130_PREVIEW_V2_DEVELOPER\` (GLB animat cu
+  cameră, clipul `HERO_Full` de 14 s, three 0.186.1). NU cele trei GLB-uri individuale (acelea
+  rămân pentru Pillars / produsul care călătorește).
+- **Comprimare:** `npm run hero -- <HERO_130_animated.glb>` (`web/scripts/optimize-hero.mjs`):
+  meshopt + WebP 2048, doar `HERO_Full`; 7.0 → 2.1 MB. `KHR_animation_pointer` (aprinderea lui
+  K1) e repus de o extensie proprie — gltf-transform nu îl cunoaște și `prune` îl ștergea.
+- **Runtime** (`web/src/scene/`): portat din `hero-runtime.mjs` (LUT Filmic VHC, gradul ACEScct,
+  bloom, vignetă, grain, capacul transparent). Canvas-ul stă peste cutia randării din Figma
+  (53, 64, 1322 × 1377 = aspectul 0.96 al camerei lor) și urmărește hero-ul sau copia lui.
+- **Cadrul de repaus = t 4 s** (cadrul 97 din manifest). Silueta lor brută: IoU 0.80 față de
+  Figma; cu o corecție constantă pe produs (mutare + rotație în planul ecranului,
+  `scene/config.ts`): **0.982**. Distanța minimă între produse pe tot clipul: 13 mm.
+  Respins: rotații libere (0.965, dar serul își pierdea fundul alb din Figma).
+- **Lumina:** valorile lor + capac mai reflectant (2) + o lumină frontală joasă pe cremă.
+  Ambientul colora produsele în albastru saturat; bloom cu prag 0 = ceață. Diferența rămasă:
+  crema cu ~17/255 mai închisă, capacul mai puțin vizibil decât în Figma.
+- **Mișcarea:** la încărcare intrarea lor 0 → 4 s (în timp), apoi scroll-ul prin hero derulează
+  4 → 14 s (rotire + deschidere), înapoi la urcare. Fără plutire / mouse. „Reduce motion" =
+  direct cadrul din Figma.
 - **Rezerva**: randarea din Figma apare doar cu `html.no-3d` (fără WebGL / GLB eșuat).
-- **De confirmat cu userul:** lumina, mișcarea. Pillars + produsul care călătorește: încă imagini.
+- **De confirmat cu userul:** maparea pe scroll, lumina. Pillars + produsul care călătorește: încă imagini.

@@ -1,60 +1,27 @@
-/* Tokenii de design: singurul loc unde se scriu culori, fonturi și dimensiuni.
-   Restul CSS-ului citește DE AICI, nu valori scrise pe loc.
-
-   ⚠️ SCARA DE DIMENSIUNI (regula userului, aceeași ca la SUBKEY). Orice mărime din
-   machetă — text, imagine, border, offset, chiar și 0.5 px — se scrie cu:
-       clamp( Npx, N/1720*100vw, N/1720*100vw )
-   Adică 1 px din machetă = 0.0581395vw. Preferata și maximul sunt EGALE, deci formula e
-   `max(Npx, N*0.0581395vw)`: sub 1720 px lățime totul rămâne fix la N px, peste 1720
-   crește odată cu ecranul. Nu o „simplifica" la un simplu vw — ai pierde pragul de jos.
-   N se ia DIRECT din Figma: macheta e desenată pe un cadru de 1440, iar valorile intră
-   neschimbate în formulă (convenția SUBKEY).
-
-   ⚠️ Valori NEGATIVE: `clamp(-31px, -1.8vw, -1.8vw)` NU e oglinda lui `clamp(31px…)` —
-   min/max se inversează și peste 1720 ar rămâne blocat la -31px. Se scrie
-   `calc(-1 * clamp(31px, …))`. De aici și forma `calc(50% - clamp(…))` de mai jos.
-
-   ⚠️ ANCORARE ORIZONTALĂ. Sub 1720 px valorile sunt fixe, dar fereastra nu: între 1440 și
-   1720 pagina are mai mult loc decât macheta. Un element ancorat cu `left: 689px` ar
-   aluneca spre stânga pe un ecran de 1720. Regula: fiecare element se ancorează de
-   marginea de care e LIPIT în machetă (stânga / dreapta) sau de CENTRUL paginii, cu un
-   offset măsurat față de 720 (mijlocul cadrului de 1440). Offset-urile față de centru NU
-   sunt rotunjite la 0 — sunt măsurate din PDF (vezi docs/SITE_FLOW.md §Hero). Dacă vrei
-   ceva perfect centrat, pune offset-ul pe 0 aici, nu în sections.css. */
 :root {
-  /* ---- culori (măsurate din PDF) ---- */
-  --c-navy:      #030f38;   /* fundalul cadrului de hero (0.0117 / 0.0611 / 0.2188) */
+  --c-navy:      #030f38;
   --c-ink:       #ffffff;
-  --c-ink-20:    rgba(255, 255, 255, 0.20);   /* titlul mare din spatele produselor */
-  --c-orange:    #ff4d1f;   /* „FOAM" */
-  --c-black:     #000000;   /* textul butonului */
-
-  /* ---- familii ---- */
-  --font-exp:   'Archivo Expanded', 'Archivo', sans-serif;          /* FOAM, ALWAYS */
-  --font-cond:  'Archivo ExtraCondensed', 'Archivo', sans-serif;    /* CLEANSER, BEYOND… */
-  --font-body:  'Archivo', system-ui, sans-serif;                   /* paragrafe */
-  --font-mono:  'IBM Plex Mono', ui-monospace, Menlo, monospace;    /* info, butoane */
-
-  /* ---- text mono (THREE STEPS…, JOIN CLUB, BUY NOW): 14 / 18 ---- */
+  --c-ink-20:    rgba(255, 255, 255, 0.20);
+  --c-orange:    #ff4d1f;
+  --c-black:     #000000;
+  --font-exp:   var(--font-archivo-expanded), var(--font-archivo), sans-serif;
+  --font-cond:  var(--font-archivo-condensed), var(--font-archivo), sans-serif;
+  --font-body:  var(--font-archivo), system-ui, sans-serif;
+  --font-mono:  var(--font-plex-mono), ui-monospace, Menlo, monospace;
   --fs-mono:    clamp(14px, 0.81395vw, 0.81395vw);
   --lh-mono:    clamp(18px, 1.04651vw, 1.04651vw);
-  --w-mono:     clamp(227px, 13.19767vw, 13.19767vw);   /* 27 de caractere × 8.4 px */
-  /* ---- butonul OPEN SHOP: 13 px, -0.04em (cerneala are 66.3 px în PDF, 70.4 cu 0) ---- */
+  --w-mono:     clamp(227px, 13.19767vw, 13.19767vw);
   --fs-btn:     clamp(13px, 0.75581vw, 0.75581vw);
   --ls-btn:     -0.04em;
-  /* ---- paragraf: Archivo 16 / 21. Letter-spacing rezolvat în browser pe lățimea
-     rândurilor din PDF: 0.0101 și 0.0113em → 1%. ---- */
   --fs-body:    clamp(16px, 0.93023vw, 0.93023vw);
   --lh-body:    clamp(21px, 1.22093vw, 1.22093vw);
   --ls-body:    0.01em;
-
-  /* ---- header (fix, repetat pe fiecare secțiune în machetă) ---- */
-  --pad-edge:   clamp(10px, 0.58140vw, 0.58140vw);    /* marginea stânga/dreapta/sus */
+  --pad-edge:   clamp(10px, 0.58140vw, 0.58140vw);
   --tick-w:     clamp(1.5px, 0.08721vw, 0.08721vw);
   --tick-h:     clamp(13px, 0.75581vw, 0.75581vw);
-  --tick-pitch: clamp(6.5px, 0.37791vw, 0.37791vw);   /* liniuță + gol de 5 px */
-  --tick-dim:   0.13;                                 /* opacitatea liniuțelor stinse */
-  --head-top:   clamp(39px, 2.26744vw, 2.26744vw);    /* rândul logo / titlu / buton */
+  --tick-pitch: clamp(6.5px, 0.37791vw, 0.37791vw);
+  --tick-dim:   0.13;
+  --head-top:   clamp(39px, 2.26744vw, 2.26744vw);
   --head-h:     clamp(43px, 2.5vw, 2.5vw);
   --logo-w:     clamp(122.08px, 7.09767vw, 7.09767vw);
   --btn-w:      clamp(109.58px, 6.37093vw, 6.37093vw);
@@ -62,227 +29,176 @@
   --btn-gap:    clamp(7.5px, 0.43605vw, 0.43605vw);
   --btn-radius: clamp(3px, 0.17442vw, 0.17442vw);
   --arrow-w:    clamp(7.58px, 0.44070vw, 0.44070vw);
-  /* titlul FOAM CLEANSER: Archivo 27.12. FOAM = Expanded Black, CLEANSER = ExtraCondensed
-     Bold — greutățile găsite comparând aria de cerneală a glifelor cu cea din PDF. */
   --fs-title:   clamp(27.12px, 1.57674vw, 1.57674vw);
-  --title-dx:   clamp(6.06px, 0.35233vw, 0.35233vw);  /* centrul lui e la 726.06, nu 720 */
-  --title-gap:  clamp(5.5px, 0.31977vw, 0.31977vw);   /* golul de cerneală FOAM→C = 6.61 */
-
-  /* ---- hero ----
-     ⚠️ ECRANUL MACHETEI ARE 850 px. Secțiunile 2–4 au exact 850, iar JOIN CLUB stă la 32 px
-     de jos într-un cadru de 850. De aceea hero-ul se împarte în două, ca pe drinksom.eu
-     (site-ul de referință al userului): un ECRAN întreg (100vh — în machetă 0 → 850), apoi
-     restul în flux, sub el (în machetă 850 → 1709, adică 859 px). Elementele din partea de
-     jos se poziționează față de capătul primului ecran: `calc(100vh + Δ)`, Δ = y − 850. */
+  --title-dx:   clamp(6.06px, 0.35233vw, 0.35233vw);
+  --title-gap:  clamp(5.5px, 0.31977vw, 0.31977vw);
   --hero-rest:  clamp(859px, 49.94186vw, 49.94186vw);
-  /* titlul mare: 130.3 px (înălțimea majusculei 89.4 / 0.686), pas de rând 96 px */
   --fs-mega:    clamp(130.3px, 7.57558vw, 7.57558vw);
   --lh-mega:    clamp(96px, 5.58140vw, 5.58140vw);
-  --mega-dy:    clamp(137.5px, 7.99419vw, 7.99419vw);   /* 987.5 − 850 */
-  --mega-x:     clamp(364.15px, 21.17151vw, 21.17151vw);   /* titlul începe (pen-ul lui A din ALWAYS) la 720 − 364.15 — tools/mega_spacing.py */
-  --mega-blur:  clamp(6px, 0.34884vw, 0.34884vw);     /* A și S din ALWAYS sunt blurate */
-
+  --mega-dy:    clamp(137.5px, 7.99419vw, 7.99419vw);
+  --mega-x:     clamp(364.15px, 21.17151vw, 21.17151vw);
+  --mega-blur:  clamp(6px, 0.34884vw, 0.34884vw);
   --info-l-left:  clamp(250.5px, 14.56395vw, 14.56395vw);
   --info-l-top:   clamp(343px, 19.94186vw, 19.94186vw);
-  /* ⚠️ 166, nu 157.6: în Figma cutia textului se termină la 1282.4, dar rândurile 1–2
-     au un spațiu final pe care Figma îl numără la alinierea la dreapta, iar CSS nu.
-     Cerneala tuturor rândurilor se termină la 1274 → dreapta = 1440 - 1274. */
   --info-r-right: clamp(166px, 9.65116vw, 9.65116vw);
-  --info-r-dy:    clamp(284px, 16.51163vw, 16.51163vw);   /* 1134 − 850 */
-  --para-dy:      clamp(492px, 28.60465vw, 28.60465vw);   /* 1342 − 850 */
-  /* JOIN CLUB / BUY NOW: fixe pe ecran, la 32 px de jos (cererea userului, 2026-10-05) */
+  --info-r-dy:    clamp(284px, 16.51163vw, 16.51163vw);
+  --para-dy:      clamp(492px, 28.60465vw, 28.60465vw);
   --cta-bottom:   clamp(32px, 1.86047vw, 1.86047vw);
-  --para-dx:      clamp(7.5px, 0.43605vw, 0.43605vw);     /* centrul e la 712.5 */
+  --para-dx:      clamp(7.5px, 0.43605vw, 0.43605vw);
   --para-w:       clamp(320px, 18.60465vw, 18.60465vw);
-
-  /* imaginile, în coordonatele machetei: x față de centru (720), y față de vârful hero-ului */
-  --glow-x:  clamp(1329px, 77.26744vw, 77.26744vw);  /* stânga la -609 */
+  --glow-x:  clamp(1329px, 77.26744vw, 77.26744vw);
   --glow-y:  clamp(168px, 9.76744vw, 9.76744vw);
   --glow-w:  clamp(2602px, 151.27907vw, 151.27907vw);
   --glow-h:  clamp(2210px, 128.48837vw, 128.48837vw);
-  --prod-x:  clamp(667px, 38.77907vw, 38.77907vw);   /* stânga la 53 */
+  --prod-x:  clamp(667px, 38.77907vw, 38.77907vw);
   --prod-y:  clamp(64px, 3.72093vw, 3.72093vw);
   --prod-w:  clamp(1322px, 76.86047vw, 76.86047vw);
   --prod-h:  clamp(1377px, 80.05814vw, 80.05814vw);
-
-  /* ---- cardul care se mărește (intrarea în secțiunea 2) ----
-     Valorile sunt CITITE din drinksom.eu (stilurile inline ale cardului, la 9 poziții de
-     scroll): scale = 0.08 + 0.92·e și border-radius = min(32, 64·(1 − e)), unde
-     e = easeOutExpo(p) = 1 − 2^(−10p), iar p merge 0 → 1 pe exact un ecran de scroll.
-     Curba s-a verificat: log2(1 − scale) + 10p dă aceeași constantă (−0.12) în toate
-     punctele. Razele sunt px → clamp. */
   --zoom-min:      0.08;
   --zoom-r-max:    clamp(32px, 1.86047vw, 1.86047vw);
   --zoom-r-k:      clamp(64px, 3.72093vw, 3.72093vw);
-
-  /* ---- curbele GSAP de pe drinksom, ca cubic-bezier (echivalentele standard) ---- */
-  --ease-p2o:    cubic-bezier(0.215, 0.61, 0.355, 1);   /* power2.out */
-  --ease-p3o:    cubic-bezier(0.165, 0.84, 0.44, 1);    /* power3.out */
-  --ease-p2i:    cubic-bezier(0.55, 0.055, 0.675, 0.19);/* power2.in  */
-  --ease-expo-o: cubic-bezier(0.19, 1, 0.22, 1);        /* expo.out   */
-  --ease-io3:    cubic-bezier(0.65, 0, 0.35, 1);        /* easeInOutCubic */
-
-  /* ---- pillars (cadrele 1709 / 2559 / 3409, centrul ecranului = 425 în cadru) ---- */
+  --ease-p2o:    cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-p3o:    cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-p2i:    cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  --ease-expo-o: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-io3:    cubic-bezier(0.65, 0, 0.35, 1);
   --pl-title-x:   clamp(209px, 12.15116vw, 12.15116vw);
-  --pl-title-dy:  calc(-1 * clamp(66.84px, 3.88605vw, 3.88605vw));   /* vârful rândului 1: 2067.16 − 1709 − 425 */
-  --pl-title-gap: calc(-1 * clamp(8.51px, 0.49477vw, 0.49477vw));    /* rândul 2 începe cu 8.51 peste capătul rândului 1 */
+  --pl-title-dy:  calc(-1 * clamp(66.84px, 3.88605vw, 3.88605vw));
+  --pl-title-gap: calc(-1 * clamp(8.51px, 0.49477vw, 0.49477vw));
   --fs-pl-a:      clamp(58.4px, 3.39535vw, 3.39535vw);
   --fs-pl-b:      clamp(69.26px, 4.02674vw, 4.02674vw);
-  --ls-pl-a:      -0.04em;        /* baleiat pe pixeli contra cadrelor 2 și 4: minim la −0.04 */
-  --ls-pl-b:      -0.06em;        /* minim la −0.06 (aceleași valori ca titlul din hero)
-     ⚠️ NU rezolvat pe lățimea dreptunghiului vectorial (dădea −0.037 / −0.048 și eroarea
-     CREȘTEA): baleiere de 6 perechi, eroarea minimă e la −0.04 / −0.06. */
-  --pl-copy-dx:   clamp(184px, 10.69767vw, 10.69767vw);       /* 904 − 720 */
-  --pl-copy-dy:   calc(-1 * clamp(59px, 3.43023vw, 3.43023vw));      /* „01/03" la 366 în cadru */
-  --pl-copy-w:    clamp(280px, 16.27907vw, 16.27907vw);       /* rupe rândurile ca în machetă (273.7 < w < 292) */
-  --pl-copy-gap:  clamp(16px, 0.93023vw, 0.93023vw);        /* 0X/03 → paragraf */
-
-  /* ---- galeria + Ancient Wisdom (cadrele 4259 → 5519 și 5519 → 6369) ---- */
-  --c-navy-g:      #031038;   /* fundalul rândurilor și masca (0.0118 / 0.0627 / 0.2196) */
-  --g-gap:         clamp(10px, 0.58140vw, 0.58140vw);        /* golul dintre plăci; plăcile umplu lățimea (gallery.css) */
-  /* Ancient Wisdom, ancorat de JOS (ca pe drinksom: bottom 1.75rem) */
-  --w-text-bottom: clamp(32px, 1.86047vw, 1.86047vw);        /* 850 − 816 = 34 în teorie; 32 aliniat pe pixeli cu cadrul (−2 px la 34) */
-  --w-title-bottom: clamp(226.14px, 13.14767vw, 13.14767vw);   /* idem: 228.14 teoretic, −2 măsurat */
-  --w-title-gap:   clamp(3px, 0.17442vw, 0.17442vw);         /* spațiul ANCIENT → WISDOM e cu 3 px mai strâns în Figma */
-  --w-text-w:      clamp(840px, 48.83721vw, 48.83721vw);       /* rupe ca în machetă: 821 < w < 867 */
+  --ls-pl-a:      -0.04em;
+  --ls-pl-b:      -0.06em;
+  --pl-copy-dx:   clamp(184px, 10.69767vw, 10.69767vw);
+  --pl-copy-dy:   calc(-1 * clamp(59px, 3.43023vw, 3.43023vw));
+  --pl-copy-w:    clamp(280px, 16.27907vw, 16.27907vw);
+  --pl-copy-gap:  clamp(16px, 0.93023vw, 0.93023vw);
+  --c-navy-g:      #031038;
+  --g-gap:         clamp(10px, 0.58140vw, 0.58140vw);
+  --w-text-bottom: clamp(32px, 1.86047vw, 1.86047vw);
+  --w-title-bottom: clamp(226.14px, 13.14767vw, 13.14767vw);
+  --w-title-gap:   clamp(3px, 0.17442vw, 0.17442vw);
+  --w-text-w:      clamp(840px, 48.83721vw, 48.83721vw);
   --fs-w-text:     clamp(25px, 1.45349vw, 1.45349vw);
   --lh-w-text:     clamp(30px, 1.74419vw, 1.74419vw);
-  --cta-mid:       clamp(9px, 0.52326vw, 0.52326vw);         /* CTA-urile pe mijloc: top 416 = 425 − 9 */
-
-  /* ---- 07 · Become someone powerful (cadrul 6369 → 7219, centrul ecranului = 425) ---- */
-  --c-light:      #f0f8fc;   /* fundalul secțiunii (0.9412 / 0.9725 / 0.9882) */
-  --c-dark:       #17110f;   /* textul și header-ul pe fundal deschis (0.0902 / 0.0667 / 0.0588) */
+  --cta-mid:       clamp(9px, 0.52326vw, 0.52326vw);
+  --c-light:      #f0f8fc;
+  --c-dark:       #17110f;
   --fs-join:      clamp(72.41px, 4.20988vw, 4.20988vw);
-  /* rândurile titlului NU stau pe aceeași axă în Figma (centre măsurate pe pixeli față
-     de 720): BECOME −4, SOMEONE +1, POWERFUL 0 */
   --join-l1-dx:   calc(-1 * clamp(4px, 0.23256vw, 0.23256vw));
   --join-l2-dx:   clamp(1px, 0.05814vw, 0.05814vw);
-  --lh-join:      clamp(62px, 3.60465vw, 3.60465vw);         /* pasul rândurilor: 6557 → 6619 → 6681 */
-  --join-title-dy: calc(-1 * clamp(220.4px, 12.81395vw, 12.81395vw));   /* vârful rândului 1: 6573.6 − 6369 − 425 */
-  --join-text-dy: clamp(6.5px, 0.37791vw, 0.37791vw);   /* 430.5 − 425 = 5.5 teoretic; +1 măsurat pe pixeli */
-  --join-text-w:  clamp(290px, 16.86047vw, 16.86047vw);        /* rupe rândurile ca în machetă */
+  --lh-join:      clamp(62px, 3.60465vw, 3.60465vw);
+  --join-title-dy: calc(-1 * clamp(220.4px, 12.81395vw, 12.81395vw));
+  --join-text-dy: clamp(6.5px, 0.37791vw, 0.37791vw);
+  --join-text-w:  clamp(290px, 16.86047vw, 16.86047vw);
   --lh-join-text: clamp(16px, 0.93023vw, 0.93023vw);
-  --join-field-dy: clamp(103.5px, 6.01744vw, 6.01744vw);     /* inputul la 528.5 */
+  --join-field-dy: clamp(103.5px, 6.01744vw, 6.01744vw);
   --join-field-w: clamp(462px, 26.86047vw, 26.86047vw);
   --join-field-h: clamp(64px, 3.72093vw, 3.72093vw);
-  --join-field-pad: clamp(18px, 1.04651vw, 1.04651vw);       /* „EMAIL ADDRESS" la x 507 = 489 + 18 */
+  --join-field-pad: clamp(18px, 1.04651vw, 1.04651vw);
   --join-border:  clamp(2px, 0.11628vw, 0.11628vw);
   --join-radius:  clamp(4px, 0.23256vw, 0.23256vw);
-  --join-consent-dy: clamp(181.5px, 10.55233vw, 10.55233vw);   /* checkbox-ul la 606.5 */
+  --join-consent-dy: clamp(181.5px, 10.55233vw, 10.55233vw);
   --join-box:     clamp(14px, 0.81395vw, 0.81395vw);
   --join-box-r:   clamp(2px, 0.11628vw, 0.11628vw);
-  --join-box-gap: clamp(11px, 0.63953vw, 0.63953vw);         /* checkbox → text: 503 → 514 */
+  --join-box-gap: clamp(11px, 0.63953vw, 0.63953vw);
   --fs-join-small: clamp(12px, 0.69767vw, 0.69767vw);
-  --join-send-dy: clamp(226.5px, 13.16860vw, 13.16860vw);      /* butonul la 651.5 */
+  --join-send-dy: clamp(226.5px, 13.16860vw, 13.16860vw);
   --join-send-w:  clamp(460px, 26.74419vw, 26.74419vw);
   --join-send-h:  clamp(43px, 2.50000vw, 2.50000vw);
-  --fs-join-float: clamp(11px, 0.63953vw, 0.63953vw);        /* eticheta urcată (drinksom: 14 → 12 la un input de 75) */
+  --fs-join-float: clamp(11px, 0.63953vw, 0.63953vw);
   --join-float-top: clamp(11px, 0.63953vw, 0.63953vw);
-
-  /* ---- 08 · zona de trecere (cadrul 7219 → 8261) ---- */
   --travel-h:     clamp(1042px, 60.58140vw, 60.58140vw);
-  /* ---- 09 · footer (cadrul 8261 → 9111 = un ecran, centrul = 425) ----
-     Titlul mare e cel din hero mărit ×1.4152 (majusculele: 126.53 față de 89.4 px). */
   --ft-fs:        clamp(184.4px, 10.72093vw, 10.72093vw);
   --ft-lh:        clamp(135.86px, 7.89884vw, 7.89884vw);
-  --ft-dy:        calc(-1 * clamp(262.8px, 15.27907vw, 15.27907vw));    /* vârful rândului BEYOND: 162.2 − 425 */
-  --ft-x:         clamp(486.76px, 28.30000vw, 28.30000vw);   /* idem, la 720 − 486.76 în footer */
-  --ft-blur:      clamp(8.5px, 0.49419vw, 0.49419vw);        /* blur-ul lui A / S, scalat la fel */
+  --ft-dy:        calc(-1 * clamp(262.8px, 15.27907vw, 15.27907vw));
+  --ft-x:         clamp(486.76px, 28.30000vw, 28.30000vw);
+  --ft-blur:      clamp(8.5px, 0.49419vw, 0.49419vw);
   --ft-info-x:    clamp(207px, 12.03488vw, 12.03488vw);
-  --ft-info-dy:   clamp(5px, 0.29070vw, 0.29070vw);          /* 430 − 425 */
+  --ft-info-dy:   clamp(5px, 0.29070vw, 0.29070vw);
   --ft-bar-w:     clamp(753px, 43.77907vw, 43.77907vw);
   --ft-bar-h:     clamp(42px, 2.44186vw, 2.44186vw);
-  --ft-bar-bottom: clamp(31px, 1.80233vw, 1.80233vw);        /* 850 − 819 (bara se termină la 9080 în PDF) */
+  --ft-bar-bottom: clamp(31px, 1.80233vw, 1.80233vw);
   --ft-bar-pad:   clamp(14px, 0.81395vw, 0.81395vw);
-  --ft-bar-gap:   clamp(14px, 0.81395vw, 0.81395vw);         /* între politici */
+  --ft-bar-gap:   clamp(14px, 0.81395vw, 0.81395vw);
   --fs-ft-bar:    clamp(12px, 0.69767vw, 0.69767vw);
-
-  /* ==========================================================================
-     SKIN ANALYSIS — pagina /skin-analysis (machetele din docs/reference/skin-analysis/,
-     cadre de 1440; măsurat cu pymupdf). Poziții verticale = față de vârful cadrului.
-     ========================================================================== */
-  --sa-u:         clamp(1px, 0.05814vw, 0.05814vw);   /* 1 px de machetă — pentru valorile calculate în JS (calc(N * var(--sa-u)) = clamp(Npx, …)) */
-  --sa-bg:        #f0f8fc;   /* fundalul paginii și al opțiunilor */
+  --sa-u:         clamp(1px, 0.05814vw, 0.05814vw);
+  --sa-bg:        #f0f8fc;
   --sa-ink:       #17110f;
-  --sa-muted:     #5a524d;   /* subtitluri, LIVE READING, „Why we ask”, etichetele fișei */
-  --sa-navy:      #041447;   /* opțiunea aleasă: bordura și căsuța literei */
-  --sa-blue:      #1751cb;   /* SEE MY READING */
-  --sa-scale-off: #c9c1b8;   /* liniuțele stinse ale scalei din raport */
-  /* ---- header ---- */
-  --sa-edge:         clamp(16px, 0.93023vw, 0.93023vw);    /* marginea stânga / dreapta a header-ului și a etapelor */
-  --sa-logo-top:     clamp(26.73px, 1.55407vw, 1.55407vw); /* logo-ul de pe home × 0.7328 (literele au 81.38 în PDF) */
+  --sa-muted:     #5a524d;
+  --sa-navy:      #041447;
+  --sa-blue:      #1751cb;
+  --sa-scale-off: #c9c1b8;
+  --sa-edge:         clamp(16px, 0.93023vw, 0.93023vw);
+  --sa-logo-top:     clamp(26.73px, 1.55407vw, 1.55407vw);
   --sa-logo-w:       clamp(89.46px, 5.20116vw, 5.20116vw);
   --sa-title-gap:     clamp(1.5px, 0.08721vw, 0.08721vw);
   --sa-title-dx:      calc(-1 * clamp(1px, 0.05814vw, 0.05814vw));
-  --sa-title-base:   clamp(45.5px, 2.64535vw, 2.64535vw);  /* linia de bază a „SKIN ANALYSIS” */
-  --sa-live-base:    clamp(28px, 1.62791vw, 1.62791vw);    /* LIVE READING, 12 px mono */
-  --sa-live-vbase:   clamp(57px, 3.31395vw, 3.31395vw);    /* valoarea, 22 px Expanded 800 */
+  --sa-title-base:   clamp(45.5px, 2.64535vw, 2.64535vw);
+  --sa-live-base:    clamp(28px, 1.62791vw, 1.62791vw);
+  --sa-live-vbase:   clamp(57px, 3.31395vw, 3.31395vw);
   --fs-sa-live:      clamp(22px, 1.27907vw, 1.27907vw);
-  --sa-deg:          clamp(6px, 0.34884vw, 0.34884vw);     /* gradul = inel de 6 × 6, lipit de marginea dreaptă (1418–1424) */
-  --sa-deg-w:        clamp(1.5px, 0.08721vw, 0.08721vw);   /* grosimea inelului (randat la 8×) */
+  --sa-deg:          clamp(6px, 0.34884vw, 0.34884vw);
+  --sa-deg-w:        clamp(1.5px, 0.08721vw, 0.08721vw);
   --sa-deg-top:      clamp(40px, 2.32558vw, 2.32558vw);
-  --sa-rule-top:     clamp(72px, 4.18605vw, 4.18605vw);    /* linia de sub header, 1 px, negru 10% */
-  --sa-stage-base:   clamp(102px, 5.93023vw, 5.93023vw);   /* etichetele etapelor, 12 px mono */
-  --sa-stage-gap:    clamp(10px, 0.58140vw, 0.58140vw);    /* golul dintre etape (4 × 344.5 + 3 × 10 = 1408) */
+  --sa-rule-top:     clamp(72px, 4.18605vw, 4.18605vw);
+  --sa-stage-base:   clamp(102px, 5.93023vw, 5.93023vw);
+  --sa-stage-gap:    clamp(10px, 0.58140vw, 0.58140vw);
   --sa-tick-top:     clamp(112px, 6.51163vw, 6.51163vw);
   --sa-tick-w:       clamp(4px, 0.23256vw, 0.23256vw);
   --sa-tick-h:       clamp(10px, 0.58140vw, 0.58140vw);
-  --sa-tick-pitch:   clamp(6.305px, 0.36657vw, 0.36657vw); /* 55 de liniuțe pe 344.5 */
-  /* ---- text ---- */
+  --sa-tick-pitch:   clamp(6.305px, 0.36657vw, 0.36657vw);
   --fs-sa-12:        clamp(12px, 0.69767vw, 0.69767vw);
   --fs-sa-13:        clamp(13px, 0.75581vw, 0.75581vw);
   --fs-sa-14:        clamp(14px, 0.81395vw, 0.81395vw);
   --fs-sa-16:        clamp(16px, 0.93023vw, 0.93023vw);
   --fs-sa-18:        clamp(18px, 1.04651vw, 1.04651vw);
-  --fs-sa-27:        clamp(27px, 1.56977vw, 1.56977vw);    /* întrebările și „Your recovery routine”: Expanded 800, rând de 27 */
+  --fs-sa-27:        clamp(27px, 1.56977vw, 1.56977vw);
   --lh-sa-18:        clamp(18px, 1.04651vw, 1.04651vw);
-  --lh-sa-17:        clamp(17px, 0.98837vw, 0.98837vw);    /* disclaimer-ul din raport */
+  --lh-sa-17:        clamp(17px, 0.98837vw, 0.98837vw);
   --lh-sa-21:        clamp(21px, 1.22093vw, 1.22093vw);
-  /* ---- cardul cu întrebarea ---- */
   --sa-card-top:     clamp(182px, 10.58140vw, 10.58140vw);
   --sa-card-w:       clamp(637px, 37.03488vw, 37.03488vw);
   --sa-card-r:       clamp(16px, 0.93023vw, 0.93023vw);
   --sa-card-px:      clamp(32px, 1.86047vw, 1.86047vw);
-  --sa-card-head:    clamp(74px, 4.30233vw, 4.30233vw);    /* STEP n OF 7 centrat în banda de sus; sub ea linia de 1 px */
-  --sa-btn-h:        clamp(51px, 2.96512vw, 2.96512vw);    /* toate butoanele */
-  --sa-r:            clamp(3px, 0.17442vw, 0.17442vw);     /* colțul opțiunilor, butoanelor, căsuțelor */
+  --sa-card-head:    clamp(74px, 4.30233vw, 4.30233vw);
+  --sa-btn-h:        clamp(51px, 2.96512vw, 2.96512vw);
+  --sa-r:            clamp(3px, 0.17442vw, 0.17442vw);
   --sa-opt-h:        clamp(68px, 3.95349vw, 3.95349vw);
   --sa-opt-gap:      clamp(8px, 0.46512vw, 0.46512vw);
-  --sa-box:          clamp(50px, 2.90698vw, 2.90698vw);    /* căsuța literei */
-  --sa-box-in:       clamp(8px, 0.46512vw, 0.46512vw);     /* de la bordura opțiunii la căsuță */
-  --sa-opt-label:    clamp(16px, 0.93023vw, 0.93023vw);    /* de la căsuță la text (508.5 − 492.5) */
+  --sa-box:          clamp(50px, 2.90698vw, 2.90698vw);
+  --sa-box-in:       clamp(8px, 0.46512vw, 0.46512vw);
+  --sa-opt-label:    clamp(16px, 0.93023vw, 0.93023vw);
   --sa-why-w:        clamp(118px, 6.86047vw, 6.86047vw);
   --sa-why-h:        clamp(34px, 1.97674vw, 1.97674vw);
   --sa-why-icon:     clamp(16px, 0.93023vw, 0.93023vw);
   --sa-back-w:       clamp(145px, 8.43023vw, 8.43023vw);
   --sa-btn-gap:      clamp(10px, 0.58140vw, 0.58140vw);
-  --sa-input-px:     clamp(17px, 0.98837vw, 0.98837vw);    /* textul din câmp: 450.5 − 433.5 */
-  --sa-check:        clamp(12px, 0.69767vw, 0.69767vw);   /* inelul din PDF are 14, cutia 12 (ca la opțiuni: inelul = cutia + 1 px) */
-  /* ---- start ---- */
-  --fs-sa-hero:      clamp(72.41px, 4.20988vw, 4.20988vw); /* TAKE YOUR / SKIN READING / TODAY! */
-  --lh-sa-hero:      clamp(62px, 3.60465vw, 3.60465vw);    /* pasul liniilor de bază: 318.2 → 380.2 → 442.2 */
+  --sa-input-px:     clamp(17px, 0.98837vw, 0.98837vw);
+  --sa-check:        clamp(12px, 0.69767vw, 0.69767vw);
+  --fs-sa-hero:      clamp(72.41px, 4.20988vw, 4.20988vw);
+  --lh-sa-hero:      clamp(62px, 3.60465vw, 3.60465vw);
   --sa-start-btn-w:  clamp(328px, 19.06977vw, 19.06977vw);
-  /* ---- raportul (END V1) ---- */
-  --sa-rep-left:     clamp(505px, 29.36047vw, 29.36047vw); /* cardul din stânga; golul 16; dreapta 615 → 1136 centrat */
+  --sa-rep-left:     clamp(505px, 29.36047vw, 29.36047vw);
   --sa-rep-right:    clamp(615px, 35.75581vw, 35.75581vw);
   --sa-rep-gap:      clamp(16px, 0.93023vw, 0.93023vw);
-  --fs-sa-reading:   clamp(92.47px, 5.37616vw, 5.37616vw); /* 34.4°C, Expanded 800 */
-  --sa-rdeg:         clamp(25.22px, 1.46628vw, 1.46628vw); /* inelul gradului din citire */
+  --fs-sa-reading:   clamp(92.47px, 5.37616vw, 5.37616vw);
+  --sa-rdeg:         clamp(25.22px, 1.46628vw, 1.46628vw);
   --sa-rdeg-w:       clamp(6px, 0.34884vw, 0.34884vw);
   --sa-scale-tick:   clamp(4px, 0.23256vw, 0.23256vw);
   --sa-scale-pitch:  clamp(8px, 0.46512vw, 0.46512vw);
   --sa-scale-h:      clamp(14px, 0.81395vw, 0.81395vw);
   --sa-scale-mark-w: clamp(3px, 0.17442vw, 0.17442vw);
   --sa-scale-mark-h: clamp(30px, 1.74419vw, 1.74419vw);
-  --fs-sa-11:        clamp(11px, 0.63953vw, 0.63953vw);    /* cifrele scalei */
-  --sa-cal-r:        clamp(6px, 0.34884vw, 0.34884vw);     /* fișa CALIBRATION */
+  --fs-sa-11:        clamp(11px, 0.63953vw, 0.63953vw);
+  --sa-cal-r:        clamp(6px, 0.34884vw, 0.34884vw);
   --sa-cal-px:       clamp(17px, 0.98837vw, 0.98837vw);
-  --sa-cal-row:      clamp(28px, 1.62791vw, 1.62791vw);    /* pasul rândurilor fișei */
-  --sa-kit-h:        clamp(92px, 5.34884vw, 5.34884vw);    /* cardurile K1–K3 */
+  --sa-cal-row:      clamp(28px, 1.62791vw, 1.62791vw);
+  --sa-kit-h:        clamp(92px, 5.34884vw, 5.34884vw);
   --sa-kit-gap:      clamp(12px, 0.69767vw, 0.69767vw);
   --sa-kit-icon:     clamp(61.76px, 3.59070vw, 3.59070vw);
   --sa-kit-ix:       clamp(19px, 1.10465vw, 1.10465vw);
-  --sa-kit-tx:       clamp(101.77px, 5.91686vw, 5.91686vw); /* textul începe la 806.77 − 705 */
+  --sa-kit-tx:       clamp(101.77px, 5.91686vw, 5.91686vw);
   --sa-note-sq:      clamp(8px, 0.46512vw, 0.46512vw);
   --sa-note-tx:      clamp(18px, 1.04651vw, 1.04651vw);
   --sa-add-w:        clamp(332px, 19.30233vw, 19.30233vw);

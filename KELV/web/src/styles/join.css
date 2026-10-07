@@ -1,20 +1,6 @@
-/* ==========================================================================
-   07 · BECOME SOMEONE POWERFUL
-   Cadrul machetei 6369 → 7219 (850). Fundal deschis #F0F8FC (`data-theme="light"`):
-   header-ul și CTA-urile trec pe #17110F pe pixel, unde ating fundalul (header.css). Elementele se ancorează de CENTRUL
-   ecranului pe verticală (425 în cadru) și de centrul paginii pe orizontală.
-
-   Formularul copiază comportamentul de pe drinksom.eu („join-drop", citit din codul lor):
-   eticheta plutitoare a inputului, eroarea „INVALID EMAIL ADDRESS" la ieșirea din câmp,
-   bifa care se desenează, butonul activ doar cu email valid + acord. Aspectul și stările
-   inactive sunt din MACHETĂ: rândul cu checkbox la 30%, butonul la 20% (măsurat pe
-   pixeli: #17110F peste #F0F8FC dă 174/179/180 → α 0.30; portocaliul butonului → α 0.20).
-   Checkbox-ul e disponibil abia cu email valid, butonul abia cu checkbox-ul bifat
-   (cerința userului, 2026-10-06).
-   ========================================================================== */
 .join {
   position: relative;
-  height: 220vh;               /* 120vh de scroll fixat: întâi formularul, apoi produsul (join.js) */
+  height: 220vh;
   z-index: 3;
   background: var(--c-light);
   color: var(--c-dark);
@@ -26,8 +12,6 @@
   overflow: hidden;
 }
 
-/* ---- titlul: ExtraCondensed 800, „SOM" Expanded 900, 72.41, portocaliu (aria de
-   cerneală 246640 față de 247027 în PDF) ---- */
 .join__title {
   position: absolute;
   left: 50%;
@@ -41,12 +25,11 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-.join__line { display: block; position: relative; }   /* `left` = deplasare de layout, nu transform (textul clar) */
+.join__line { display: block; position: relative; }
 .join__line:nth-child(1) { left: var(--join-l1-dx); }
 .join__line:nth-child(2) { left: var(--join-l2-dx); }
 .join__exp { font-family: var(--font-exp); font-weight: 900; letter-spacing: var(--ls-pl-b); }
 
-/* ---- paragraful: Plex Mono 400, 14 / 16, centrat ---- */
 .join__text {
   position: absolute;
   left: 50%;
@@ -58,7 +41,6 @@
   text-align: center;
 }
 
-/* ---- formularul ---- */
 .join__form {
   position: absolute;
   left: 50%;
@@ -84,8 +66,7 @@
 }
 .field__input:focus { border-color: rgba(255, 77, 31, 0.6); }
 .field.is-error .field__input { border-color: var(--c-orange); background: rgba(255, 77, 31, 0.05); }
-/* eticheta: în machetă stă pe mijloc, 13 px; la focus sau cu text urcă sus, mai mică
-   (drinksom: peer-focus / :not(:placeholder-shown), 0.2 s ease-out) */
+
 .field__label {
   position: absolute;
   left: var(--join-field-pad);
@@ -116,7 +97,6 @@
 .field__error[hidden] { display: none; }
 .field__error svg { width: clamp(14px, 0.81395vw, 0.81395vw); height: auto; flex: none; }
 
-/* ---- acordul: checkbox 14 × 14, bordură 2, colț 2; text 12 px ---- */
 .consent {
   position: absolute;
   left: 0;
@@ -150,7 +130,7 @@
 .consent__input:disabled { cursor: not-allowed; }
 .consent__input:checked { background: var(--c-orange); border-color: var(--c-orange); }
 .consent__input:focus-visible { outline: 2px solid rgba(255, 77, 31, 0.25); outline-offset: 1px; }
-/* bifa se desenează (drinksom: pathLength 0 → 1, ~0.4 s) */
+
 .consent__check {
   position: absolute;
   inset: 0;
@@ -174,7 +154,6 @@
 .consent.is-disabled .consent__label { cursor: not-allowed; }
 .consent__label a { color: var(--c-orange); }
 
-/* ---- butonul: 460 × 43, colț 3, portocaliu; inactiv la 20% (macheta) ---- */
 .join__send {
   position: absolute;
   left: calc(50% - var(--join-send-w) / 2);
@@ -197,6 +176,3 @@
 .field.is-error ~ .join__send { top: calc(var(--join-send-dy) - var(--join-field-dy) + clamp(20px, 1.16279vw, 1.16279vw)); }
 .join__send:disabled { opacity: 0.2; cursor: not-allowed; }
 .join__send svg { width: var(--arrow-w); height: auto; flex: none; }
-
-/* ---- produsul: NU mai e aici — e `.travel-product` (travel.css), fix, ca să poată pleca
-   din secțiunea 7 și să ajungă în footer. ---- */
