@@ -152,6 +152,7 @@
   --travel-h:      calc(1042 * var(--u));
   /* Footer glow: the hero's, 0.85× around the same centre, so it stops short of the footer's bottom */
   --ft-glow-top:    calc(-1152 * var(--u));
+  --ft-blend:       calc(460 * var(--u));
   --ft-glow-x:      calc(1129.65 * var(--u));
   --ft-glow-w:      calc(2211.7 * var(--u));
   --ft-glow-h:      calc(1878.5 * var(--u));
@@ -277,6 +278,7 @@
     --tp-s:          calc(330 * var(--mu));
     --travel-h:      calc(700 * var(--mu));
     --ft-glow-top:   calc(-576 * var(--mu));
+    --ft-blend:      calc(320 * var(--mu));
     --ft-glow-x:     calc(553 * var(--mu));
     --ft-glow-w:     calc(1106 * var(--mu));
     --ft-glow-h:     calc(939 * var(--mu));

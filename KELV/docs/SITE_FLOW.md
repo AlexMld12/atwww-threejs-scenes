@@ -512,3 +512,8 @@ mobil — regulile s-au citit din clasele Tailwind din DOM-ul arhivat: `lg` = 10
 - Texte: niciun lorem ipsum; „coming soon" cu nume și descrieri proprii (Serum Xbionic, Face Serum,
   Gel Cleanser, Cleansing Balm), nota lor și textul RECEIVE UPDATES rescrise, preloader-ul și pasul 6
   al quiz-ului cu texte care au sens.
+- Trecerea zona 8 → footer (user, 2026-10-08: „nu-mi place deloc"): `.footer::after` = albastrul de
+  la baza zonei 8 (rgb 170 221 243) care se stinge pe 460 px (smoothstep, 24 opriri) peste strălucire,
+  sub titlu — fără linie de separație. Banda deschisă a header-ului intră 28 % în footer.
+- Pillars: fiecare produs are tagline-ul lui („Step one of three. / K1 / Cool. Cleanse without
+  stripping." etc.), schimbat odată cu descrierea (`setTagline`).

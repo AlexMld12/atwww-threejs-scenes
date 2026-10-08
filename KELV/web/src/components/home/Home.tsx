@@ -15,6 +15,8 @@ import { useHeroSnap } from './use-hero-snap';
 import { useLightBand } from './use-light-band';
 import { useZoneGlow } from './use-zone-glow';
 
+const FOOTER_LIGHT_END = 0.28;
+
 export function Home() {
   const heroProducts = useRef<HTMLImageElement>(null);
   const loopProducts = useRef<HTMLImageElement>(null);
@@ -25,6 +27,8 @@ export function Home() {
   useLightBand([
     { ref: join, end: 1 },
     { ref: zone, end: 1 },
+    // The blue blended into the footer's top stays light this far (dark and white text read alike there).
+    { ref: footer, end: FOOTER_LIGHT_END },
   ]);
   useHeroSnap();
   const zoneGlow = useZoneGlow(zone);

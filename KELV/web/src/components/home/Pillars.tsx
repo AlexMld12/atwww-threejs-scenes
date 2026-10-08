@@ -22,6 +22,8 @@ interface Pillar {
   a: string;
   b: string;
   desc: string;
+  /** The line under the product: its step, then what it does. */
+  tag: string;
   accent: string;
   id: string;
   /** `y` puts the bottle's own centre on the screen's centre (design px). */
@@ -33,6 +35,7 @@ const PILLARS: Pillar[] = [
   {
     a: 'Foam',
     b: 'Cleanser',
+    tag: 'Step one of three.\nK1 / Cool. Cleanse without stripping.',
     desc: 'Lift sweat, sunscreen and city residue without stripping. A cool finish that resets skin for the next step.',
     accent: 'var(--c-orange)',
     id: '01',
@@ -42,6 +45,7 @@ const PILLARS: Pillar[] = [
   {
     a: 'Active',
     b: 'Serum',
+    tag: 'Step two of three.\nK2 / Calm. Take the edge off redness.',
     desc: 'Take the edge off redness and visible stress. A lightweight serum that absorbs fast and layers cleanly under K3.',
     accent: 'var(--c-orange)',
     id: '02',
@@ -51,6 +55,7 @@ const PILLARS: Pillar[] = [
   {
     a: 'Barrier',
     b: 'Cream',
+    tag: 'Step three of three.\nK3 / Seal. Lock hydration in.',
     desc: 'Lock hydration in and support your skin barrier. A soft, comfortable cream that seals the routine without feeling heavy.',
     accent: 'var(--c-ink)',
     id: '03',
@@ -159,9 +164,26 @@ export function Pillars() {
     );
   }
 
+  /** The tagline's lines, rebuilt for another pillar (each line in its window, as <Lines>). */
+  function setTagline(index: number, state = '') {
+    const tag = stickyRef.current!.querySelector('.pillar-tag')!;
+    tag.replaceChildren(
+      ...PILLARS[index].tag.split('\n').map((line) => {
+        const win = document.createElement('span');
+        win.className = 'sw-win sw-win--line';
+        const inner = document.createElement('span');
+        inner.className = state ? `sw-in ${state}` : 'sw-in';
+        inner.textContent = line;
+        win.append(inner);
+        return win;
+      }),
+    );
+  }
+
   function setStatic(index: number) {
     setTitle(PILLARS[index]);
     setDescription(index);
+    setTagline(index);
     idRef.current!.textContent = PILLARS[index].id;
     for (const word of stickyRef.current!.querySelectorAll('.sw-in')) {
       word.classList.remove('is-out', 'is-below', 'is-enter');
@@ -198,6 +220,7 @@ export function Pillars() {
     s.swapTimer = setTimeout(() => {
       idRef.current!.textContent = PILLARS[index].id;
       setDescription(index, 'is-below');
+      setTagline(index, 'is-below');
       for (const group of groups) {
         const parts = [...group.querySelectorAll<HTMLElement>('.sw-in')];
         for (const part of parts) part.classList.replace('is-out', 'is-below');
@@ -421,7 +444,7 @@ export function Pillars() {
         </div>
 
         <p className="pillar-tag mono pl-el">
-          <Lines text={TAGLINE} />
+          <Lines text={first.tag} />
         </p>
       </div>
     </section>
