@@ -59,9 +59,7 @@ export function ShopFooter() {
             <span className="shop-title__a">Receive</span>
             <span className="shop-title__b">Updates</span>
           </p>
-          <p className="shop-updates__text">
-            Lifts sweat, sunscreen and city residue without stripping. A cool finish that resets skin.
-          </p>
+          <p className="shop-updates__text">Get KELV routine notes, product news and daily recovery tips.</p>
           <EmailForm variant="updates" />
         </Reveal>
       </div>

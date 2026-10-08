@@ -100,7 +100,7 @@
   .ticks { top: var(--ticks-top); }
   .head-title { display: none; }
   .head-row { justify-content: center; }
-  .btn-shop {
+  .site-header .btn-shop {
     position: fixed;
     left: 50%;
     bottom: var(--btn-bottom);

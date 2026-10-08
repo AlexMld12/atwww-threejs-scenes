@@ -503,3 +503,12 @@ mobil — regulile s-au citit din clasele Tailwind din DOM-ul arhivat: `lg` = 10
   reconstruiesc la schimbare: `setDescription`), tagline K1 / COOL…, texte noi în hero, Ancient Wisdom,
   Join (butonul JOIN CLUB), footer (CONTACT). CTA-urile rămân TAKE QUIZ / BUY NOW (cererea userului,
   deși macheta nouă zice JOIN CLUB). Logo nou (`logo-new.svg`, 94.34 × 18.79) peste tot.
+- Retușuri (user, 2026-10-08): liniuțele header-ului = doar liniuțe întregi, CENTRATE între margini
+  (înainte rămânea un gol doar la dreapta → navbar-ul părea descentrat). Zona 8: fundalul copt e
+  înlocuit de #F0F8FC + elipsa singură (`zone8-glow.webp`, diferență 0.5/255), care crește și urcă la
+  scroll (`use-zone-glow.ts`: scale 0.8 → 1.05, y +25 % → −5 %; la cadrul Figma ≈ mărimea de design).
+  Footer: strălucirea 0.85× în jurul aceluiași centru, nu mai atinge marginea de jos. Pe mobil, TAKE
+  QUIZ din shop rămâne în header (regula butonului fix de jos e doar pentru header-ul home-ului).
+- Texte: niciun lorem ipsum; „coming soon" cu nume și descrieri proprii (Serum Xbionic, Face Serum,
+  Gel Cleanser, Cleansing Balm), nota lor și textul RECEIVE UPDATES rescrise, preloader-ul și pasul 6
+  al quiz-ului cu texte care au sens.

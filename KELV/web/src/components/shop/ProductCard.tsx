@@ -66,10 +66,7 @@ export function ComingSoonCard({ item, index }: { item: ComingSoon; index: numbe
         <p className="card__title">{item.name}</p>
         <p className="card__summary">{item.summary}</p>
         <EmailForm variant="notify" />
-        <p className="soon__note">
-          This set is coming. Built for those who need to stay grounded under pressure — mentally clear, hormonally
-          balanced, consistently steady.
-        </p>
+        <p className="soon__note">In development. Leave your email and we will tell you first when it is ready.</p>
       </div>
     </Reveal>
   );

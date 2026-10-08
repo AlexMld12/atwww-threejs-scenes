@@ -27,7 +27,6 @@ export interface Answers {
   consent: boolean;
 }
 
-// The "signs" title and the "Why we ask" texts are placeholders until the client confirms them.
 export const STEPS: Step[] = [
   {
     key: 'type',
@@ -102,7 +101,7 @@ export const STEPS: Step[] = [
     key: 'goal',
     kind: 'single',
     title: 'What should KELV° fix first?',
-    sub: 'Be honest. There is no wrong answer.',
+    sub: 'Pick the one that matters most right now.',
     why: 'Your goal sets the focus of your routine.',
     options: [
       { key: 'calm', label: 'Calm the redness' },

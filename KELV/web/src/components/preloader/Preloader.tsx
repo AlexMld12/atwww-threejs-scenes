@@ -242,7 +242,7 @@ export function Preloader() {
       </p>
       <p className="ld-info mono">
         <span ref={infoRef} className="ld-move">
-          Three steps back to baseline. Three steps back to baseline.
+          Three steps back to baseline. Cool. Calm. Seal. Repeat.
         </span>
       </p>
       <div className="ld-count">

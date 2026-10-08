@@ -13,6 +13,7 @@ import { Pillars } from './Pillars';
 import { TravelProduct } from './TravelProduct';
 import { useHeroSnap } from './use-hero-snap';
 import { useLightBand } from './use-light-band';
+import { useZoneGlow } from './use-zone-glow';
 
 export function Home() {
   const heroProducts = useRef<HTMLImageElement>(null);
@@ -26,6 +27,7 @@ export function Home() {
     { ref: zone, end: 1 },
   ]);
   useHeroSnap();
+  const zoneGlow = useZoneGlow(zone);
 
   return (
     <div className="home">
@@ -40,7 +42,15 @@ export function Home() {
         <Gallery />
         <Join ref={join} />
         <section ref={zone} className="travel" id="travel">
-          <Image className="travel__bg" src="/images/section8-bg.webp" alt="" width={1440} height={1042} aria-hidden />
+          <Image
+            ref={zoneGlow}
+            className="travel__glow"
+            src="/images/zone8-glow.webp"
+            alt=""
+            width={1119}
+            height={885}
+            aria-hidden
+          />
         </section>
       </main>
 

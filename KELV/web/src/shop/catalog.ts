@@ -187,8 +187,6 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-const SOON_SUMMARY = 'Lifts sweat, sunscreen and city residue without stripping. A cool finish that resets skin.';
-
 export const CATEGORIES = [
   { id: 'all', label: 'All Products' },
   { id: 'kelv', label: 'KELV Skincare' },
@@ -204,16 +202,28 @@ export const GROUPS: { id: Exclude<CategoryId, 'all'>; label: string; products?:
     id: 'serum',
     label: 'Serum',
     soon: [
-      { name: 'Serum Xbionic', summary: SOON_SUMMARY },
-      { name: 'Face Serum', summary: SOON_SUMMARY },
+      {
+        name: 'Serum Xbionic',
+        summary: 'A post-training serum that cools flushed skin fast and calms it before it settles red.',
+      },
+      {
+        name: 'Face Serum',
+        summary: 'A daily hydrating serum for skin that tightens in dry air, heating or AC.',
+      },
     ],
   },
   {
     id: 'cleanser',
     label: 'Cleanser',
     soon: [
-      { name: 'Foam Cleanser', summary: SOON_SUMMARY },
-      { name: 'Foam Cleanser', summary: SOON_SUMMARY },
+      {
+        name: 'Gel Cleanser',
+        summary: 'A clear gel cleanser for oily and shine-prone skin, built for hot days and humid cities.',
+      },
+      {
+        name: 'Cleansing Balm',
+        summary: 'Melts long-wear makeup and water-resistant sunscreen before K1, without leaving a film.',
+      },
     ],
   },
 ];

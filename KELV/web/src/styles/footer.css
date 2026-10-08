@@ -7,11 +7,11 @@
 .footer > * { position: absolute; }
 .footer__glow {
   z-index: 0;
-  left: calc(50% - var(--glow-x));
+  left: calc(50% - var(--ft-glow-x));
   /* the hero's glow, hanging from above: it continues zone 8's light (Figma 2026-10-08) */
   top: var(--ft-glow-top);
-  width: var(--glow-w);
-  height: var(--glow-h);
+  width: var(--ft-glow-w);
+  height: var(--ft-glow-h);
   max-width: none;
   pointer-events: none;
 }
@@ -75,7 +75,6 @@
 
 @media (max-width: 1023.98px) {
   .footer { height: 100svh; }
-  .footer__glow { left: calc(50% - var(--glow-w) / 2); }
   .footer__mega { left: 50%; translate: -50% 0; }
   .footer__info { left: var(--pad-edge); top: var(--ft-info-top); text-align: left; }
   .footer__bar {

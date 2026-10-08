@@ -28,18 +28,19 @@ export function TickBar({ progress, topToken = '--pad-edge', className }: TickBa
       const dpr = window.devicePixelRatio || 1;
       const { width, pitch, height } = measureTicks(host, '--tick');
       const pad = resolveLength(host, '--pad-edge');
-      const x = snapToDevicePixels(pad);
+      const room = Math.floor((document.documentElement.clientWidth - 2 * pad) * dpr) / dpr;
       const y = snapToDevicePixels(resolveLength(host, topToken));
-      const length = Math.floor((document.documentElement.clientWidth - pad - x) * dpr) / dpr;
       const style = bar.style;
       style.setProperty('--tk-w', `${width}px`);
       style.setProperty('--tk-p', `${pitch}px`);
       style.setProperty('--tk-h', `${height}px`);
-      style.setProperty('--tk-x', `${x}px`);
       style.setProperty('--tk-y', `${y}px`);
-      total.current = Math.floor((length - width) / pitch) + 1;
-      // Only whole ticks: a cut-off last one could never light up.
-      style.setProperty('--tk-len', `${(total.current - 1) * pitch + width}px`);
+      total.current = Math.floor((room - width) / pitch) + 1;
+      // Only whole ticks (a cut-off last one could never light up), centred so both ends match the margins.
+      const length = (total.current - 1) * pitch + width;
+      const x = snapToDevicePixels(pad + (room - length) / 2);
+      style.setProperty('--tk-x', `${x}px`);
+      style.setProperty('--tk-len', `${length}px`);
       lit.current = -1;
     };
 

@@ -5,12 +5,16 @@
   background: var(--c-light);
   overflow: hidden;
 }
-.travel__bg {
+.travel__glow {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  left: calc(50% + var(--z8-glow-dx) - var(--z8-glow-w) / 2);
+  top: var(--z8-glow-top);
+  width: var(--z8-glow-w);
+  height: var(--z8-glow-h);
+  max-width: none;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  pointer-events: none;
 }
 .travel-product {
   position: fixed;
