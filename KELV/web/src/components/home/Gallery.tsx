@@ -9,7 +9,7 @@ import { useFrame } from '@/lib/scroll';
 import { useWisdomScene } from './use-wisdom-scene';
 
 const TEXT =
-  'Lorem ipsum dolor sit amet consectetur. Ultricies sagittis id lorem id enim velit id sodales mauris. Augue vel mauris m ipsum dolor sit amet consectetur. Ultricies sagittis id lorem id enim velit id sodales mauris.';
+  'Sun, sweat and city air put skin under pressure. KELV brings it back to baseline: cleanse with K1, calm with K2 and seal with K3. Three considered formulas. One daily recovery routine.';
 
 const LERP = 0.1;
 const CENTRE_END = 0.35;

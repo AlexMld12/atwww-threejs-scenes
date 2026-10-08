@@ -8,8 +8,8 @@
 .footer__glow {
   z-index: 0;
   left: calc(50% - var(--glow-x));
-  /* from the bottom: the footer is 100vh, so on wide screens a top anchor drops the glow below it */
-  bottom: var(--ft-glow-bottom);
+  /* the hero's glow, hanging from above: it continues zone 8's light (Figma 2026-10-08) */
+  top: var(--ft-glow-top);
   width: var(--glow-w);
   height: var(--glow-h);
   max-width: none;
@@ -75,7 +75,7 @@
 
 @media (max-width: 1023.98px) {
   .footer { height: 100svh; }
-  .footer__glow { left: calc(50% - var(--glow-w) / 2); bottom: auto; top: calc(50% + var(--glow-dy)); }
+  .footer__glow { left: calc(50% - var(--glow-w) / 2); }
   .footer__mega { left: 50%; translate: -50% 0; }
   .footer__info { left: var(--pad-edge); top: var(--ft-info-top); text-align: left; }
   .footer__bar {

@@ -14,9 +14,6 @@ import { TravelProduct } from './TravelProduct';
 import { useHeroSnap } from './use-hero-snap';
 import { useLightBand } from './use-light-band';
 
-// Zone 8's baked gradient is light down to 76 % of its height.
-const ZONE_LIGHT_END = 0.76;
-
 export function Home() {
   const heroProducts = useRef<HTMLImageElement>(null);
   const loopProducts = useRef<HTMLImageElement>(null);
@@ -26,7 +23,7 @@ export function Home() {
 
   useLightBand([
     { ref: join, end: 1 },
-    { ref: zone, end: ZONE_LIGHT_END },
+    { ref: zone, end: 1 },
   ]);
   useHeroSnap();
 

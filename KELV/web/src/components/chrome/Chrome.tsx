@@ -17,8 +17,8 @@ export function Chrome({ dark = false }: { dark?: boolean }) {
             <Logo />
           </PageLink>
           <p className="head-title">
-            <span className="head-title__a">Foam</span>
-            <span className="head-title__b">Cleanser</span>
+            <span className="head-title__a">Skin</span>
+            <span className="head-title__b">Collection</span>
           </p>
           <PageLink className="btn-shop" href="/products" data-roll-host="" tabIndex={tabIndex}>
             <RollText text="Open shop" />

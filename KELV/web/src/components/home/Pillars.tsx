@@ -21,6 +21,7 @@ import { useProductStage } from './use-product-stage';
 interface Pillar {
   a: string;
   b: string;
+  desc: string;
   accent: string;
   id: string;
   /** `y` puts the bottle's own centre on the screen's centre (design px). */
@@ -30,24 +31,27 @@ interface Pillar {
 
 const PILLARS: Pillar[] = [
   {
-    a: 'Mental',
-    b: 'Focus',
+    a: 'Foam',
+    b: 'Cleanser',
+    desc: 'Lift sweat, sunscreen and city residue without stripping. A cool finish that resets skin for the next step.',
     accent: 'var(--c-orange)',
     id: '01',
     product: { model: 'K1_COOL_Foam', img: '/images/product-1.webp', y: -12.58 },
     rings: [{ x: 209, y: 309, r: 651.5 }],
   },
   {
-    a: 'Stamina',
-    b: 'Boost',
+    a: 'Active',
+    b: 'Serum',
+    desc: 'Take the edge off redness and visible stress. A lightweight serum that absorbs fast and layers cleanly under K3.',
     accent: 'var(--c-orange)',
     id: '02',
     product: { model: 'K2_CALM_Serum', img: '/images/product-2.webp', y: -36.11 },
     rings: [],
   },
   {
-    a: 'Imune',
-    b: 'Control',
+    a: 'Barrier',
+    b: 'Cream',
+    desc: 'Lock hydration in and support your skin barrier. A soft, comfortable cream that seals the routine without feeling heavy.',
     accent: 'var(--c-ink)',
     id: '03',
     product: { model: 'K3_SEAL_Cream', img: '/images/product-3.webp', y: -36.11 },
@@ -57,9 +61,7 @@ const PILLARS: Pillar[] = [
     ],
   },
 ];
-const DESCRIPTION =
-  'Lorem ipsum dolor sit amet consectetur. Ultricies sagittis id lorem id enim velit id sodales mauris. Augue vel mauris';
-const TAGLINE = 'Three steps back to\nThree lorcsa dkjad back to baseline.';
+const TAGLINE = 'Three steps back to baseline.\nK1 / Cool. K2 / Calm. K3 / Seal.';
 
 // One scale and one centre line for all three, so they stand in the same place (the client's request).
 const PRODUCT_SIZE = 805.4;
@@ -140,8 +142,26 @@ export function Pillars() {
     titleRef.current!.style.setProperty('--pl-accent', pillar.accent);
   }
 
+  /** The description's words, rebuilt for another pillar (each word in its window, as <Words>). */
+  function setDescription(index: number, state = '') {
+    const desc = copyRef.current!.querySelector('.pillar-copy__desc')!;
+    const words = PILLARS[index].desc.split(' ');
+    desc.replaceChildren(
+      ...words.flatMap((word, i) => {
+        const win = document.createElement('span');
+        win.className = 'sw-win';
+        const inner = document.createElement('span');
+        inner.className = state ? `sw-in ${state}` : 'sw-in';
+        inner.textContent = word;
+        win.append(inner);
+        return i < words.length - 1 ? [win, ' '] : [win];
+      }),
+    );
+  }
+
   function setStatic(index: number) {
     setTitle(PILLARS[index]);
+    setDescription(index);
     idRef.current!.textContent = PILLARS[index].id;
     for (const word of stickyRef.current!.querySelectorAll('.sw-in')) {
       word.classList.remove('is-out', 'is-below', 'is-enter');
@@ -177,6 +197,7 @@ export function Pillars() {
 
     s.swapTimer = setTimeout(() => {
       idRef.current!.textContent = PILLARS[index].id;
+      setDescription(index, 'is-below');
       for (const group of groups) {
         const parts = [...group.querySelectorAll<HTMLElement>('.sw-in')];
         for (const part of parts) part.classList.replace('is-out', 'is-below');
@@ -395,7 +416,7 @@ export function Pillars() {
             /03
           </p>
           <p className="pillar-copy__desc">
-            <Words text={DESCRIPTION} />
+            <Words text={first.desc} />
           </p>
         </div>
 

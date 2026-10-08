@@ -53,13 +53,13 @@
   --tick-dim:     0.13;
   --head-top:     calc(39 * var(--u));
   --head-h:       calc(43 * var(--u));
-  --logo-w:       calc(122.08 * var(--u));
+  --logo-w:       calc(94.34 * var(--u));
   --btn-w:        calc(109.58 * var(--u));
   --btn-pad:      calc(14 * var(--u));
   --btn-gap:      calc(7.5 * var(--u));
   --btn-radius:   calc(3 * var(--u));
   --fs-title:     calc(27.12 * var(--u));
-  --title-dx:     calc(6.06 * var(--u));
+  --title-dx:     calc(0.06 * var(--u));
   --title-gap:    calc(5.5 * var(--u));
   --cta-bottom:   calc(32 * var(--u));
   --cta-mid:      calc(9 * var(--u));
@@ -79,7 +79,7 @@
   --info-r-dy:    calc(284 * var(--u));
   --para-dy:      calc(492 * var(--u));
   --para-dx:      calc(7.5 * var(--u));
-  --para-w:       calc(320 * var(--u));
+  --para-w:       calc(330 * var(--u));
   --glow-x:       calc(1329 * var(--u));
   --glow-y:       calc(168 * var(--u));
   --glow-w:       calc(2602 * var(--u));
@@ -128,7 +128,7 @@
   --lh-join:          calc(62 * var(--u));
   --join-title-dy:    calc(-220.4 * var(--u));
   --join-text-dy:     calc(6.5 * var(--u));
-  --join-text-w:      calc(290 * var(--u));
+  --join-text-w:      calc(320 * var(--u));
   --lh-join-text:     calc(16 * var(--u));
   --join-field-dy:    calc(103.5 * var(--u));
   --join-field-w:     calc(462 * var(--u));
@@ -150,8 +150,7 @@
 
   /* 08–09 Travel product, footer */
   --travel-h:      calc(1042 * var(--u));
-  --travel-fade:    calc(480 * var(--u));
-  --ft-glow-bottom: calc(-1528 * var(--u));
+  --ft-glow-top:    calc(-1318 * var(--u));
   --ft-fs:         calc(184.4 * var(--u));
   --ft-lh:         calc(135.86 * var(--u));
   --ft-dy:         calc(-262.8 * var(--u));
@@ -203,7 +202,7 @@
     --head-h:      calc(56 * var(--mu));
     --tick-h:      calc(16 * var(--mu));
     --ticks-top:   calc(12 * var(--mu));
-    --logo-w:      calc(98 * var(--mu));
+    --logo-w:      calc(94.34 * var(--mu));
     --fs-cta:      calc(12 * var(--mu));
     --btn-bottom:  calc(24 * var(--mu));
     --btn-h-m:     calc(58 * var(--mu));
@@ -268,7 +267,7 @@
     /* 08–09 Travel product, footer */
     --tp-s:          calc(330 * var(--mu));
     --travel-h:      calc(700 * var(--mu));
-    --travel-fade:   calc(300 * var(--mu));
+    --ft-glow-top:   calc(-659 * var(--mu));
     --ft-fs:         calc(68 * var(--mu));
     --ft-lh:         calc(50 * var(--mu));
     --ft-dy:         calc(-250 * var(--mu));

@@ -489,3 +489,17 @@ mobil — regulile s-au citit din clasele Tailwind din DOM-ul arhivat: `lg` = 10
 - Testat: Chrome (390 × 844, 375 × 667, 768 × 1024, 844 × 390, 1280 × 800), WebKit (iPhone 13,
   flux complet home → shop → coș → home) și Firefox: fără erori, 3D încărcat peste tot.
 - ⚠️ Pe telefon real nu s-a testat încă (iOS Safari: bara de URL, performanța a 4 contexte WebGL).
+
+## 2026-10-08 — macheta nouă (Homepage-new.pdf), favicon
+
+- `docs/reference/Homepage.pdf` = macheta nouă; cea veche e `Homepage-v1.pdf`.
+- Zona 8: fundal deschis cu elipsa albastră care urcă de jos (rebake `tools/extract_footer.py`);
+  estomparea spre navy (`.travel::after`) scoasă — nu mai are sens. Banda deschisă a header-ului
+  acoperă acum toată zona 8.
+- Footer: strălucirea hero-ului ancorată SUS (`--ft-glow-top`, −1318), ca lumina să continue din zona 8.
+- Favicon `src/app/icon.png` (32) și webclip `src/app/apple-icon.png` (256) — Next le leagă singur.
+- Conținutul nou aplicat (user, 2026-10-08): header SKIN COLLECTION (--title-dx recentrat: 0.06),
+  Pillars = FOAM CLEANSER / ACTIVE SERUM / BARRIER CREAM, fiecare cu descrierea lui (cuvintele se
+  reconstruiesc la schimbare: `setDescription`), tagline K1 / COOL…, texte noi în hero, Ancient Wisdom,
+  Join (butonul JOIN CLUB), footer (CONTACT). CTA-urile rămân TAKE QUIZ / BUY NOW (cererea userului,
+  deși macheta nouă zice JOIN CLUB). Logo nou (`logo-new.svg`, 94.34 × 18.79) peste tot.

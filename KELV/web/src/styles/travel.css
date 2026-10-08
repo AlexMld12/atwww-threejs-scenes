@@ -12,52 +12,6 @@
   height: 100%;
   object-fit: cover;
 }
-/* not in Figma (the client's request): the light corners fade into the footer's navy instead of a hard edge */
-.travel::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: var(--travel-fade);
-  /* smoothstep stops (navy = --c-navy): a linear ramp starts with a kink the eye reads as a line */
-  background: linear-gradient(
-    to bottom,
-    rgb(3 15 56 / 0.0000) 0.00%,
-    rgb(3 15 56 / 0.0029) 3.12%,
-    rgb(3 15 56 / 0.0112) 6.25%,
-    rgb(3 15 56 / 0.0247) 9.38%,
-    rgb(3 15 56 / 0.0430) 12.50%,
-    rgb(3 15 56 / 0.0656) 15.62%,
-    rgb(3 15 56 / 0.0923) 18.75%,
-    rgb(3 15 56 / 0.1226) 21.88%,
-    rgb(3 15 56 / 0.1562) 25.00%,
-    rgb(3 15 56 / 0.1928) 28.12%,
-    rgb(3 15 56 / 0.2319) 31.25%,
-    rgb(3 15 56 / 0.2733) 34.38%,
-    rgb(3 15 56 / 0.3164) 37.50%,
-    rgb(3 15 56 / 0.3610) 40.62%,
-    rgb(3 15 56 / 0.4067) 43.75%,
-    rgb(3 15 56 / 0.4532) 46.88%,
-    rgb(3 15 56 / 0.5000) 50.00%,
-    rgb(3 15 56 / 0.5468) 53.12%,
-    rgb(3 15 56 / 0.5933) 56.25%,
-    rgb(3 15 56 / 0.6390) 59.38%,
-    rgb(3 15 56 / 0.6836) 62.50%,
-    rgb(3 15 56 / 0.7267) 65.62%,
-    rgb(3 15 56 / 0.7681) 68.75%,
-    rgb(3 15 56 / 0.8072) 71.88%,
-    rgb(3 15 56 / 0.8438) 75.00%,
-    rgb(3 15 56 / 0.8774) 78.12%,
-    rgb(3 15 56 / 0.9077) 81.25%,
-    rgb(3 15 56 / 0.9344) 84.38%,
-    rgb(3 15 56 / 0.9570) 87.50%,
-    rgb(3 15 56 / 0.9753) 90.62%,
-    rgb(3 15 56 / 0.9888) 93.75%,
-    rgb(3 15 56 / 0.9971) 96.88%,
-    rgb(3 15 56 / 1.0000) 100.00%
-  );
-  pointer-events: none;
-}
-
 .travel-product {
   position: fixed;
   left: calc(50% + var(--tp-x, 0px));

@@ -3,7 +3,7 @@ import type { Ref } from 'react';
 import { Mega } from '@/components/ui/Mega';
 import { Reveal } from '@/components/ui/Reveal';
 
-const INFO = 'Three steps back to baseline. Three steps back to baseline.';
+const INFO = 'Three steps back to baseline. Cool. Calm. Seal. Repeat.';
 
 interface HeroProps {
   /** The Figma render's box: the 3D canvas is laid over it, and it is the no-WebGL fallback. */
@@ -42,7 +42,7 @@ export function Hero({ productsRef, copy = false }: HeroProps) {
         {INFO}
       </Reveal>
       <Reveal className="hero__para" lines>
-        Pump 2 doses onto damp skin foded ripsid doses onto damp skin foded.
+        Cool. Calm. Seal. A daily recovery routine for skin under pressure.
       </Reveal>
     </section>
   );

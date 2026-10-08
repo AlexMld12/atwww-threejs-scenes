@@ -1,20 +1,16 @@
 """Extrage din macheta Figma fundalul zonei 8 (produsul care se rotește spre footer).
 
-Zona 8: cadrul 7219 → 8261 (1042 px), un gradient de la deschis (#F0F8FC) sus la navy jos
-(imaginea xref 30 din PDF). Se COACE din randarea PDF-ului, fără produs, header și CTA-uri:
+Zona 8: cadrul 7219 → 8261 (1042 px). Macheta din 2026-10-08: fundal deschis (#F0F8FC) cu o
+elipsă albastră (xref 30) care urcă de jos și continuă în footer. Se COACE din randarea PDF-ului,
+fără produs, header și CTA-uri:
   · produsul (xref 12): se șterge `/<nume> Do` din flux (vezi extract_pillars.py — NU
     `replace_image`, care lasă un dreptunghi negru);
   · header-ul și CTA-urile: redactare cu `fill=False`.
 
 Iese web/public/images/section8-bg.webp (2880 × 2084, 2× cadrul).
 
-Footer-ul (8261 → 9111) NU are fundal propriu: e navy (#030F38) + aceeași strălucire ca
-hero-ul, la aceleași coordonate (xref 24 are exact dimensiunile și poziția lui xref 126),
-deci refolosește `hero-glow.webp`.
-
-Pragul temei (unde header-ul redevine alb): contrastul WCAG al textului alb față de cel
-#17110F pe gradient se egalează la y = 792 din 1042 → 0.76 din înălțime. Valoarea stă în
-`data-theme-end` pe secțiune (index.html).
+Footer-ul (8261 → 9111) NU are fundal propriu: e navy (#030F38) + strălucirea hero-ului (xref 126),
+acum ancorată SUS: începe la 6943, adică 1318 px deasupra footer-ului (--ft-glow-top).
 
 Rulare:  python tools/extract_footer.py     (pymupdf, pillow)
 """

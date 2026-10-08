@@ -38,7 +38,7 @@ export function Join({ ref }: { ref?: Ref<HTMLElement> }) {
           </Reveal>
         </h2>
         <Reveal className="join__text mono" delay={0.2} lines>
-          Lorem ipsum dolor sit amet consectetur. Ultricies sagittis id lorem id enim velit
+          Get KELV routine notes, product news and daily recovery tips.
         </Reveal>
 
         <form className="join__form" noValidate onSubmit={onSubmit}>
@@ -88,7 +88,7 @@ export function Join({ ref }: { ref?: Ref<HTMLElement> }) {
             </label>
           </div>
           <button className="join__send mono" type="submit" disabled={!canSend} data-roll-host="">
-            <RollText text="Send form" />
+            <RollText text="Join club" />
             <ArrowIcon />
           </button>
         </form>

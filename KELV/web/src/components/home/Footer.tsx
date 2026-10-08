@@ -25,10 +25,10 @@ export function Footer({ ref }: { ref?: Ref<HTMLElement> }) {
       />
       <Mega className="footer__mega" />
       <Reveal className="footer__info mono" delay={0.2} lines>
-        Three steps back to baseline. Three steps back to baseline.
+        Three steps back to baseline. Cool. Calm. Seal. Repeat.
       </Reveal>
       <Reveal as="nav" className="footer__bar mono" delay={0.3} aria-label="Footer">
-        <a href="#contacts">Contacts</a>
+        <a href="#contacts">Contact</a>
         <span className="footer__policies">
           {POLICIES.map((policy) => (
             <PageLink key={policy.href} href={policy.href}>
