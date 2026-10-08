@@ -6,6 +6,7 @@ import { finishTask, type PreloadTask } from '@/lib/preload';
 import { useFrame } from '@/lib/scroll';
 import { WISDOM_LOOK } from '@/scene/wisdom-config';
 import type { WisdomScene } from '@/scene/wisdom-scene';
+import { isLayerPage } from '@/lib/page-layers';
 
 const TASKS: PreloadTask[] = ['wisdom-code', 'wisdom-data', 'wisdom-model', 'wisdom-compile'];
 const MAX_PIXEL_RATIO = 2;
@@ -76,7 +77,7 @@ export function useWisdomScene(section: RefObject<HTMLElement | null>, tile: Ref
   useFrame(() => {
     const current = scene.current;
     const host = section.current;
-    if (!current || !host || document.documentElement.classList.contains('sa-on')) return;
+    if (!current || !host || isLayerPage()) return;
     const vh = window.innerHeight;
     const rect = host.getBoundingClientRect();
     if (rect.bottom <= 0 || rect.top >= vh) return;

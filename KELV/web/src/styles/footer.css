@@ -72,3 +72,22 @@
 .loop .hero { pointer-events: none; }
 .footer__policies { display: flex; gap: var(--ft-bar-gap); }
 .footer__by { color: rgba(255, 255, 255, 0.2); }
+
+@media (max-width: 1023.98px) {
+  .footer { height: 100svh; }
+  .footer__glow { left: calc(50% - var(--glow-w) / 2); bottom: auto; top: calc(50% + var(--glow-dy)); }
+  .footer__mega { left: 50%; translate: -50% 0; }
+  .footer__info { left: var(--pad-edge); top: var(--ft-info-top); text-align: left; }
+  .footer__bar {
+    left: var(--pad-edge);
+    right: var(--pad-edge);
+    width: auto;
+    height: auto;
+    translate: none;
+    flex-direction: column;
+    gap: var(--ft-bar-gap);
+    padding: var(--ft-bar-pad);
+  }
+  .footer__policies { flex-wrap: wrap; justify-content: center; }
+  .loop { height: 100svh; }
+}

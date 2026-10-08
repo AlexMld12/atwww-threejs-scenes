@@ -12,7 +12,7 @@ import { cascade, useRevealed } from './cascade';
 const SCALE_TICKS = 55;
 const scaleX = (t: number) => 1.16 + (t - 27) * 48.84;
 const tickTemperature = (i: number) => 27 + (i * 8 + 2 - 1.16) / 48.84;
-const designUnits = (n: number) => `calc(${n.toFixed(2)} * var(--sa-u))`;
+const designUnits = (n: number) => `calc(${n.toFixed(2)} * var(--sa-scale-u, var(--sa-u)))`;
 const COUNT_FROM = 28;
 const COUNT_MS = 900;
 

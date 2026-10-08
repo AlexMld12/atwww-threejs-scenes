@@ -95,3 +95,25 @@
   white-space: nowrap;
 }
 .btn-shop svg { width: var(--arrow-w); height: auto; flex: none; }
+
+@media (max-width: 1023.98px) {
+  .ticks { top: var(--ticks-top); }
+  .head-title { display: none; }
+  .head-row { justify-content: center; }
+  .btn-shop {
+    position: fixed;
+    left: 50%;
+    bottom: var(--btn-bottom);
+    translate: -50% 0;
+    width: auto;
+    height: var(--btn-h-m);
+    padding: 0 var(--btn-pad);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  }
+  .cta {
+    top: calc(var(--head-top) + var(--head-h) / 2);
+    bottom: auto;
+    translate: 0 -50%;
+    font-size: var(--fs-cta);
+  }
+}

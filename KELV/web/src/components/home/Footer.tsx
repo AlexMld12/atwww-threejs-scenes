@@ -1,13 +1,14 @@
 import Image from 'next/image';
 import type { Ref } from 'react';
+import { PageLink } from '@/components/layers/PageLink';
 import { Mega } from '@/components/ui/Mega';
 import { Reveal } from '@/components/ui/Reveal';
 
 const POLICIES = [
-  { href: '#privacy', label: 'Privacy policy' },
-  { href: '#refund', label: 'Refund policy' },
-  { href: '#shipping', label: 'Shipping policy' },
-  { href: '#terms', label: 'Terms of use' },
+  { href: '/privacy-policy', label: 'Privacy policy' },
+  { href: '/terms-of-use#refunds', label: 'Refund policy' },
+  { href: '/terms-of-use#shipping', label: 'Shipping policy' },
+  { href: '/terms-of-use', label: 'Terms of use' },
 ];
 
 export function Footer({ ref }: { ref?: Ref<HTMLElement> }) {
@@ -30,9 +31,9 @@ export function Footer({ ref }: { ref?: Ref<HTMLElement> }) {
         <a href="#contacts">Contacts</a>
         <span className="footer__policies">
           {POLICIES.map((policy) => (
-            <a key={policy.href} href={policy.href}>
+            <PageLink key={policy.href} href={policy.href}>
               {policy.label}
-            </a>
+            </PageLink>
           ))}
         </span>
         <span className="footer__credit">

@@ -19,6 +19,9 @@ const RESIZE_DEBOUNCE_MS = 150;
 
 const RevealEnabled = createContext(true);
 
+/** Seconds added to every reveal below it (a page layer still sliding in). */
+export const RevealDelay = createContext(0);
+
 /** Renders its subtree in the final, revealed state (the hero copy at the end of the page). */
 export function StaticReveals({ children }: { children: ReactNode }) {
   return <RevealEnabled.Provider value={false}>{children}</RevealEnabled.Provider>;
@@ -39,8 +42,17 @@ interface RevealProps {
 }
 
 /** Blur + rise reveal (drinksom: opacity 0, y 30, blur 4, 0.8 s), played once in view. */
-export function Reveal({ as: Tag = 'p', className, delay = 0, lines = false, fx, children, ...rest }: RevealProps) {
+export function Reveal({
+  as: Tag = 'p',
+  className,
+  delay: ownDelay = 0,
+  lines = false,
+  fx,
+  children,
+  ...rest
+}: RevealProps) {
   const enabled = useContext(RevealEnabled);
+  const delay = ownDelay + useContext(RevealDelay);
   const { ready } = useScroll();
   const ref = useRef<HTMLElement>(null);
   const [shown, setShown] = useState(false);

@@ -77,3 +77,24 @@ html.no-3d .hero__placeholder { visibility: visible; }
   letter-spacing: var(--ls-body);
   text-align: center;
 }
+
+@media (max-width: 1023.98px) {
+  .hero { height: calc(var(--hero-screen) + var(--hero-rest)); }
+  .hero__glow {
+    left: calc(50% - var(--glow-w) / 2);
+    top: calc(var(--hero-screen) / 2 + var(--glow-dy));
+  }
+  .hero__placeholder {
+    left: calc(50% - var(--prod-w) / 2);
+    top: calc(var(--hero-screen) / 2 - var(--prod-h) / 2 + var(--prod-dy));
+  }
+  .hero__mega {
+    left: 50%;
+    top: calc(var(--hero-screen) + var(--mega-top));
+    translate: -50% 0;
+  }
+  .hero__info { width: var(--w-hero-info); font-size: var(--fs-hero-info); line-height: var(--lh-hero-info); }
+  .hero__info--l { left: 8%; top: calc(var(--hero-screen) * 0.26); }
+  .hero__info--r { right: 8%; top: calc(var(--hero-screen) * 0.62); }
+  .hero__para { left: 50%; top: calc(var(--hero-screen) + var(--para-top)); }
+}

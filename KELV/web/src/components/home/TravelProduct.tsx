@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, type RefObject } from 'react';
-import { clamp01, designScale, easeInOutCubic, lerp } from '@/lib/math';
+import { clamp01, designScale, easeInOutCubic, isMobile, lerp, mobileUnit } from '@/lib/math';
 import { cx } from '@/lib/css';
 import { useFrame } from '@/lib/scroll';
 import type { ProductName } from '@/scene/product-config';
@@ -13,6 +13,12 @@ const POSES = {
   join: { x: -5.85, y: 0.85, angle: 10.03 },
   middle: { x: -8.7, y: -6, angle: -15 },
   footer: { x: -10.85, y: -56.15, angle: 10.03 },
+};
+// Phones: under the form on 07, centred on 08, over the footer's title on 09 (mobile design px).
+const MOBILE_POSES = {
+  join: { x: 0, y: 250, angle: 10.03 },
+  middle: { x: 0, y: 0, angle: -15 },
+  footer: { x: 0, y: 40, angle: 10.03 },
 };
 const MODELS: ProductName[] = ['K1_COOL_Foam'];
 /** Share of section 7's pinned scroll before the product appears, so it does not cover the form. */
@@ -67,20 +73,22 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
       }
     }
 
+    const mobile = isMobile();
+    const poses = mobile ? MOBILE_POSES : POSES;
     const start = y + j.bottom - vh;
     const middle = y + z.top + z.height / 2 - vh / 2;
     const end = y + f.top;
-    let from = POSES.join;
-    let to = POSES.join;
+    let from = poses.join;
+    let to = poses.join;
     let t = 0;
     let turns = 0;
     if (y > start && y <= middle) {
-      to = POSES.middle;
+      to = poses.middle;
       t = easeInOutCubic(clamp01((y - start) / (middle - start)));
       turns = t;
     } else if (y > middle) {
-      from = POSES.middle;
-      to = POSES.footer;
+      from = poses.middle;
+      to = poses.footer;
       t = easeInOutCubic(clamp01((y - middle) / (end - middle)));
       turns = 1 + t;
     }
@@ -92,7 +100,7 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
       s.fade = fade;
       el.style.opacity = fade < 1 ? fade.toFixed(3) : '';
     }
-    const scale = designScale();
+    const scale = mobile ? mobileUnit() : designScale();
     el.style.setProperty('--tp-x', `${(lerp(from.x, to.x, t) * scale).toFixed(2)}px`);
     el.style.setProperty('--tp-y', `${(lerp(from.y, to.y, t) * scale - past).toFixed(2)}px`);
     const angle = lerp(from.angle, to.angle, t);

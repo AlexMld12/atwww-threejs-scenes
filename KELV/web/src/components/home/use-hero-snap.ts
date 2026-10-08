@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { designScale, easeOutCubic } from '@/lib/math';
+import { designScale, easeOutCubic, isMobile } from '@/lib/math';
 import { useScroll } from '@/lib/scroll';
+import { isLayerPage } from '@/lib/page-layers';
 
 const IDLE_MS = 140;
 const MAX_DISTANCE = 350;
@@ -21,7 +22,8 @@ export function useHeroSnap() {
       clearTimeout(timer);
       if (snapping) return;
       timer = setTimeout(() => {
-        if (document.documentElement.classList.contains('sa-on')) return;
+        // Touch scrolls in short flicks: snapping back would trap the reader in the hero.
+        if (isLayerPage() || isMobile()) return;
         const y = lenis.scroll;
         if (y <= 2 || y >= MAX_DISTANCE * designScale() || lenis.isScrolling) return;
         snapping = true;

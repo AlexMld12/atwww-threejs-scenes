@@ -7,6 +7,7 @@ import { cx } from '@/lib/css';
 import { EMAIL, ERROR_CONSENT, ERROR_EMAIL, STEPS, isAnswered, type Answers, type Step } from '@/analysis/logic';
 import { Button } from './Button';
 import { cascade, useRevealed } from './cascade';
+import { PageLink } from '@/components/layers/PageLink';
 
 export const OUT_MS = 260;
 const HEIGHT_TRANSITION = 'height 0.6s cubic-bezier(0.76, 0, 0.24, 1)';
@@ -255,7 +256,7 @@ function ContactBody({
           }}
         />
         <span>
-          By submitting, you agree to our <a href="#privacy">Privacy policy</a>
+          By submitting, you agree to our <PageLink href="/privacy-policy">Privacy policy</PageLink>
         </span>
       </label>
       <FieldError message={consentError ? ERROR_CONSENT : null} />

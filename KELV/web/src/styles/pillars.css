@@ -1,4 +1,5 @@
 .pillars {
+  --pl-u: var(--u);
   position: relative;
   height: 320vh;
   z-index: 3;
@@ -168,3 +169,18 @@
   cursor: grab;
 }
 .pillars__sticky:not(.is-on) .pillar-product__hit { pointer-events: none; }
+
+@media (max-width: 1023.98px) {
+  .pillars { --pl-u: calc(0.56 * min(var(--mu), 100svh / 844)); height: 280vh; }
+  .pillars__sticky, .zoom-card { height: 100svh; }
+  .pillar-title { left: 50%; top: var(--pl-title-top); translate: -50% 0; text-align: center; }
+  .pillar-copy {
+    left: 50%;
+    top: auto;
+    bottom: var(--pl-copy-bottom);
+    translate: -50% 0;
+    text-align: center;
+  }
+  .pillar-copy__desc { font-size: var(--fs-body-m); line-height: var(--lh-body-m); }
+  .pillar-tag { bottom: var(--pl-tag-bottom); }
+}

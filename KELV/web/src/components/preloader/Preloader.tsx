@@ -7,6 +7,7 @@ import { prefersReducedMotion } from '@/lib/math';
 import { preloadProgress } from '@/lib/preload';
 import { useFrame, useScroll } from '@/lib/scroll';
 import { Counter } from './Counter';
+import { isLayerPage } from '@/lib/page-layers';
 
 // GSAP's eases as CSS curves (power2 = cubic, power3 = quart).
 const EASE = {
@@ -158,7 +159,7 @@ export function Preloader() {
   useEffect(() => {
     if (!booted) return;
     const frame = requestAnimationFrame(() => {
-      if (document.documentElement.classList.contains('sa-on')) {
+      if (isLayerPage()) {
         reveal();
         setActive(false);
         return;

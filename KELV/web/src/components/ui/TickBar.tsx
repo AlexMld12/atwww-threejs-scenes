@@ -37,8 +37,9 @@ export function TickBar({ progress, topToken = '--pad-edge', className }: TickBa
       style.setProperty('--tk-h', `${height}px`);
       style.setProperty('--tk-x', `${x}px`);
       style.setProperty('--tk-y', `${y}px`);
-      style.setProperty('--tk-len', `${length}px`);
       total.current = Math.floor((length - width) / pitch) + 1;
+      // Only whole ticks: a cut-off last one could never light up.
+      style.setProperty('--tk-len', `${(total.current - 1) * pitch + width}px`);
       lit.current = -1;
     };
 

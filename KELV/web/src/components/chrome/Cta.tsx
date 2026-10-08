@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { PageLink } from '@/components/layers/PageLink';
 import { cx } from '@/lib/css';
 
-/** JOIN CLUB / BUY NOW: the underline sweep always finishes, and a new hover restarts it. */
+/** TAKE QUIZ / BUY NOW: the underline sweep always finishes, and a new hover restarts it. */
 export function Cta({
   href,
   className,
@@ -22,7 +23,7 @@ export function Cta({
   };
 
   return (
-    <a
+    <PageLink
       className={cx('cta mono', className)}
       href={href}
       tabIndex={hidden ? -1 : undefined}
@@ -35,6 +36,6 @@ export function Cta({
         aria-hidden="true"
         onAnimationEnd={() => setSweeping(false)}
       />
-    </a>
+    </PageLink>
   );
 }

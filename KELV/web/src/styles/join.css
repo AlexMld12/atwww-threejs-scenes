@@ -176,3 +176,9 @@
 .field.is-error ~ .join__send { top: calc(var(--join-send-dy) - var(--join-field-dy) + var(--join-error-shift)); }
 .join__send:disabled { opacity: 0.2; cursor: not-allowed; }
 .join__send svg { width: var(--arrow-w); height: auto; flex: none; }
+
+@media (max-width: 1023.98px) {
+  .join__sticky { height: 100svh; }
+  .join__title { top: calc(50% + var(--join-title-dy)); }
+  .consent__label { white-space: normal; }
+}

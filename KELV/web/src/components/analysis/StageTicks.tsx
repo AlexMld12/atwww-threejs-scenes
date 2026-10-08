@@ -39,9 +39,10 @@ export function StageTicks({ progress, active, measureKey, instant }: StageTicks
         bar.style.setProperty('--tk-w', `${width}px`);
         bar.style.setProperty('--tk-p', `${pitch}px`);
         bar.style.setProperty('--tk-h', `${height}px`);
-        bar.style.setProperty('--tk-len', `${length}px`);
         const counter = counters.current[i];
         counter.total = Math.floor((length - width) / pitch) + 1;
+        // Only whole ticks: a cut-off last one could never light up.
+        bar.style.setProperty('--tk-len', `${(counter.total - 1) * pitch + width}px`);
         counter.target = counter.lit = Math.round(latest.current[i] * counter.total);
         bar.style.setProperty('--lit', String(counter.lit));
       });

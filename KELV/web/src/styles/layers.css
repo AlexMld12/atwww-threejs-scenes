@@ -1,0 +1,37 @@
+html[data-page] { background: var(--c-light); color-scheme: light; }
+html[data-page] body { background: var(--c-light); }
+html[data-page] .home {
+  position: fixed;
+  inset: 0 0 auto 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+html.layer-anim.lenis-stopped { overflow-y: scroll; }
+
+.page-layer {
+  position: relative;
+  z-index: 80;
+  min-height: 100vh;
+  display: none;
+}
+html[data-page='sa'] .sa,
+html[data-page='shop'] .shop,
+.page-layer.is-moving { display: block; }
+.page-layer.is-moving {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  overflow: hidden;
+}
+
+.layer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: #01081f;
+  opacity: 0;
+  pointer-events: none;
+  display: none;
+}
+html.layer-anim .layer-scrim { display: block; }

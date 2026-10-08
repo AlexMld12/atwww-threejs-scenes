@@ -108,3 +108,17 @@
   font-weight: 500;
   line-height: var(--lh-w-text);
 }
+
+@media (max-width: 1023.98px) {
+  .gallery { height: 260vh; }
+  .gallery__sticky { height: 100svh; }
+  .gallery__zoom { --gh: calc((100svh - 6 * var(--g-gap)) / 3); }
+  .wisdom__title {
+    left: 50%;
+    top: var(--w-title-top);
+    bottom: auto;
+    translate: -50% 0;
+    text-align: center;
+  }
+  .wisdom__text { left: 50%; translate: -50% 0; text-align: center; }
+}

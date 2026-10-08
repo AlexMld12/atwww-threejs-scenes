@@ -3,7 +3,16 @@
 import Image from 'next/image';
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { Lines, Words } from '@/components/ui/Words';
-import { designLength, designScale, clamp01, easeInOutCubic, easeInOutSine, easeOutExpo, lerp } from '@/lib/math';
+import {
+  designScale,
+  clamp01,
+  easeInOutCubic,
+  easeInOutSine,
+  easeOutExpo,
+  isMobile,
+  lerp,
+  mobileUnit,
+} from '@/lib/math';
 import { cx, type CSSVars } from '@/lib/css';
 import { useFrame } from '@/lib/scroll';
 import type { ProductName } from '@/scene/product-config';
@@ -64,6 +73,8 @@ const CLICK_SPIN_S = 1.2;
 const SPIN_FROM = 0.1;
 const SPIN_EASE = 0.1;
 const RING_FADE_MS = 400;
+// On phones the whole stage (product, rings) is the desktop one at this share of the mobile unit.
+const MOBILE_STAGE = 0.56;
 
 /** 02–04 (drinksom power-pillars): everything swaps at B = 0.5, while the product is edge-on. */
 export function Pillars() {
@@ -248,7 +259,7 @@ export function Pillars() {
 
     const from = PILLARS[d].product;
     const to = PILLARS[Math.min(d + 1, n - 1)].product;
-    const scale = designScale();
+    const scale = isMobile() ? MOBILE_STAGE * Math.min(mobileUnit(), viewport / 844) : designScale();
     const product = productRef.current!.style;
     product.setProperty('--py', `${lerp(from.y, to.y, b) * scale}px`);
     product.setProperty('--ps', `${PRODUCT_SIZE * scale}px`);
@@ -328,9 +339,9 @@ export function Pillars() {
                 viewBox={`0 0 ${2 * ring.r} ${2 * ring.r}`}
                 style={
                   {
-                    '--rx': designLength(ring.x),
-                    '--ry': designLength(ring.y),
-                    '--rr': designLength(ring.r),
+                    '--rx': `calc(${ring.x} * var(--pl-u))`,
+                    '--ry': `calc(${ring.y} * var(--pl-u))`,
+                    '--rr': `calc(${ring.r} * var(--pl-u))`,
                   } as CSSVars
                 }
               >

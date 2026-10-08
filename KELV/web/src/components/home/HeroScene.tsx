@@ -6,6 +6,7 @@ import { finishTask, type PreloadTask } from '@/lib/preload';
 import { useFrame, useScroll } from '@/lib/scroll';
 import { INTRO_DURATION, LOOK, REST_TIME } from '@/scene/config';
 import type { HeroScene as Scene } from '@/scene/hero-scene';
+import { isLayerPage } from '@/lib/page-layers';
 
 const HERO_TASKS: PreloadTask[] = ['hero-code', 'hero-data', 'hero-model', 'hero-lut', 'hero-compile'];
 
@@ -61,7 +62,7 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     const state = last.current;
     const viewport = window.innerHeight;
 
-    const target = document.documentElement.classList.contains('sa-on')
+    const target = isLayerPage()
       ? undefined
       : targets
           .map((t) => t.current)

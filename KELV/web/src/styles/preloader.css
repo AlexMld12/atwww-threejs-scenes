@@ -7,8 +7,8 @@
   background: var(--c-light);
   color: var(--c-dark);
 }
-html:not(.js) .preloader, html.sa-on .preloader { display: none; }
-html.js:not(.sa-on):has(.preloader) { background: var(--c-light); }
+html:not(.js) .preloader, html[data-page] .preloader { display: none; }
+html.js:not([data-page]):has(.preloader) { background: var(--c-light); }
 .ld-move { position: relative; display: block; }
 .ld-bar { position: relative; }
 
@@ -87,3 +87,9 @@ html.js:not(.sa-on):has(.preloader) { background: var(--c-light); }
   transition: top 0.6s var(--ease-p2o);
 }
 .ld-reel__strip > span { display: block; height: 0.85em; }
+
+@media (max-width: 1023.98px) {
+  .ld-side, .ld-loading { left: 50%; right: auto; translate: -50% 0; text-align: center; }
+  .ld-side { top: calc(50% - var(--ld-side-gap)); }
+  .ld-loading { top: calc(50% + var(--ld-side-gap)); }
+}

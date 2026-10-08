@@ -1,40 +1,8 @@
-html.sa-on { background: var(--sa-bg); color-scheme: light; }
-html.sa-on body { background: var(--sa-bg); }
-html.sa-on .home {
-  position: fixed;
-  inset: 0 0 auto 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-html.sa-anim.lenis-stopped { overflow-y: scroll; }
-
 .sa {
-  position: relative;
-  z-index: 80;
-  min-height: 100vh;
   background: var(--sa-bg);
   color: var(--sa-ink);
   font-family: var(--font-body);
-  display: none;
 }
-html.sa-on .sa, html.sa-anim .sa { display: block; }
-html.sa-anim .sa {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-}
-
-.sa-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 79;
-  background: #01081f;
-  opacity: 0;
-  pointer-events: none;
-  display: none;
-}
-html.sa-anim .sa-scrim { display: block; }
 
 .sa-head {
   position: relative;
@@ -673,4 +641,13 @@ html.sa-anim .sa-scrim { display: block; }
   font-size: var(--fs-sa-14);
   line-height: var(--lh-sa-17);
   color: var(--sa-muted);
+}
+
+@media (max-width: 1023.98px) {
+  .sa-title { display: none; }
+  .sa-stage__label { font-size: var(--fs-sa-stage); }
+  .sa-report { flex-direction: column; align-items: center; }
+  .sa-start__text { padding: 0 var(--sa-edge); }
+  .sa-buy { flex-wrap: wrap; }
+  .sa-buy .sa-btn--primary { width: 100%; }
 }

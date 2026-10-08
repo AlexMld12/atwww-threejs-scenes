@@ -7,15 +7,21 @@ export const easeInOutSine = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
 export const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 export const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
 
-/** Design px → CSS px, the same rule as the clamp() tokens: fixed below 1720 px, fluid above. */
-export const designScale = () => Math.max(1, window.innerWidth / 1720);
+export const MOBILE_MAX = 1023.98;
+export const isMobile = () => window.innerWidth <= MOBILE_MAX;
 
-/** A design px value as the clamp() expression used by the CSS tokens. */
-export function designLength(px: number) {
-  const abs = Math.abs(px);
-  const vw = (abs / 17.2).toFixed(5);
-  const value = `clamp(${abs}px, ${vw}vw, ${vw}vw)`;
-  return px < 0 ? `calc(-1 * ${value})` : value;
+/** Design px → CSS px, the `--u` of tokens.css: 1440 scaled on laptops, fixed to 1720, fluid above (1 on mobile). */
+export function designScale() {
+  const width = window.innerWidth;
+  if (width <= MOBILE_MAX) return 1;
+  if (width < 1440) return width / 1440;
+  return Math.max(1, width / 1720);
 }
+
+/** The `--mu` of tokens.css: a 390 px phone, grown up to 1.4× on tablets. */
+export const mobileUnit = () => Math.min(window.innerWidth / 390, window.innerHeight / 640, 1.4);
+
+/** A design px value in the tokens' unit. */
+export const designLength = (px: number) => `calc(${px} * var(--u))`;
 
 export const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;

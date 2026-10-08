@@ -435,3 +435,57 @@ Figma injectate) — toate ≤ 1 px (1 px = marginile pe jumătăți de pixel al
   luminile se rotesc în jurul centrului cadrului, ca imaginea rotită) — un `rotate` CSS pe canvas
   l-ar fi înmuiat. Pillars rămân drepte. Capcană: variabila CSS a rezervei (`--tp-a`) rămânea
   scrisă de dinainte de 3D și dubla unghiul — se șterge când pornește 3D.
+
+
+## SHOP — /products, /products/[slug], cart, /privacy-policy, /terms-of-use (2026-10-08)
+
+Machetele: `docs/reference/shop/` (Product Overview, Filtering, Open, Product CMS, CART, Empty CART;
+originalele în `C:\ATWWW\KELV\`). Imaginile: `tools/extract_shop.py` → `public/images/shop/`.
+
+- **Straturi de pagină** (`src/lib/page-layers.ts`): quiz-ul și shop-ul sunt straturi peste home, în
+  același document (home-ul nu se demontează). O stivă: home → shop → quiz; acoperirea = cortina quiz-ului
+  (clip-path 1 s [.76,0,.24,1] + scrim 70 %), revenirea = cortina inversă la poziția de scroll salvată.
+  `html[data-page]` = stratul care e pagina (era `sa-on`); scriptul de boot îl pune pentru intrarea directă.
+  `PageLink`: dacă ținta e pagina de dedesubt, face Back (istoric curat).
+- În shop, între pagini: conținutul se stinge 0.35 s, se schimbă sus, apoi reveal-urile (cu `RevealDelay`
+  cât urcă cortina, ca la quiz).
+- Home: OPEN SHOP și BUY NOW → /products; JOIN CLUB → **TAKE QUIZ** (/skin-analysis) — cererea userului.
+- Filtrare: titlurile mari (All Products / KELV Skincare / Serum / Cleanser) filtrează grupurile; butoanele
+  de obiectiv (FOCUS…STAMINA) doar se comută (cererea userului: nu filtrează încă).
+- Coș local (`src/shop/cart.tsx`): ADD TO CART / BUY IT NOW adaugă și deschid sertarul; +/−, REMOVE,
+  subtotal, prag livrare gratuită 100 € (Figma: „$40.00 away" — valoarea pragului nu e în machetă).
+  Checkout-ul nu duce nicăieri (fără Shopify). Butonul de coș din raportul quiz-ului adaugă K1+K2+K3.
+- Conținut: Foam Cleanser = textele din Figma; Active Serum / Barrier Cream folosesc același șablon,
+  câmpurile lipsă au text provizoriu (`DRAFT` în `src/shop/catalog.ts`). FAQ 2–3 pentru K1: răspunsurile
+  nu sunt în Figma, scrise de mine — de confirmat.
+- Prețuri: Figma are „$45.44" pe pagina de produs și „€45.54" pe carduri; am folosit €45.54 peste tot.
+- Legal: fără machetă; titlu în header (PRIVACY POLICY / TERMS OF USE), aceeași tipografie, secțiuni
+  numerotate; text-draft generic de magazin online, **de verificat juridic**. Refund / Shipping policy
+  duc la secțiunile din Terms of use (#refunds, #shipping). Toate linkurile de privacy (footer home,
+  formularul Join, pasul 7 al quiz-ului, checkbox-ul RECEIVE UPDATES) duc la /privacy-policy.
+- Verificat 1440: aliniere per zonă față de Figma, majoritatea 0–1 px; greutatea titlurilor aleasă după
+  aria de cerneală (Expanded 800; „Discover All Products" / „More Informations" = 900).
+
+
+## MOBIL, TABLETĂ, LAPTOP (2026-10-08)
+
+Fără machetă de mobil: comportamentul din drinksom.eu (arhiva nu trece de preloader pe viewport de
+mobil — regulile s-au citit din clasele Tailwind din DOM-ul arhivat: `lg` = 1024 e pragul).
+- Unități: vezi CLAUDE.md „Regula de dimensiuni" (`--u`, `--mu`). 1024–1439 = Figma-ul de 1440
+  micșorat; regresia la 1440 verificată (aliniere 0 px).
+- Header (< 1024): liniuțele sus (12 / 20), rând la 49: TAKE QUIZ | logo | BUY NOW (mono 12),
+  titlul FOAM CLEANSER ascuns, OPEN SHOP fix jos la 24 px, centrat (ca butonul lor).
+- Hero: primul ecran (100svh) = produsele 3D centrate + cele două texte (26 % / 62 %); dedesubt
+  titlul mare scalat (68.3) și paragraful. Snap-ul hero-ului e oprit pe mobil (pe touch trăgea înapoi).
+- Pillars: coloană centrată (titlu la 14 %, text la 20 % de jos, tag deasupra butonului), scena
+  produsului = 0.56 × min(--mu, înălțime/844); 280vh.
+- Galerie: plăci care umplu ecranul (rândurile = (100svh − 6 goluri)/3, deci portret pe telefon,
+  ca la ei); scena REF_129 se încadrează singură în portret (runtime-ul colegului). Ancient Wisdom
+  centrat.
+- Join: aceeași compoziție, stivuită; produsul care călătorește apare sub formular; footer: titlul
+  mare scalat, bara pe coloană.
+- Shop / produs / legal / quiz: o coloană; coșul pe toată lățimea; raportul quiz-ului: scala la 0.72.
+- Preloader: cuvintele laterale deasupra / dedesubtul logo-ului.
+- Testat: Chrome (390 × 844, 375 × 667, 768 × 1024, 844 × 390, 1280 × 800), WebKit (iPhone 13,
+  flux complet home → shop → coș → home) și Firefox: fără erori, 3D încărcat peste tot.
+- ⚠️ Pe telefon real nu s-a testat încă (iOS Safari: bara de URL, performanța a 4 contexte WebGL).

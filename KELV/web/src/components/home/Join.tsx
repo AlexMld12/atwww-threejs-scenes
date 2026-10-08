@@ -5,6 +5,7 @@ import { ArrowIcon, ErrorIcon } from '@/components/ui/icons';
 import { Reveal } from '@/components/ui/Reveal';
 import { RollText } from '@/components/ui/RollText';
 import { cx } from '@/lib/css';
+import { PageLink } from '@/components/layers/PageLink';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -83,7 +84,7 @@ export function Join({ ref }: { ref?: Ref<HTMLElement> }) {
               </svg>
             </span>
             <label className="consent__label mono" htmlFor="join-consent">
-              By submitting, you agree to our <a href="#privacy">Privacy Policy</a>
+              By submitting, you agree to our <PageLink href="/privacy-policy">Privacy Policy</PageLink>
             </label>
           </div>
           <button className="join__send mono" type="submit" disabled={!canSend} data-roll-host="">

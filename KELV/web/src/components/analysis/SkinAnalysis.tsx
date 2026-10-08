@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Logo } from '@/components/ui/icons';
 import { useScroll } from '@/lib/scroll';
@@ -20,7 +19,8 @@ import { LETTERS, OUT_MS, QuestionCard } from './QuestionCard';
 import { ReportScreen } from './ReportScreen';
 import { StageTicks } from './StageTicks';
 import { StartScreen } from './StartScreen';
-import { useRouteTransition } from './use-route-transition';
+import { PageLink } from '@/components/layers/PageLink';
+import { usePageLayer } from '@/components/layers/use-page-layer';
 
 type Screen = 'start' | number | 'report';
 
@@ -50,7 +50,7 @@ export function SkinAnalysis() {
     setInstantProgress(true);
   }, []);
 
-  const { panel, scrim, goHome } = useRouteTransition(replayEntrance);
+  const panel = usePageLayer('sa', replayEntrance);
 
   const go = useCallback(
     (next: Screen) => {
@@ -140,7 +140,7 @@ export function SkinAnalysis() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const html = document.documentElement;
-      if (!html.classList.contains('sa-on') || html.classList.contains('sa-anim')) return;
+      if (html.dataset.page !== 'sa' || html.classList.contains('layer-anim')) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.matches('input, textarea')) return;
@@ -184,12 +184,11 @@ export function SkinAnalysis() {
 
   return (
     <>
-      <div ref={scrim} className="sa-scrim" aria-hidden="true" />
-      <div ref={panel} className="sa" id="skin-analysis">
+      <div ref={panel} className="sa page-layer" id="skin-analysis">
         <header className="sa-head">
-          <Link className="sa-logo" href="/" aria-label="KELV — home" onClick={goHome}>
+          <PageLink className="sa-logo" href="/" aria-label="KELV — home">
             <Logo degreeClassName="sa-logo__deg" />
-          </Link>
+          </PageLink>
           <p className="sa-title" aria-label="Skin analysis">
             <span className="sa-title__a">Skin</span>
             <span className="sa-title__b">Analysis</span>

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PageLink } from '@/components/layers/PageLink';
 import { cx } from '@/lib/css';
 import { ArrowIcon, Logo } from '@/components/ui/icons';
 import { RollText } from '@/components/ui/RollText';
@@ -13,21 +13,21 @@ export function Chrome({ dark = false }: { dark?: boolean }) {
       <header className="site-header">
         <Ticks />
         <div className="head-row">
-          <Link className="logo" href="/" aria-label="KELV — home" tabIndex={tabIndex}>
+          <PageLink className="logo" href="/" aria-label="KELV — home" tabIndex={tabIndex}>
             <Logo />
-          </Link>
+          </PageLink>
           <p className="head-title">
             <span className="head-title__a">Foam</span>
             <span className="head-title__b">Cleanser</span>
           </p>
-          <Link className="btn-shop" href="/skin-analysis" scroll={false} data-roll-host="" tabIndex={tabIndex}>
+          <PageLink className="btn-shop" href="/products" data-roll-host="" tabIndex={tabIndex}>
             <RollText text="Open shop" />
             <ArrowIcon />
-          </Link>
+          </PageLink>
         </div>
       </header>
-      <Cta className="cta--l" href="#club" label="Join club" hidden={dark} />
-      <Cta className="cta--r" href="#shop" label="Buy now" hidden={dark} />
+      <Cta className="cta--l" href="/skin-analysis" label="Take quiz" hidden={dark} />
+      <Cta className="cta--r" href="/products" label="Buy now" hidden={dark} />
     </div>
   );
 }
