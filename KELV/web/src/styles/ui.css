@@ -26,10 +26,10 @@ html.chrome-off .site-header a, html.chrome-off .site-header button { pointer-ev
 .cta__line {
   position: absolute;
   left: 0;
-  top: clamp(16px, 0.93023vw, 0.93023vw);
+  top: var(--cta-line-top);
   width: 100%;
   height: 0;
-  border-top: clamp(1px, 0.05814vw, 0.05814vw) solid currentColor;
+  border-top: var(--cta-line-w) solid currentColor;
   pointer-events: none;
 }
 
@@ -71,12 +71,6 @@ html.chrome-off .site-header a, html.chrome-off .site-header button { pointer-ev
 @media (hover: hover) { [data-roll-host]:not(:disabled):hover > svg { transform: rotate(-45deg); } }
 [data-roll-host]:not(:disabled):focus-visible > svg { transform: rotate(-45deg); }
 
-:root {
-  --rv-y:    clamp(30px, 1.74419vw, 1.74419vw);
-  --rv-blur: clamp(4px, 0.23256vw, 0.23256vw);
-  --rv-scale: 0.96;
-  --rv-ease: cubic-bezier(0.76, 0, 0.24, 1);
-}
 .js [data-reveal]:not(.rv-ready) { visibility: hidden; }
 .rv-line { display: block; }
 .js .rv {

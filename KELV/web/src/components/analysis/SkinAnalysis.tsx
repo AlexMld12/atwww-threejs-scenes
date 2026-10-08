@@ -1,10 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Logo } from '@/components/ui/icons';
-import { easeOutCubic, prefersReducedMotion } from '@/lib/math';
 import { useScroll } from '@/lib/scroll';
 import {
   STAGES,
@@ -17,20 +15,15 @@ import {
   skinReading,
   type Answers,
 } from '@/analysis/logic';
+import { LiveReading } from './LiveReading';
 import { LETTERS, OUT_MS, QuestionCard } from './QuestionCard';
 import { ReportScreen } from './ReportScreen';
 import { StageTicks } from './StageTicks';
 import { StartScreen } from './StartScreen';
-
-const PATH = '/skin-analysis';
-const TRANSITION_MS = 1000;
-const TRANSITION_EASE = 'cubic-bezier(0.76, 0, 0.24, 1)';
-const SCRIM_OPACITY = 0.7;
-const ENTER_DELAY = 0.4;
-const DIRECT_ENTRY_DELAY = 0.1;
-const LIVE_COUNT_MS = 450;
+import { useRouteTransition } from './use-route-transition';
 
 type Screen = 'start' | number | 'report';
+
 interface View {
   id: number;
   screen: Screen;
@@ -40,19 +33,9 @@ interface View {
 
 const isQuestion = (screen: Screen): screen is number => typeof screen === 'number';
 
-/**
- * /skin-analysis, opened from OPEN SHOP. It lives in the same document as the home page, so
- * the transition is continuous and the home keeps its scroll position, Lenis and 3D scene:
- * the panel slides up over the home (clip-path), then becomes the page (`html.sa-on`).
- * Back in the browser plays it in reverse.
- */
+/** /skin-analysis: lives in the same document as the home and slides over it (use-route-transition). */
 export function SkinAnalysis() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { lenis, setLoop, ready } = useScroll();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const scrimRef = useRef<HTMLDivElement>(null);
-  const wantsOpen = pathname === PATH;
+  const { lenis } = useScroll();
 
   const [answers, setAnswers] = useState<Answers>(emptyAnswers);
   const [screen, setScreen] = useState<Screen>('start');
@@ -61,105 +44,14 @@ export function SkinAnalysis() {
   const [entry, setEntry] = useState(0);
   const [instantProgress, setInstantProgress] = useState(true);
 
-  // ---- route transition ----
-  const route = useRef({ open: false, busy: false, homeY: 0, fromHome: false, started: false });
-
-  /** Replays the current screen's entrance after `delay` seconds (the page transition). */
   const replayEntrance = useCallback((delay: number) => {
     setEntry((key) => key + 1);
     setViews((list) => list.filter((v) => !v.leaving).map((v) => ({ ...v, delay })));
     setInstantProgress(true);
   }, []);
-  const wantsOpenRef = useRef(wantsOpen);
-  useEffect(() => {
-    wantsOpenRef.current = wantsOpen;
-  });
 
-  const play = useCallback(async (enter: boolean) => {
-    const panel = panelRef.current!;
-    const scrim = scrimRef.current!;
-    const clip = [{ clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0% 0 0 0)' }];
-    const dim = [{ opacity: 0 }, { opacity: SCRIM_OPACITY }];
-    const timing = { duration: TRANSITION_MS, easing: TRANSITION_EASE, fill: 'both' as const };
-    const slide = panel.animate(enter ? clip : clip.reverse(), timing);
-    const fade = scrim.animate(enter ? dim : dim.reverse(), timing);
-    await slide.finished.catch(() => {});
-    return () => {
-      slide.cancel();
-      fade.cancel();
-    };
-  }, []);
+  const { panel, scrim, goHome } = useRouteTransition(replayEntrance);
 
-  /** Plays transitions until the panel matches the URL (Back may be pressed mid-transition). */
-  const sync = useCallback(async () => {
-    const r = route.current;
-    if (!lenis || r.busy) return;
-    r.busy = true;
-    const html = document.documentElement;
-    const panel = panelRef.current!;
-
-    while (wantsOpenRef.current !== r.open) {
-      const panelY = window.scrollY;
-      lenis.stop();
-      html.classList.add('sa-anim');
-      if (wantsOpenRef.current) {
-        r.open = true;
-        r.fromHome = true;
-        r.homeY = window.scrollY;
-        panel.scrollTop = 0;
-        replayEntrance(ENTER_DELAY);
-        const finish = await play(true);
-        html.classList.add('sa-on');
-        html.classList.remove('sa-anim');
-        finish();
-        setLoop(false);
-        lenis.resize();
-        lenis.scrollTo(0, { immediate: true, force: true });
-      } else {
-        r.open = false;
-        // The panel becomes a fixed layer at the same content position; the home returns under it.
-        panel.scrollTop = panelY;
-        html.classList.remove('sa-on');
-        setLoop(true);
-        lenis.resize();
-        lenis.scrollTo(r.homeY, { immediate: true, force: true });
-        const finish = await play(false);
-        html.classList.remove('sa-anim');
-        finish();
-      }
-      lenis.start();
-    }
-    r.busy = false;
-  }, [lenis, play, replayEntrance, setLoop]);
-
-  useEffect(() => {
-    const r = route.current;
-    if (!lenis || r.started) return;
-    r.started = true;
-    // Direct entry: the boot script already set `sa-on`, the panel is the page.
-    if (document.documentElement.classList.contains('sa-on')) {
-      r.open = true;
-      setLoop(false);
-    }
-  }, [lenis, setLoop]);
-
-  useEffect(() => {
-    if (route.current.started) sync();
-  }, [wantsOpen, sync]);
-
-  useEffect(() => {
-    if (ready && route.current.open && !route.current.fromHome) {
-      replayEntrance(DIRECT_ENTRY_DELAY);
-    }
-  }, [ready, replayEntrance]);
-
-  const onHome = (event: MouseEvent) => {
-    event.preventDefault();
-    if (route.current.fromHome) router.back();
-    else router.push('/', { scroll: false });
-  };
-
-  // ---- screens ----
   const go = useCallback(
     (next: Screen) => {
       setInstantProgress(false);
@@ -225,7 +117,7 @@ export function SkinAnalysis() {
     go('start');
   };
 
-  // The cart line properties the quiz document asks for, ready for Shopify's /cart/add.js.
+  // The cart line properties from the quiz document, ready for Shopify's /cart/add.js.
   const addToCart = ({ subscription, product = 'recovery-kit' }: { subscription: boolean; product?: string }) => {
     const result = plan(answers);
     const { type, sens, heat, signs, routine, goal } = answers;
@@ -270,7 +162,7 @@ export function SkinAnalysis() {
     return () => document.removeEventListener('keydown', onKey);
   }, [advance, choose, go, screen]);
 
-  // ---- progress: half a step when the current step is answered, a full one after Continue ----
+  // Half a step once the current step is answered, a full one after Continue.
   const progress = useMemo(() => {
     const unit = (i: number) => {
       if (screen === 'report') return 1;
@@ -280,17 +172,22 @@ export function SkinAnalysis() {
     };
     return STAGES.map((stage) => stage.units.reduce((sum, i) => sum + unit(i), 0) / stage.units.length);
   }, [answers, done, screen]);
+
   const activeStage =
-    screen === 'start' ? -1 : screen === 'report' ? STAGES.length - 1 : STAGES.findIndex((s) => s.units.includes(screen));
+    screen === 'start'
+      ? -1
+      : screen === 'report'
+        ? STAGES.length - 1
+        : STAGES.findIndex((s) => s.units.includes(screen));
 
   const reading = useMemo(() => skinReading(answers), [answers]);
 
   return (
     <>
-      <div ref={scrimRef} className="sa-scrim" aria-hidden="true" />
-      <div ref={panelRef} className="sa" id="skin-analysis">
+      <div ref={scrim} className="sa-scrim" aria-hidden="true" />
+      <div ref={panel} className="sa" id="skin-analysis">
         <header className="sa-head">
-          <Link className="sa-logo" href="/" aria-label="KELV — home" onClick={onHome}>
+          <Link className="sa-logo" href="/" aria-label="KELV — home" onClick={goHome}>
             <Logo degreeClassName="sa-logo__deg" />
           </Link>
           <p className="sa-title" aria-label="Skin analysis">
@@ -343,30 +240,4 @@ export function SkinAnalysis() {
       </div>
     </>
   );
-}
-
-/** LIVE READING counts to each new value. */
-function LiveReading({ value }: { value: number | null }) {
-  const [shown, setShown] = useState(value);
-  const from = useRef(value);
-
-  useEffect(() => {
-    if (value === null || from.current === null || prefersReducedMotion()) {
-      from.current = value;
-      const frame = requestAnimationFrame(() => setShown(value));
-      return () => cancelAnimationFrame(frame);
-    }
-    const start = performance.now();
-    const origin = from.current;
-    let frame = requestAnimationFrame(function step(now) {
-      const k = Math.min(1, (now - start) / LIVE_COUNT_MS);
-      const current = origin + (value - origin) * easeOutCubic(k);
-      from.current = current;
-      setShown(Math.round(current * 10) / 10);
-      if (k < 1) frame = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
-
-  return <span className="sa-live__val">{shown === null ? '––.–' : formatReading(shown)}</span>;
 }

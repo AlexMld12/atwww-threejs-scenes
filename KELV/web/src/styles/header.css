@@ -3,10 +3,10 @@
   --hdr-tick: var(--c-ink);
   --hdr-btn-bg: var(--c-ink);
   --hdr-btn-fg: var(--c-black);
-  --lb-a: 0px;
-  --lb-b: 0px;
 }
 .chrome {
+  --lb-a: 0px;
+  --lb-b: 0px;
   position: fixed;
   inset: 0;
   z-index: 50;

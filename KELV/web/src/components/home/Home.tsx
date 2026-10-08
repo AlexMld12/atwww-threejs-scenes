@@ -8,12 +8,13 @@ import { Footer } from './Footer';
 import { Gallery } from './Gallery';
 import { Hero } from './Hero';
 import { HeroScene } from './HeroScene';
-import { useHeroSnap, useLightBand } from './hooks';
 import { Join } from './Join';
 import { Pillars } from './Pillars';
 import { TravelProduct } from './TravelProduct';
+import { useHeroSnap } from './use-hero-snap';
+import { useLightBand } from './use-light-band';
 
-/** Zone 8's baked gradient is light down to 76 % of its height. */
+// Zone 8's baked gradient is light down to 76 % of its height.
 const ZONE_LIGHT_END = 0.76;
 
 export function Home() {

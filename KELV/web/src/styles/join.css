@@ -88,14 +88,14 @@
 .field__error {
   display: flex;
   align-items: center;
-  gap: clamp(6px, 0.34884vw, 0.34884vw);
-  margin: clamp(6px, 0.34884vw, 0.34884vw) 0 0;
+  gap: var(--err-gap);
+  margin: var(--err-mt) 0 0;
   color: var(--c-orange);
-  font-size: clamp(10px, 0.58140vw, 0.58140vw);
+  font-size: var(--fs-err);
   letter-spacing: 0.12em;
 }
 .field__error[hidden] { display: none; }
-.field__error svg { width: clamp(14px, 0.81395vw, 0.81395vw); height: auto; flex: none; }
+.field__error svg { width: var(--err-icon); height: auto; flex: none; }
 
 .consent {
   position: absolute;
@@ -106,7 +106,7 @@
   gap: var(--join-box-gap);
   transition: opacity 0.3s ease-out, top 0.2s ease-out;
 }
-.field.is-error ~ .consent { top: calc(var(--join-consent-dy) - var(--join-field-dy) + clamp(20px, 1.16279vw, 1.16279vw)); }
+.field.is-error ~ .consent { top: calc(var(--join-consent-dy) - var(--join-field-dy) + var(--join-error-shift)); }
 .consent.is-disabled { opacity: 0.3; }
 .consent__box {
   position: relative;
@@ -173,6 +173,6 @@
   text-transform: uppercase;
   transition: opacity 0.3s ease-out, top 0.2s ease-out;
 }
-.field.is-error ~ .join__send { top: calc(var(--join-send-dy) - var(--join-field-dy) + clamp(20px, 1.16279vw, 1.16279vw)); }
+.field.is-error ~ .join__send { top: calc(var(--join-send-dy) - var(--join-field-dy) + var(--join-error-shift)); }
 .join__send:disabled { opacity: 0.2; cursor: not-allowed; }
 .join__send svg { width: var(--arrow-w); height: auto; flex: none; }

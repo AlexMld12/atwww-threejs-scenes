@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { cx, resolveLength, snapToDevicePixels } from '@/lib/css';
+import { cx, measureTicks } from '@/lib/css';
 import { STAGES } from '@/analysis/logic';
 
 const STEP_MS = 14;
@@ -15,10 +15,7 @@ interface StageTicksProps {
   instant: boolean;
 }
 
-/**
- * The four stage bars. Like the header bar, ticks are snapped to whole device pixels (the
- * design's 4 px on a 6.305 px pitch), and they light up one by one, like a counter.
- */
+/** The four stage bars: ticks snapped to device pixels, lit one by one like a counter. */
 export function StageTicks({ progress, active, measureKey, instant }: StageTicksProps) {
   const listRef = useRef<HTMLOListElement>(null);
   const bars = useRef<(HTMLSpanElement | null)[]>([]);
@@ -35,9 +32,7 @@ export function StageTicks({ progress, active, measureKey, instant }: StageTicks
     const measure = () => {
       if (!list.offsetWidth) return;
       const dpr = window.devicePixelRatio || 1;
-      const width = snapToDevicePixels(resolveLength(list, '--sa-tick-w'));
-      const pitch = snapToDevicePixels(resolveLength(list, '--sa-tick-pitch'));
-      const height = snapToDevicePixels(resolveLength(list, '--sa-tick-h'));
+      const { width, pitch, height } = measureTicks(list, '--sa-tick');
       bars.current.forEach((bar, i) => {
         if (!bar?.parentElement) return;
         const length = Math.floor(bar.parentElement.getBoundingClientRect().width * dpr) / dpr;

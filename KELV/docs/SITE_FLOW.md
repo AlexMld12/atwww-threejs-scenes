@@ -16,7 +16,7 @@ nu se trece la următoarea până când userul nu aprobă secțiunea curentă.
 | 02 | Mental Focus (01/03) | 1709 → 2559 | **în lucru** — secțiunea PILLARS (02–04), sticky, vezi mai jos |
 | 03 | Stamina Boost (02/03) | 2559 → 3409 | **în lucru** (în PILLARS) |
 | 04 | Imune Control (03/03) | 3409 → 4259 | **în lucru** (în PILLARS) |
-| 05 | Galeria (6 imagini + video) | 4259 → 5519 | **în lucru** — secțiunea GALLERY (05–06), vezi mai jos |
+| 05 | Galeria (6 imagini + scena 3D REF_129) | 4259 → 5519 | **în lucru** — secțiunea GALLERY (05–06), vezi mai jos |
 | 06 | Ancient Wisdom | 5519 → 6369 | **în lucru** (în GALLERY) |
 | 07 | Become Someone Powerful (formular email) | 6369 → 7219 | **în lucru** — vezi mai jos |
 | 08 | Zona de trecere (produsul se rotește) | 7219 → 8261 | **în lucru** — vezi mai jos |
@@ -27,11 +27,11 @@ nu se trece la următoarea până când userul nu aprobă secțiunea curentă.
 - `.site-header` — fix, z 50. `.ticks` cu `--ticks-lit` (câte liniuțe sunt aprinse) =
   progresul pe toată pagina: 0 sus, toate la capătul footer-ului (`src/components/chrome/Ticks.tsx`).
 - `.cta--l` / `.cta--r` (JOIN CLUB / BUY NOW) — fixe, la 32 px de jos, z 50; poziția
-  verticală din `--cta-shift` (0 jos → 1 mijloc), scrisă din scroll de gallery.js.
+  verticală din `--cta-shift` (0 jos → 1 mijloc), scrisă din scroll de `Gallery.tsx` pe straturile `.chrome`.
 - `.chrome` — stratul fix cu header-ul și CTA-urile; `src/components/chrome/Chrome.tsx` e randat de două ori, a doua oară ca
   `.chrome--dark` (#17110F, liniuțe portocalii, buton închis cu text alb). Originalul e
-  decupat FĂRĂ banda deschisă din ecran, clona DOAR pe ea (`--lb-a` / `--lb-b`, din
-  secțiunile `[data-theme="light"]`) → culoarea se schimbă pe pixel, exact unde marginea
+  decupat FĂRĂ banda deschisă din ecran, clona DOAR pe ea (`--lb-a` / `--lb-b` pe `.chrome`,
+  din `use-light-band.ts`) → culoarea se schimbă pe pixel, exact unde marginea
   secțiunii trece peste text (cererea userului: „ca difference, treptat").
 - `html.chrome-off` — header + CTA-uri ascunse (galeria).
 - `[data-roll-host]` + `[data-roll]` — ORICE buton cu text rulat literă cu literă și
@@ -166,9 +166,36 @@ codul lor sunt în antetul `src/components/home/Gallery.tsx`:
   strângerea golurilor (drinksom le are, macheta nu).
 - Plăcile (`tools/extract_gallery.py`): randate din PDF cu clip pe placă (decupaj și rotație
   exacte), cele două laterale din rândul 2 decupate din original (ies din pagină).
-- ⚠️ Video PROVIZORIU: `public/video/placeholder.mp4`, generat din imaginea plăcii din
-  mijloc (zoom lent 1 → 1.08 → 1, 8 s, buclă fără cusătură). Se încarcă doar când secțiunea
-  e la un ecran distanță. Userul trimite video-ul real.
+- Placa din mijloc = scena 3D **REF_129 „Ancient Wisdom"** a colegului (2026-10-08), în locul
+  video-ului provizoriu. Sursa: `C:\ATWWW\KELV\KELV_REF129_PREVIEW_DEVELOPER\`; `npm run wisdom -- <folder>`
+  → `public/wisdom/` (GLB 7.0 → 1.8 MB, meshopt + WebP 2048; manifestul și compositor-ul copiate).
+  Portată din `ref129-runtime.mjs` în `src/scene/wisdom-scene.ts` (+ `wisdom-config.ts` = valorile lor
+  implicite): luminile de suprafață cu putere pe cadru, light linking (Key/Fill/Top doar pe produse),
+  lens shift-ul camerei, lichidul dispenser-ului ca fundal închis. LUT-ul Filmic și postprocesarea sunt
+  identice cu ale hero-ului → refolosite (`scene/filmic.ts`, `/hero/filmic_lut.bin`).
+- Timpul (0 → 10 s) = trecerea întregii secțiuni: de când marginea ei de sus intră în ecran până la
+  capătul părții sticky (`use-wisdom-scene.ts`). Canvas-ul are mărimea la care ajunge placa când
+  acoperă ecranul și e micșorat în ea → clar la capătul zoom-ului. Se randează doar la schimbare.
+  Sub canvas rămâne imaginea plăcii din Figma (până se încarcă / dacă 3D-ul cade).
+- Potrivit pe placa din Figma (`video-poster.webp`, decupaj 705 × 400) la t = 5 s, pătrățele de 16 px
+  (harness CDP: `__kelvWisdom` + `__WISDOM_LOOK`, doar în dev): eroare 12.9 → 9.55. Valorile în
+  `wisdom-config.ts`: cadrul (zoom 1.205, deplasare NDC — Figma e mai strâns decât orice cadru al
+  clipului), dispenser-ul mutat pe raft (+10.7 mm x, +12 mm spre cameră; în Figma se suprapune peste K1),
+  sticla și capacul nuanțate albastru (transmisia păstrează 2.4× culoarea fundalului, nu 0.1 ca la
+  coleg), Top 4.57 / Fill 0.2. Peretele: harta de emisie (500 × 333, coloane în blocuri) netezită și
+  păstrată PNG în `optimize-wisdom.mjs` — WebP adăuga blocuri vizibile.
+- Reflexii și contur pe props-urile negre (user, 2026-10-08): mediul reflectat = peretele + raftul
+  (copii cu harta lor de emisie, PMREM din centrul produselor, nuanțat lavandă), nu culoarea plată a
+  lumii; plus contur Fresnel doar pe props (`propRim`, putere 12 = linii subțiri ca în Figma; la
+  putere 6 colțurile rotunjite se colorau larg). Sticla dispenser-ului: închisă (`#1c1d3c`) — în Cycles
+  pereții groși cu striații refractă lichidul închis; cu sticlă deschisă transmisia vedea peretele
+  luminos și ieșea lăptoasă. Conturul și sticla sunt alese vizual: metrica pe pătrățele nu vede liniile.
+- Mișcarea (user, 2026-10-08: „nu văd animația"): clipul colegului e minim (camera ±23 mm lateral, ±1.2°,
+  apropiere 11 %; produsele ±4–7°). Amplificată în jurul cadrului Figma (t = 5 s, `MOTION_PIVOT`):
+  lateral × 2.5, apropiere × 2, rotirea produselor × 2 (`motion`). Valorile se citesc din pistele
+  clipului (interpolanți), nu din nod — mixer-ul nu rescrie valorile neschimbate.
+- ⚠️ Nodurile din GLB-ul comprimat NU mai au transformare identitate (cuantizarea meshopt o pune în
+  nod) — orice corecție de poziție se ADUNĂ la poziția inițială.
 - Plăcile UMPLU lățimea (user, 2026-10-06): lățime = (secțiune − 3 × 10) / 2, proporția
   705 × 400 păstrată, golul orizontal 10 și cel vertical 20 (rândurile de 420 au 10 sus și
   10 jos). La 1440 ies exact pozițiile din machetă.
@@ -179,7 +206,6 @@ codul lor sunt în antetul `src/components/home/Gallery.tsx`:
   paragraful, CTA-urile și header-ul 0 px față de cadrul Ancient Wisdom.
 
 ### Deschise (galerie)
-- Video-ul real (de la user).
 - CTA-urile rămân pe mijloc doar cât ține Ancient Wisdom; în macheta secțiunilor 7–8 sunt
   tot la mijloc (top 416) — de stabilit când facem secțiunea 7.
 
@@ -245,7 +271,7 @@ codul lor sunt în antetul `src/components/home/Gallery.tsx`:
   Verificat: cadrul de la capăt = cadrul de la 0 (diferență medie 0, maximă 1/255); rotița
   în jos din footer → hero, în sus din hero → footer. Bara de liniuțe exclude copia.
   Produsul fix urcă odată cu footer-ul în buclă.
-- **Snap-ul din hero** (`useHeroSnap`, `src/components/home/hooks.ts`): după 140 ms fără scroll, sub 350 px de vârf →
+- **Snap-ul din hero** (`useHeroSnap`, `src/components/home/use-hero-snap.ts`): după 140 ms fără scroll, sub 350 px de vârf →
   înapoi sus în 1.2 s easeOutCubic. Pe drinksom nu s-a putut citi / măsura (modul încărcat
   la cerere; Lenis-ul lor nu rulează în Chrome automat) — tiparul e cel de pe secțiunea lor
   cu formularul. Verificat: 196 px → 0; 720 px → rămâne.
@@ -318,8 +344,94 @@ Figma injectate) — toate ≤ 1 px (1 px = marginile pe jumătăți de pixel al
 - **Lumina:** valorile lor + capac mai reflectant (2) + o lumină frontală joasă pe cremă.
   Ambientul colora produsele în albastru saturat; bloom cu prag 0 = ceață. Diferența rămasă:
   crema cu ~17/255 mai închisă, capacul mai puțin vizibil decât în Figma.
+- **Lumina potrivită pe Figma (2026-10-07)**, cererea userului: „mijlocul prea luminat, marginile
+  prea întunecate". Metoda (`tools/hero_fit/`): canvas-ul citit direct (`__kelvHero`, doar în dev)
+  față de `products-placeholder.webp`, ambele compuse peste fundalul paginii; culoarea medie pe
+  pătrățele de 16 px, pe produs (ser / Foam / cremă / capac / aura din jur); coborâre pe
+  coordonate peste toți parametrii din `LOOK`. Eroare medie 19.6 → ~9.7 (cremă 37 → 16, ser
+  18 → 8, capac 18 → 12.5). Ce a lipsit și s-a adăugat în model:
+  - **lumina indirectă a lui K1** (Cycles o calculează, realtime nu): lumini cât corpul lui K1,
+    pe suprafața lui, orientate spre fiecare vecin (`glowLights`, urmăresc animația); ricoșeul
+    vechi (8 lumini mici în toate direcțiile) ardea serul;
+  - `lift` pe cremă (auto-iluminare mică), a doua lumină de umplere mică pe umărul cremei;
+  - capacul: pereții luminați din interior → emisie Fresnel (`cap.edge`); fără ea capacul era
+    întunecat, cu ea „lăptos" dacă glow-ul e mare — ales vizual sticlă clară (glow 0.02);
+  - bloom: raza mare (3.9) scădea eroarea pe cremă, dar lăsa ceață peste fundal → raza 2.
+  Ipoteze respinse: vigneta (nu schimbă nimic măsurabil), materialele (etichetele nu sunt metalice).
+  Rămas: vârful serului ușor mai închis, inelul de pe fundul cremei (Figma: gradient lin), pompa
+  din capac mai moale decât în Figma.
 - **Mișcarea:** la încărcare intrarea lor 0 → 4 s (în timp), apoi scroll-ul prin hero derulează
   4 → 14 s (rotire + deschidere), înapoi la urcare. Fără plutire / mouse. „Reduce motion" =
   direct cadrul din Figma.
 - **Rezerva**: randarea din Figma apare doar cu `html.no-3d` (fără WebGL / GLB eșuat).
 - **De confirmat cu userul:** maparea pe scroll, lumina. Pillars + produsul care călătorește: încă imagini.
+
+## Curățenia codului și performanța la scroll (2026-10-07)
+
+- **Lag la scroll:** `--lb-a` / `--lb-b` / `--cta-shift` erau scrise pe `<html>` în fiecare cadru →
+  fiind moștenite, fiecare schimbare recalcula stilul întregului document. Măsurat cu CDP
+  (`Performance.getMetrics`, scroll cu rotița prin toată pagina, build de producție, headless):
+  recalcul de stil 1.18–1.28 s → 0.60–0.62 s (−50%), timp total 3.07–3.41 s → 2.59–2.66 s.
+  În repaus: zero recalculări, la orice poziție. Restul (~0.25 ms/cadru) e `setScroll` din
+  Lenis + citirile noastre de poziții, câte ~10 elemente — nu merită o fază citire/scriere.
+- Ipoteza „prea multe variabile pe `:root`" a fost testată (tokenii skin analysis mutați pe
+  `.sa`) și NU schimbă nimic măsurabil; mutarea a rămas pentru organizare.
+- Regresie vizuală: 25 de capturi (pas de 450 px) înainte / după — identice pixel cu pixel, în
+  afară de cadrul video-ului din galerie (rulează).
+- Codul: comentarii pe un rând, Prettier, hook-urile în `use-*.ts`, tranziția de rută scoasă
+  din `SkinAnalysis.tsx`, măsurarea liniuțelor comună (`measureTicks`), 78 de `clamp()` din
+  CSS mutate în tokeni. Peste 1720 px se schimbă imperceptibil 3 linii de 1 px și 2 decalaje din
+  skin analysis, care acum scalează ca restul (erau px fix).
+
+## 00 · PRELOADER (2026-10-07)
+
+- **Macheta:** `docs/reference/Loading Screen.pdf` (1440 × 850; originalul `C:\ATWWW\KELV\Loading Screen.pdf`).
+  Măsurat din PDF: liniuțele (ca în header, dar la y 15), logo-ul KELV° trasat din PDF (alte proporții
+  decât cel din header → `LoaderLogo`), „SKINCARE" ExtraCondensed 700 27.12 cu linia de bază pe
+  baza logo-ului, etichetele mono 13 (spațiere −0.025em, potrivită în browser), textul de jos mono
+  14 / 17, „75" Archivo Expanded 900, 200 px, −0.06875em, opacitate 0.07. Toate elementele ≤ 1 px
+  față de PDF (`?preloader=75` ține ecranul pe treapta asta, doar în dev).
+- **Comportamentul (din codul drinksom, chunk-ul cu „LOADING SŌM EXPERIENCE"):** intrarea pe GSAP
+  0 / 0.3 / 0.6 / 1.45 / 1.9 / 2.3 s (bară, logo, cuvânt, eticheta stângă, textul de jos, LOADING din
+  dreapta + puls 1 ↔ 0.35); numărul = role de cifre (0.6 s power2.out); ieșirea: elementele urcă și
+  se sting (stagger), apoi tot ecranul urcă 1.1 s power3.inOut; la 0.35 s în ieșire pornește
+  pagina (reveal-urile, intro-ul 3D). Fără GSAP: Web Animations, easing-urile convertite.
+- **Încărcare reală** (`src/lib/preload.ts`): sarcini ponderate în MB — codul three, datele scenei,
+  GLB-ul, LUT-ul, compilarea, scena REF_129 a galeriei (GLB + compilare).
+  Numărul: 0 → 25 → 50 → 75 → 100 când progresul afișat trece pragurile; afișatul = min(real, un ritm
+  de minimum 2.8 s), netezit. Plafon 20 s. GLB-urile produselor se adaugă ca o linie în `TASKS`.
+- „SKINCARE" din centru se rulează la fiecare treaptă (în Figma e surprins la jumătatea rulării).
+- **Performanță:** compilarea shaderelor era 6.4 s + ~7 s blocaj la prima randare (14 lumini de
+  suprafață; programele compilate pentru ecran, nu pentru ținta HDR). Acum: 9 lumini (din ricoșeul
+  lui K1 au rămas cele 3 spre ser — fit-ul neschimbat), compilare pe ținta reală + texturile urcate
+  în GPU din preloader → 100 la ~3.5–5 s, după ieșire cadre la 7 ms (p99).
+- Capcană: două `fetch` simultane pe același URL → unul cade cu ERR_CACHE_WRITE_FAILURE (StrictMode
+  montează scena de două ori în dev). `fetchWithProgress` refolosește cererea.
+
+## 02–04 PILLARS + 07–09 PRODUSUL CARE CĂLĂTOREȘTE — produsele 3D (2026-10-07)
+
+- **Sursa:** GLB-urile colegului (`C:\ATWWW\KELV\KELV_PACKSHOT_PREVIEW_DEVELOPER\`), comprimate cu
+  `npm run products -- <folderul assets>` (meshopt + WebP 2048) în `web/public/products/`: 6.6 → 1.6 MB.
+- **Cererea userului:** produsele DREPTE (unghiul din plan din Figma scos — și la Pillars, și la
+  produsul care călătorește), înclinare după mouse (±18°), tură la click, rotația de la scroll
+  (1.5 ture pe tranziție la Pillars, o tură pe etapă la 07–09) — comportamentul de dinainte.
+- **Randarea** (`src/scene/product-stage.ts`, `product-config.ts`): rig-ul PACKSHOT al colegului
+  (lumină key / fill / top, mediu alb cu difuz 0.15, tone mapping liniar), camera lor: 200 mm,
+  1.2 m, **lens shift −0.0926** — fără el sticlele ieșeau cu 68 px mai jos. Silueta față de randările
+  din Figma: IoU 0.999 (K2, K3), 0.954 (K1, capacul transparent).
+- **Lumina potrivită** pe `product-N.webp` (pătrățele 16 px, ca la hero): eroare 32 → 5.2 / 3.3 / 3.2.
+  Expunere +0.5, rugozitate ×2.2, key ×1.1; capacul lui K1: nuanță 0.5 (pompa se vedea arsă prin el).
+  Rămas: textul etichetelor puțin mai șters, pompa din capac puțin mai moale decât în Figma.
+- Câte un canvas pe secțiune (Pillars: K1/K2/K3, schimbate la B = 0.5; 07–09: K1), randează doar
+  când se schimbă poza; încărcarea și compilarea intră în preloader. Imaginile rămân rezerva (fără WebGL).
+- Unelte: `tools/hero_fit/` (potrivirea pe pătrățele); pentru produse aceeași metodă, pe canvas-ul din Pillars.
+- **Claritatea (2026-10-07):** metrica = σ laplacianului pe textul etichetei (Figma 56). Randarea
+  dădea 47 → bias de mip −0.75 pe textura etichetei (`textureBias`) ≈ Figma; −1 trece de Figma
+  (61) și ar sclipi la rotire. Canvas-ul se pune pe pixeli întregi de ecran (mărime + colț,
+  `use-product-stage.ts`), altfel browserul îl reeșantiona.
+- **Rotația Pillars:** o tură pe tranziție, de la 10 % din segment (easeInOutSine + amortizare);
+  produsul se schimbă după unghiul real (trece prin 270°), nu la B = 0.5.
+- **07–09:** unghiurile din Figma (10.03° / −15° / 10.03°) puse înapoi, în 3D (`roll`: produsul și
+  luminile se rotesc în jurul centrului cadrului, ca imaginea rotită) — un `rotate` CSS pe canvas
+  l-ar fi înmuiat. Pillars rămân drepte. Capcană: variabila CSS a rezervei (`--tp-a`) rămânea
+  scrisă de dinainte de 3D și dubla unghiul — se șterge când pornește 3D.

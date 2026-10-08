@@ -21,6 +21,15 @@ export function snapToDevicePixels(value: number) {
   return Math.max(1, Math.round(value * dpr)) / dpr;
 }
 
+/** Tick width, pitch and height from `<prefix>-w`, `-pitch`, `-h`, snapped to whole device pixels. */
+export function measureTicks(host: HTMLElement, prefix: string) {
+  return {
+    width: snapToDevicePixels(resolveLength(host, `${prefix}-w`)),
+    pitch: snapToDevicePixels(resolveLength(host, `${prefix}-pitch`)),
+    height: snapToDevicePixels(resolveLength(host, `${prefix}-h`)),
+  };
+}
+
 /** Calls `callback` whenever devicePixelRatio changes (browser zoom, moving to another screen). */
 export function watchPixelRatio(callback: () => void) {
   let query: MediaQueryList;

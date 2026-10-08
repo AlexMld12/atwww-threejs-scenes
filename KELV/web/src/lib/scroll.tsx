@@ -1,16 +1,7 @@
 'use client';
 
 import Lenis from 'lenis';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 type FrameCallback = (now: number) => void;
 
@@ -18,8 +9,11 @@ interface ScrollContextValue {
   lenis: Lenis | null;
   /** Turns the footer → hero wrap-around on or off (off while the analysis is the page). */
   setLoop: (enabled: boolean) => void;
-  /** True once fonts are in and the hidden first frame has been painted. */
+  /** True once fonts are in and the hidden first frame has been painted: the preloader can start. */
+  booted: boolean;
+  /** True once the page is revealed (the preloader leaving): reveals and the hero intro start. */
   ready: boolean;
+  reveal: () => void;
   subscribe: (callback: FrameCallback) => () => void;
 }
 
@@ -31,6 +25,7 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
   const callbacks = useRef(new Set<FrameCallback>());
   const lenisRef = useRef<Lenis | null>(null);
   const [lenis, setLenis] = useState<Lenis | null>(null);
+  const [booted, setBooted] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -64,8 +59,8 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
     Promise.race([document.fonts.ready, timeout]).then(() => {
       if (cancelled) return;
       document.documentElement.classList.add('is-ready');
-      // Reveals start two frames later, so the hidden state is painted before it changes.
-      requestAnimationFrame(() => requestAnimationFrame(() => !cancelled && setReady(true)));
+      // Two frames later, so the hidden state is painted before it changes.
+      requestAnimationFrame(() => requestAnimationFrame(() => !cancelled && setBooted(true)));
     });
     return () => {
       cancelled = true;
@@ -84,7 +79,12 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
     if (lenisRef.current) lenisRef.current.options.infinite = enabled;
   }, []);
 
-  const value = useMemo(() => ({ lenis, setLoop, ready, subscribe }), [lenis, setLoop, ready, subscribe]);
+  const reveal = useCallback(() => setReady(true), []);
+
+  const value = useMemo(
+    () => ({ lenis, setLoop, booted, ready, reveal, subscribe }),
+    [lenis, setLoop, booted, ready, reveal, subscribe],
+  );
   return <ScrollContext.Provider value={value}>{children}</ScrollContext.Provider>;
 }
 

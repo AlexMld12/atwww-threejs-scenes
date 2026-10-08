@@ -3,14 +3,18 @@
 import Image from 'next/image';
 import { useEffect, useRef, type RefObject } from 'react';
 import { clamp01, designScale, easeInOutCubic, lerp } from '@/lib/math';
+import { cx } from '@/lib/css';
 import { useFrame } from '@/lib/scroll';
+import type { ProductName } from '@/scene/product-config';
+import { useProductStage } from './use-product-stage';
 
-/** Poses from the Figma frames: centre offset from the screen centre (design px), in-plane angle. */
+/** Poses from the Figma frames: centre offset from the screen centre (design px), in-plane angle (deg). */
 const POSES = {
   join: { x: -5.85, y: 0.85, angle: 10.03 },
   middle: { x: -8.7, y: -6, angle: -15 },
   footer: { x: -10.85, y: -56.15, angle: 10.03 },
 };
+const MODELS: ProductName[] = ['K1_COOL_Foam'];
 /** Share of section 7's pinned scroll before the product appears, so it does not cover the form. */
 const APPEAR_AT = 0.6;
 /** Screen share over which the product fades out once the footer starts leaving. */
@@ -22,14 +26,12 @@ interface TravelProductProps {
   footer: RefObject<HTMLElement | null>;
 }
 
-/**
- * The product that appears on section 7, turns through zone 8 and lands in the footer,
- * one turn per stage. Both faces carry the same image, so whole turns end where they began.
- */
+/** Appears on 07, turns through 08 and lands in the footer, one full turn per stage. */
 export function TravelProduct({ join, zone, footer }: TravelProductProps) {
   const ref = useRef<HTMLDivElement>(null);
   const revealRef = useRef<HTMLDivElement>(null);
   const spinRef = useRef<HTMLDivElement>(null);
+  const { canvasRef, ready, draw } = useProductStage(MODELS, 'travel-compile');
   const state = useRef({ shown: false, ctaOff: false, lastY: 0, fade: 1 });
 
   useEffect(() => {
@@ -93,8 +95,15 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
     const scale = designScale();
     el.style.setProperty('--tp-x', `${(lerp(from.x, to.x, t) * scale).toFixed(2)}px`);
     el.style.setProperty('--tp-y', `${(lerp(from.y, to.y, t) * scale - past).toFixed(2)}px`);
-    el.style.setProperty('--tp-a', `${lerp(from.angle, to.angle, t).toFixed(3)}deg`);
-    spinRef.current?.style.setProperty('--tp-spin', `${(turns * 360).toFixed(2)}deg`);
+    const angle = lerp(from.angle, to.angle, t);
+    if (!ready) {
+      el.style.setProperty('--tp-a', `${angle.toFixed(3)}deg`);
+      spinRef.current?.style.setProperty('--tp-spin', `${(turns * 360).toFixed(2)}deg`);
+    } else if (s.shown && fade > 0) {
+      el.style.removeProperty('--tp-a');
+      // Rolled in 3D, not by CSS: a rotated canvas would be resampled.
+      draw('K1_COOL_Foam', { spin: turns * Math.PI * 2, tiltX: 0, tiltY: 0, roll: (angle * Math.PI) / 180 });
+    }
 
     // The footer frame has no CTAs.
     const ctaOff = f.top < vh * 0.5 && f.bottom > vh * 0.5;
@@ -106,7 +115,8 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
 
   return (
     <div ref={ref} className="travel-product" aria-hidden="true">
-      <div ref={revealRef} className="tp-reveal">
+      <div ref={revealRef} className={cx('tp-reveal', ready && 'is-3d')}>
+        <canvas ref={canvasRef} className="tp-canvas" />
         <div ref={spinRef} className="tp-spin">
           <Image className="tp-face" src="/images/product-1.webp" alt="" width={1024} height={1024} />
           <Image className="tp-face tp-face--back" src="/images/product-1.webp" alt="" width={1024} height={1024} />

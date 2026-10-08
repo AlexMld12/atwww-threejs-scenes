@@ -29,7 +29,7 @@
   overflow: hidden;
   background: var(--c-navy-g);
 }
-.g-tile img, .g-video {
+.g-tile img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -38,14 +38,27 @@
 }
 
 .g-tile--r1l, .g-tile--r1r { top: var(--g-gap); }
-.g-tile--r2l, .g-tile--video, .g-tile--r2r { top: calc(3 * var(--g-gap) + var(--gh)); }
+.g-tile--r2l, .g-tile--scene, .g-tile--r2r { top: calc(3 * var(--g-gap) + var(--gh)); }
 .g-tile--r3l, .g-tile--r3r { top: calc(5 * var(--g-gap) + 2 * var(--gh)); }
 
 .g-tile--r1l, .g-tile--r3l { left: var(--g-gap); }
 .g-tile--r1r, .g-tile--r3r { right: var(--g-gap); }
-.g-tile--video { left: calc(50% - var(--gw) / 2); }
+.g-tile--scene { left: calc(50% - var(--gw) / 2); }
 .g-tile--r2l   { left: calc(50% - var(--gw) * 1.5 - var(--g-gap)); }
 .g-tile--r2r   { left: calc(50% + var(--gw) / 2 + var(--g-gap)); }
+
+.g-tile--scene {
+  background: var(--c-navy-g) url('/images/video-poster.webp') center / cover;
+}
+.g-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.g-scene.is-ready { opacity: 1; }
 
 .g-mask {
   position: absolute;

@@ -8,11 +8,7 @@ import { cx } from '@/lib/css';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/**
- * 07 · Become someone powerful. Form behaviour from drinksom.eu's join-drop: the consent box
- * unlocks with a valid email, the button with the consent; the error shows after leaving
- * the field. Submitting goes nowhere until the Shopify backend exists.
- */
+/** 07: consent unlocks with a valid email, sending with the consent (drinksom join-drop); no backend yet. */
 export function Join({ ref }: { ref?: Ref<HTMLElement> }) {
   const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);

@@ -3,11 +3,18 @@
 import { useState } from 'react';
 import { cx } from '@/lib/css';
 
-/**
- * JOIN CLUB / BUY NOW. The underline sweep (drinksom: navUnderlineSweep, 900 ms) always
- * runs to the end, and a new hover restarts it.
- */
-export function Cta({ href, className, label, hidden }: { href: string; className: string; label: string; hidden?: boolean }) {
+/** JOIN CLUB / BUY NOW: the underline sweep always finishes, and a new hover restarts it. */
+export function Cta({
+  href,
+  className,
+  label,
+  hidden,
+}: {
+  href: string;
+  className: string;
+  label: string;
+  hidden?: boolean;
+}) {
   const [sweeping, setSweeping] = useState(false);
   const play = () => {
     setSweeping(false);
@@ -15,7 +22,13 @@ export function Cta({ href, className, label, hidden }: { href: string; classNam
   };
 
   return (
-    <a className={cx('cta mono', className)} href={href} tabIndex={hidden ? -1 : undefined} onMouseEnter={play} onFocus={play}>
+    <a
+      className={cx('cta mono', className)}
+      href={href}
+      tabIndex={hidden ? -1 : undefined}
+      onMouseEnter={play}
+      onFocus={play}
+    >
       {label}
       <span
         className={cx('cta__line', sweeping && 'is-sweeping')}

@@ -1,5 +1,4 @@
-// Skin Analysis quiz logic, from "KELV° Skin Reading · quiz logic for development" (@Simin).
-// Pure functions: steps, reading, profile, routine plan and kit ID.
+// Quiz logic from "KELV° Skin Reading · quiz logic for development".
 
 export type StepKey = 'type' | 'sens' | 'heat' | 'signs' | 'routine' | 'goal' | 'contact';
 type SingleKey = 'type' | 'sens' | 'routine' | 'goal';
@@ -28,8 +27,7 @@ export interface Answers {
   consent: boolean;
 }
 
-// Titles and subtitles are from Figma where the screen exists. The "signs" title and every
-// "Why we ask" text are placeholders until the client confirms them.
+// The "signs" title and the "Why we ask" texts are placeholders until the client confirms them.
 export const STEPS: Step[] = [
   {
     key: 'type',
@@ -133,7 +131,17 @@ export const STAGES = [
 ];
 
 export function emptyAnswers(): Answers {
-  return { type: null, sens: null, heat: [], signs: [], routine: null, goal: null, name: '', email: '', consent: false };
+  return {
+    type: null,
+    sens: null,
+    heat: [],
+    signs: [],
+    routine: null,
+    goal: null,
+    name: '',
+    email: '',
+    consent: false,
+  };
 }
 
 export function isAnswered(a: Answers, key: StepKey) {
@@ -146,10 +154,7 @@ export function isAnswered(a: Answers, key: StepKey) {
 const TYPE_HEAT: Record<string, number> = { dry: 30, tzone: 40, oily: 60, balanced: 0, unsure: 20 };
 const SENSITIVITY_HEAT: Record<string, number> = { rarely: 0, sometimes: 40, often: 80, unsure: 20 };
 
-/**
- * Skin reading in °C, or null before the first answer. Computed in whole hundredths: with
- * decimals, 34.35 rounds to 34.3 instead of 34.4.
- */
+/** Reading in °C, or null before the first answer; summed in hundredths so 34.35 rounds to 34.4. */
 export function skinReading(a: Answers): number | null {
   if (!QUESTION_KEYS.some((key) => isAnswered(a, key))) return null;
   let hundredths = 3200;
@@ -164,12 +169,34 @@ export function skinReading(a: Answers): number | null {
 export const formatReading = (t: number) => t.toFixed(1);
 
 // ---- profile ----
-export function band(t: number) {
-  if (t < 33) return { key: 'baseline', label: 'Close to baseline', line: 'Your skin is close to baseline. The routine keeps it there.' };
-  if (t < 34) return { key: 'warm', label: 'Running warm', line: 'Your skin is running warm. The routine below brings it back to 28.0°C.' };
-  if (t < 35) return { key: 'hot', label: 'Running hot', line: 'Your skin is running hot. The routine below brings it back to 28.0°C.' };
-  return { key: 'over', label: 'Overheated', line: 'Your skin is overheated. Start gently: the routine below brings it back to 28.0°C.' };
-}
+const BANDS = [
+  {
+    below: 33,
+    key: 'baseline',
+    label: 'Close to baseline',
+    line: 'Your skin is close to baseline. The routine keeps it there.',
+  },
+  {
+    below: 34,
+    key: 'warm',
+    label: 'Running warm',
+    line: 'Your skin is running warm. The routine below brings it back to 28.0°C.',
+  },
+  {
+    below: 35,
+    key: 'hot',
+    label: 'Running hot',
+    line: 'Your skin is running hot. The routine below brings it back to 28.0°C.',
+  },
+  {
+    below: Infinity,
+    key: 'over',
+    label: 'Overheated',
+    line: 'Your skin is overheated. Start gently: the routine below brings it back to 28.0°C.',
+  },
+];
+
+export const band = (t: number) => BANDS.find((b) => t < b.below)!;
 
 export function skinType(a: Answers) {
   const s = a.signs;
@@ -206,7 +233,10 @@ const NOTES: [(a: Answers) => boolean, string][] = [
   [(a) => a.routine === 'none', 'Start with K1 and K3 for three days, then add K2.'],
   [(a) => a.heat.includes('training'), 'Use K1 within 30 minutes after training, before sweat dries on your skin.'],
   [(a) => a.heat.includes('sauna'), 'After a sauna, rinse with cool water and wait ten minutes before K2.'],
-  [(a) => a.type === 'oily' || a.type === 'tzone' || a.signs.includes('shine'), 'In the morning, one pump of K3 is enough. Press it in rather than rubbing.'],
+  [
+    (a) => a.type === 'oily' || a.type === 'tzone' || a.signs.includes('shine'),
+    'In the morning, one pump of K3 is enough. Press it in rather than rubbing.',
+  ],
   [(a) => a.type === 'dry' || a.signs.includes('tight'), 'At night, add a second pump of K3 on the driest areas.'],
   [(a) => a.heat.includes('sun'), 'K3 is not a sunscreen. Keep your SPF as the last step in the morning.'],
 ];
@@ -216,7 +246,9 @@ const MAX_NOTES = 4;
 export function plan(a: Answers) {
   const reading = skinReading(a) ?? 32;
   const morning = k2Morning(a);
-  const notes = NOTES.filter(([applies]) => applies(a)).map(([, note]) => note).slice(0, MAX_NOTES);
+  const notes = NOTES.filter(([applies]) => applies(a))
+    .map(([, note]) => note)
+    .slice(0, MAX_NOTES);
   const profileBand = band(reading);
   const type = skinType(a);
   return {
@@ -226,11 +258,31 @@ export function plan(a: Answers) {
     profile: `${profileBand.label}, ${type.key}`,
     focus: `${FOCUS[a.goal ?? ''] ?? ''} Three steps, morning and evening.`.trim(),
     products: [
-      { code: 'K1', name: 'Foam Cleanser', when: 'Morning and evening', text: 'Lifts sweat, sunscreen and city residue without stripping. Rinse cool.' },
+      {
+        code: 'K1',
+        name: 'Foam Cleanser',
+        when: 'Morning and evening',
+        text: 'Lifts sweat, sunscreen and city residue without stripping. Rinse cool.',
+      },
       morning
-        ? { code: 'K2', name: 'Active Serum', when: 'Evening and morning', text: 'Your heat load is high, so use one pump in the morning too.' }
-        : { code: 'K2', name: 'Active Serum', when: 'Evening only', text: 'Press one pump into clean skin and let it settle for a minute.' },
-      { code: 'K3', name: 'Barrier Cream', when: 'Morning and evening, last step', text: 'Seals the routine in and rebuilds the barrier overnight.' },
+        ? {
+            code: 'K2',
+            name: 'Active Serum',
+            when: 'Evening and morning',
+            text: 'Your heat load is high, so use one pump in the morning too.',
+          }
+        : {
+            code: 'K2',
+            name: 'Active Serum',
+            when: 'Evening only',
+            text: 'Press one pump into clean skin and let it settle for a minute.',
+          },
+      {
+        code: 'K3',
+        name: 'Barrier Cream',
+        when: 'Morning and evening, last step',
+        text: 'Seals the routine in and rebuilds the barrier overnight.',
+      },
     ],
     k2: morning ? 'am+pm' : 'pm',
     notes: notes.length ? notes : [DEFAULT_NOTE],
@@ -242,7 +294,14 @@ export function plan(a: Answers) {
 
 /** Kit ID from the answers only (no name or email), keys in step order. */
 export function kitId(a: Answers) {
-  const json = JSON.stringify({ type: a.type, sens: a.sens, heat: a.heat, signs: a.signs, routine: a.routine, goal: a.goal });
+  const json = JSON.stringify({
+    type: a.type,
+    sens: a.sens,
+    heat: a.heat,
+    signs: a.signs,
+    routine: a.routine,
+    goal: a.goal,
+  });
   let hash = 7;
   for (const c of json) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
   return `K-${String(hash % 10000).padStart(4, '0')}`;

@@ -6,10 +6,7 @@ import type { CSSVars } from '@/lib/css';
 const STAGGER = 0.06;
 const MAX_STEPS = 12;
 
-/**
- * True two frames after mount: the hidden state has to be painted once before it can
- * transition. Remount (a new `key`) to play the entrance again.
- */
+/** True two frames after mount, once the hidden state has painted; remount to replay. */
 export function useRevealed() {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {

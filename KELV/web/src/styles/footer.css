@@ -8,7 +8,8 @@
 .footer__glow {
   z-index: 0;
   left: calc(50% - var(--glow-x));
-  top: var(--glow-y);
+  /* from the bottom: the footer is 100vh, so on wide screens a top anchor drops the glow below it */
+  bottom: var(--ft-glow-bottom);
   width: var(--glow-w);
   height: var(--glow-h);
   max-width: none;

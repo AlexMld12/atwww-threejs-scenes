@@ -38,10 +38,7 @@ interface RevealProps {
   'aria-label'?: string;
 }
 
-/**
- * Blur + rise reveal (drinksom.eu: opacity 0, y 30, blur 4 → visible, 0.8 s), played once
- * when the element enters the viewport.
- */
+/** Blur + rise reveal (drinksom: opacity 0, y 30, blur 4, 0.8 s), played once in view. */
 export function Reveal({ as: Tag = 'p', className, delay = 0, lines = false, fx, children, ...rest }: RevealProps) {
   const enabled = useContext(RevealEnabled);
   const { ready } = useScroll();

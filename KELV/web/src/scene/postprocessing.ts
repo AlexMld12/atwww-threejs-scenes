@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { Look } from './config';
 
+export type Grade = Pick<Look, 'bloom' | 'grade'>;
+
 export interface Compositor {
   curve: number[];
   linearToAP1: number[];
@@ -36,7 +38,7 @@ const finalShader = (curveSize: number) => /* glsl */ `
   varying vec2 vUv;
   uniform sampler2D inputImage, bloomImage, lookCurve;
   uniform mat3 linearToAP1, ap1ToLinear;
-  uniform float contrast, saturation, lookMix, vignette, grain, bloom;
+  uniform float contrast, saturation, lookMix, vignette, grain, bloom, bloomOutside;
 
   float cct(float x) { return x <= 0.0078125 ? 10.5402377416545 * x + 0.0729055341958355 : (log2(x) + 9.72) / 17.52; }
   float uncct(float x) { return x <= 0.155251141552511 ? (x - 0.0729055341958355) / 10.5402377416545 : exp2(x * 17.52 - 9.72); }
@@ -47,7 +49,8 @@ const finalShader = (curveSize: number) => /* glsl */ `
 
   void main() {
     vec4 base = texture2D(inputImage, vUv);
-    vec3 halo = texture2D(bloomImage, vUv).rgb * bloom;
+    // The glow can be kept on the products (Figma: no halo over the background).
+    vec3 halo = texture2D(bloomImage, vUv).rgb * bloom * mix(base.a, 1.0, bloomOutside);
     float haloAlpha = 1.0 - exp(-max(halo.r, max(halo.g, halo.b)));
     float alpha = base.a + haloAlpha * (1.0 - base.a);
     vec3 color = (base.rgb + halo) / max(alpha, 0.00001);
@@ -71,10 +74,7 @@ const finalShader = (curveSize: number) => /* glsl */ `
     gl_FragColor.rgb *= gl_FragColor.a;
   }`;
 
-/**
- * Renders the scene into an HDR target and composites it with transparency kept, so the
- * page background shows through and the bloom stays visible over it.
- */
+/** HDR render + bloom, composited with alpha so the page shows through. */
 export function createPostprocessing(renderer: THREE.WebGLRenderer, lut: THREE.Data3DTexture, compositor: Compositor) {
   const target = (samples = 0) =>
     new THREE.WebGLRenderTarget(1, 1, {
@@ -122,6 +122,7 @@ export function createPostprocessing(renderer: THREE.WebGLRenderer, lut: THREE.D
     vignette: { value: 0 },
     grain: { value: 0 },
     bloom: { value: 0 },
+    bloomOutside: { value: 1 },
   };
   const composite = pass(finalShader(curveData.length), uniforms, true);
 
@@ -138,13 +139,25 @@ export function createPostprocessing(renderer: THREE.WebGLRenderer, lut: THREE.D
   }
 
   return {
+    /** Compiles the programs exactly as they will be drawn: the scene into the HDR target, then the passes. */
+    async compile(scene: THREE.Scene, camera: THREE.Camera) {
+      renderer.setRenderTarget(hdr);
+      await renderer.compileAsync(scene, camera);
+      for (const material of [extract, blur, composite]) {
+        quad.material = material;
+        renderer.setRenderTarget(material === composite ? null : bright);
+        await renderer.compileAsync(screen, screenCamera);
+      }
+      renderer.setRenderTarget(null);
+    },
+
     setSize(width: number, height: number) {
       hdr.setSize(width, height);
       const quarter = [Math.max(1, Math.round(width / 4)), Math.max(1, Math.round(height / 4))] as const;
       for (const t of [bright, blurX, blurY]) t.setSize(...quarter);
     },
 
-    render(scene: THREE.Scene, camera: THREE.Camera, look: Look) {
+    render(scene: THREE.Scene, camera: THREE.Camera, look: Grade) {
       renderer.setRenderTarget(hdr);
       renderer.render(scene, camera);
 
@@ -165,6 +178,7 @@ export function createPostprocessing(renderer: THREE.WebGLRenderer, lut: THREE.D
       uniforms.vignette.value = look.grade.vignette;
       uniforms.grain.value = look.grade.grain;
       uniforms.bloom.value = look.bloom.strength;
+      uniforms.bloomOutside.value = look.bloom.outside;
       draw(composite, null);
     },
 

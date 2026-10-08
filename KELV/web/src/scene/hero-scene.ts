@@ -3,8 +3,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { AnimationPointerPlugin } from './animation-pointer';
-import { HERO_ASSETS, HERO_MODEL, LOOK, POSE_CORRECTION } from './config';
+import { HERO_ASSETS, HERO_MODEL, LOOK, POSE_CORRECTION, type Look } from './config';
+import { createLut, installFilmic, type LutInfo } from './filmic';
 import { createPostprocessing, type Compositor } from './postprocessing';
+import { clearCapTransmission } from './transmission';
+import { fetchWithProgress, finishTask, reportProgress } from '@/lib/preload';
 
 interface Manifest {
   duration: number;
@@ -23,15 +26,10 @@ interface Manifest {
   glowMaterials: string[];
 }
 
-interface LutInfo {
-  file: string;
-  size: number;
-  log2min: number;
-  log2max: number;
-}
-
 export interface HeroScene {
   duration: number;
+  /** Re-applies LOOK after it was changed at runtime (the dev tuning hook). */
+  applyLook(): void;
   setSize(width: number, height: number, pixelRatio: number): void;
   setTime(seconds: number): void;
   render(): void;
@@ -40,41 +38,16 @@ export interface HeroScene {
 
 type LitMaterial = THREE.MeshPhysicalMaterial;
 
+const FOAM_WIDTH = 0.045;
+const BOUNCE_ANGLES = [180, 240, 300];
+const FOAM_HEIGHT = 0.15;
+
+const capEdge: THREE.IUniform<THREE.Vector2> = { value: new THREE.Vector2() };
+// Fresnel-weighted emission: brightest where the cap's walls are seen edge-on.
+const CAP_EDGE_GLOW = `#include <emissivemap_fragment>
+  totalEmissiveRadiance += capEdge.x * pow(1.0 - abs(dot(normal, normalize(vViewPosition))), capEdge.y);`;
+
 const lutUniform: THREE.IUniform<THREE.Data3DTexture | null> = { value: null };
-let filmicInstalled = false;
-
-/** Replaces three's CustomToneMapping with Blender's Filmic / Very High Contrast LUT. */
-function installFilmic(info: LutInfo) {
-  if (filmicInstalled) return;
-  const n = info.size;
-  const range = info.log2max - info.log2min;
-  const filmic = `vec3 CustomToneMapping( vec3 color ) {
-    vec3 p = (clamp(log2(max(color * toneMappingExposure, vec3(0.0000001))), ${info.log2min.toFixed(1)}, ${info.log2max.toFixed(1)}) - (${info.log2min.toFixed(1)})) / ${range.toFixed(1)};
-    return texture(heroLUT, p * ${((n - 1) / n).toFixed(10)} + ${(0.5 / n).toFixed(10)}).rgb;
-  }`;
-  const original = THREE.ShaderChunk.tonemapping_pars_fragment;
-  const patched = original.replace(/vec3 CustomToneMapping\(\s*vec3 color\s*\)\s*\{[^}]*\}/, filmic);
-  if (patched === original) throw new Error('three.js tone-mapping chunk changed; recheck the Filmic hook');
-  THREE.ShaderChunk.tonemapping_pars_fragment = `uniform highp sampler3D heroLUT;\n${patched}`;
-  filmicInstalled = true;
-}
-
-/**
- * three r186 clears the transmission target to white at alpha 0.5. Removing that matte lets
- * the hollow cap composite over the page background instead of a grey box.
- */
-const clearCapTransmission = THREE.ShaderChunk.transmission_pars_fragment
-  .replace(
-    'vec3 attenuatedColor = transmittance * transmittedLight.rgb;',
-    `transmittedLight.rgb = max(vec3(0.0), transmittedLight.rgb - vec3(1.0 - transmittedLight.a));
-    transmittedLight.a = clamp(2.0 * transmittedLight.a - 1.0, 0.0, 1.0);
-    vec3 attenuatedColor = transmittance * transmittedLight.rgb;`,
-  )
-  .replace(
-    '1.0 - ( 1.0 - transmittedLight.a ) * transmittanceFactor',
-    '1.0 - ( 1.0 - transmittedLight.a ) * transmittanceFactor * (1.0 - max(F.r, max(F.g, F.b)))',
-  );
-
 async function fetchJson<T>(name: string): Promise<T> {
   const response = await fetch(HERO_ASSETS + name);
   if (!response.ok) throw new Error(`${name} unavailable`);
@@ -87,15 +60,17 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
     fetchJson<LutInfo>('filmic_lut.json'),
     fetchJson<Compositor>('compositor.json'),
   ]);
+  finishTask('hero-data');
 
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   loader.register((parser) => new AnimationPointerPlugin(parser));
   const [gltf, lutBuffer] = await Promise.all([
-    loader.loadAsync(HERO_ASSETS + HERO_MODEL),
-    fetch(HERO_ASSETS + lutInfo.file).then((r) => {
-      if (!r.ok) throw new Error('Filmic LUT unavailable');
-      return r.arrayBuffer();
-    }),
+    loader
+      .loadAsync(HERO_ASSETS + HERO_MODEL, (event) => {
+        if (event.total) reportProgress('hero-model', event.loaded / event.total);
+      })
+      .finally(() => finishTask('hero-model')),
+    fetchWithProgress(HERO_ASSETS + lutInfo.file, 'hero-lut').then((blob) => blob.arrayBuffer()),
   ]);
 
   installFilmic(lutInfo);
@@ -105,14 +80,8 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.CustomToneMapping;
-  renderer.toneMappingExposure = 2 ** LOOK.exposure;
 
-  const lut = new THREE.Data3DTexture(new Uint16Array(lutBuffer), lutInfo.size, lutInfo.size, lutInfo.size);
-  lut.format = THREE.RGBAFormat;
-  lut.type = THREE.HalfFloatType;
-  lut.minFilter = lut.magFilter = THREE.LinearFilter;
-  lut.unpackAlignment = 1;
-  lut.needsUpdate = true;
+  const lut = createLut(lutBuffer, lutInfo);
 
   const scene = new THREE.Scene();
   scene.add(gltf.scene);
@@ -126,21 +95,23 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
     if (mesh.isMesh) for (const m of [mesh.material].flat()) materials.add(m as LitMaterial);
   });
   const glowMaterials: LitMaterial[] = [];
+  const capMaterials: LitMaterial[] = [];
+  const baseRoughness = new Map<LitMaterial, number>();
+  const lifted = Object.keys(LOOK.lift).map((product) => ({
+    product: product as keyof Look['lift'],
+    materials: [] as LitMaterial[],
+  }));
   const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
   for (const material of materials) {
     const isCap = material.name.endsWith('Cap_Clear');
-    if (manifest.glowMaterials.includes(material.name)) {
-      glowMaterials.push(material);
-      material.emissive.set(LOOK.emissionColor);
-    }
-    if (isCap) {
-      const { cap } = LOOK;
-      material.roughness = cap.roughness;
-      material.transmission = cap.transmission;
-      material.ior = cap.ior;
-      material.thickness = cap.thickness / 1000;
-      material.specularIntensity = cap.reflectivity;
-      material.color.set(cap.tint);
+    if (manifest.glowMaterials.includes(material.name)) glowMaterials.push(material);
+    if (isCap) capMaterials.push(material);
+    else baseRoughness.set(material, material.roughness);
+    const lift = lifted.find(({ product }) => material.name.includes(product));
+    if (lift && !isCap) {
+      lift.materials.push(material);
+      material.emissive.copy(material.color);
+      material.emissiveMap = material.map;
     }
     for (const value of Object.values(material)) {
       if ((value as THREE.Texture | null)?.isTexture) (value as THREE.Texture).anisotropy = maxAnisotropy;
@@ -148,7 +119,11 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
     material.onBeforeCompile = (shader) => {
       shader.uniforms.heroLUT = lutUniform;
       if (isCap) {
-        shader.fragmentShader = shader.fragmentShader.replace('#include <transmission_pars_fragment>', clearCapTransmission);
+        shader.uniforms.capEdge = capEdge;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <transmission_pars_fragment>', clearCapTransmission)
+          .replace('void main() {', `uniform vec2 capEdge;\nvoid main() {`)
+          .replace('#include <emissivemap_fragment>', CAP_EDGE_GLOW);
       }
     };
     material.customProgramCacheKey = () => (isCap ? 'kelv-hero-cap' : 'kelv-hero');
@@ -160,48 +135,57 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
   const pmrem = new THREE.PMREMGenerator(renderer);
   const environment = pmrem.fromScene(envScene, 0, 0.001, 10);
   scene.environment = environment.texture;
-  scene.environmentIntensity = manifest.world.strength * LOOK.ambient;
 
-  for (const light of manifest.lights.filter((l) => l.enabled && !l.background_only)) {
-    const strength = light.name.endsWith('Rim_R') ? LOOK.rim : LOOK.top;
-    const area = new THREE.RectAreaLight(
-      new THREE.Color().setRGB(...light.color),
-      (light.watts / (Math.PI * light.width * light.height)) * strength,
-      light.width,
-      light.height,
-    );
-    area.position.fromArray(light.position);
-    area.quaternion.fromArray(light.quaternion);
-    scene.add(area);
-  }
+  const studioLights = manifest.lights
+    .filter((l) => l.enabled && !l.background_only)
+    .map((light) => {
+      const area = new THREE.RectAreaLight(new THREE.Color().setRGB(...light.color), 0, light.width, light.height);
+      area.position.fromArray(light.position);
+      area.quaternion.fromArray(light.quaternion);
+      scene.add(area);
+      const base = light.watts / (Math.PI * light.width * light.height);
+      return { area, base, control: light.name.endsWith('Rim_R') ? ('rim' as const) : ('top' as const) };
+    });
 
-  const { fill } = LOOK;
-  const fillLight = new THREE.RectAreaLight(0xffffff, fill.intensity, fill.size, fill.size);
-  fillLight.position.fromArray(fill.position);
-  fillLight.lookAt(...fill.target);
-  scene.add(fillLight);
+  const fillLights = LOOK.fills.map(() => new THREE.RectAreaLight(0xffffff, 0, 1, 1));
+  if (fillLights.length) scene.add(...fillLights);
 
-  // K1's light onto its neighbours, approximated by small area lights around its body.
-  const foam = gltf.scene.getObjectByName('K1_COOL_Foam');
-  if (!foam) throw new Error('K1_COOL_Foam missing');
-  const bounceLights: THREE.RectAreaLight[] = [];
+  const foamNode = gltf.scene.getObjectByName('K1_COOL_Foam');
+  if (!foamNode) throw new Error('K1_COOL_Foam missing');
+  const foam: THREE.Object3D = foamNode;
+
+  // K1's light onto the serum, from the side of its body that faces it. Each area light lengthens every shader.
   const forward = new THREE.Vector3(0, 0, -1);
-  for (let i = 0; i < 6; i++) {
-    const angle = (i * Math.PI) / 3;
+  const bounceLights = BOUNCE_ANGLES.map((degrees) => {
+    const angle = THREE.MathUtils.degToRad(degrees);
     const direction = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
-    const light = new THREE.RectAreaLight(LOOK.emissionColor, 0, 0.021, 0.094);
+    const light = new THREE.RectAreaLight(0xffffff, 0, 0.021, 0.094);
     light.position.copy(direction).multiplyScalar(0.0201);
     light.position.y = -0.0303;
     light.quaternion.setFromUnitVectors(forward, direction);
-    bounceLights.push(light);
-  }
-  for (const y of [-0.0773, 0.0167]) {
-    const light = new THREE.RectAreaLight(LOOK.emissionColor, 0, 0.035, 0.035);
-    light.position.y = y;
-    light.quaternion.setFromUnitVectors(forward, new THREE.Vector3(0, Math.sign(y), 0));
-    bounceLights.push(light);
-  }
+    return light;
+  });
   foam.add(...bounceLights);
+
+  const foamCentre = new THREE.Vector3();
+  const neighbourCentre = new THREE.Vector3();
+  const glowLights = (Object.keys(LOOK.glowLights) as (keyof Look['glowLights'])[]).map((name) => {
+    const target = gltf.scene.getObjectByName(name);
+    if (!target) throw new Error(`${name} missing`);
+    const light = new THREE.RectAreaLight(0xffffff, 0, FOAM_WIDTH, FOAM_HEIGHT);
+    scene.add(light);
+    return { name, target, light };
+  });
+
+  function aimGlowLights() {
+    new THREE.Box3().setFromObject(foam).getCenter(foamCentre);
+    for (const { target, light } of glowLights) {
+      new THREE.Box3().setFromObject(target).getCenter(neighbourCentre);
+      const towards = neighbourCentre.clone().sub(foamCentre).normalize();
+      light.position.copy(foamCentre).addScaledVector(towards, FOAM_WIDTH / 2);
+      light.lookAt(neighbourCentre);
+    }
+  }
 
   // ---- animation ----
   const clip = gltf.animations.find((a) => a.name === 'HERO_Full');
@@ -212,9 +196,12 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
   action.clampWhenFinished = true;
   action.play();
 
-  if (!clip.tracks.some((t) => t.name.endsWith('material.emissiveIntensity'))) {
-    throw new Error('K1 light-up animation missing');
-  }
+  const glowTrack = clip.tracks.find((t) => t.name.endsWith('material.emissiveIntensity'));
+  if (!glowTrack) throw new Error('K1 light-up animation missing');
+  const glowCurve =
+    glowTrack.getInterpolation() === THREE.InterpolateDiscrete
+      ? glowTrack.InterpolantFactoryMethodDiscrete()
+      : glowTrack.InterpolantFactoryMethodLinear();
 
   const corrections = Object.entries(POSE_CORRECTION).map(([name, { position, rotation }]) => {
     const node = gltf.scene.getObjectByName(name);
@@ -231,8 +218,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
   function setTime(seconds: number) {
     const t = THREE.MathUtils.clamp(seconds, 0, manifest.duration);
     if (t === time) return;
-    // The mixer skips nodes whose sampled value did not change, so the previous correction
-    // is undone first instead of assuming the animation overwrote it.
+    // Undo the last correction first: the mixer skips nodes whose value did not change.
     if (time >= 0) {
       for (const c of corrections) {
         c.node.position.sub(c.offset);
@@ -246,18 +232,70 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
       c.node.quaternion.premultiply(c.rotate);
     }
 
-    // The mixer animates the glow materials' emissiveIntensity; the bounce lights follow it.
-    const glow = glowMaterials[0]?.emissiveIntensity ?? 0;
+    scene.updateMatrixWorld(true);
+    aimGlowLights();
+    updateGlow();
+    scene.updateMatrixWorld(true);
+  }
+
+  // After the mixer, which only writes values that changed.
+  function updateGlow() {
+    const glow = glowCurve.evaluate(Math.max(0, time))[0] * LOOK.emission;
+    for (const m of glowMaterials) m.emissiveIntensity = glow;
     for (const l of bounceLights) l.intensity = glow * LOOK.bounce;
+    for (const { name, light } of glowLights) light.intensity = glow * LOOK.glowLights[name];
+  }
+
+  function applyLook() {
+    renderer.toneMappingExposure = 2 ** LOOK.exposure;
+    scene.environmentIntensity = manifest.world.strength * LOOK.ambient;
+    for (const { area, base, control } of studioLights) area.intensity = base * LOOK[control];
+    const { fills, cap } = LOOK;
+    fills.forEach((fill, i) => {
+      const light = fillLights[i];
+      light.intensity = fill.intensity;
+      light.width = light.height = fill.size;
+      light.position.fromArray(fill.position);
+      light.lookAt(...fill.target);
+    });
+    for (const [material, roughness] of baseRoughness) material.roughness = Math.min(1, roughness * LOOK.roughness);
+    for (const material of capMaterials) {
+      material.roughness = cap.roughness;
+      material.transmission = cap.transmission;
+      material.ior = cap.ior;
+      material.thickness = cap.thickness / 1000;
+      material.specularIntensity = cap.reflectivity;
+      material.color.set(cap.tint);
+      material.emissive.set(0xffffff);
+      material.emissiveIntensity = cap.glow;
+      capEdge.value.set(cap.edge, cap.edgePower);
+    }
+    for (const { product, materials: list } of lifted) {
+      for (const material of list) material.emissiveIntensity = LOOK.lift[product];
+    }
+    for (const material of glowMaterials) material.emissive.set(LOOK.emissionColor);
+    for (const light of bounceLights) light.color.set(LOOK.emissionColor);
+    scene.updateMatrixWorld(true);
+    aimGlowLights();
+    updateGlow();
     scene.updateMatrixWorld(true);
   }
 
   setTime(0);
+  applyLook();
   lutUniform.value = lut;
-  await renderer.compileAsync(scene, camera);
+  await post.compile(scene, camera);
+  for (const material of materials) {
+    for (const value of Object.values(material)) {
+      if ((value as THREE.Texture | null)?.isTexture) renderer.initTexture(value as THREE.Texture);
+    }
+  }
+  renderer.initTexture(lut);
+  finishTask('hero-compile');
 
   return {
     duration: manifest.duration,
+    applyLook,
 
     setSize(width, height, pixelRatio) {
       renderer.setPixelRatio(pixelRatio);

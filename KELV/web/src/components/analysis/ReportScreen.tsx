@@ -34,15 +34,18 @@ export function ReportScreen({ answers, delay, leaving, onCart, onRetake }: Repo
   const t = result.reading;
   const next = cascade(delay);
 
-  const labels: [number, string][] = [[28, '28°'], ...(Math.abs(t - 32) >= 0.9 ? [[32, '32°'] as [number, string]] : []), [t, `${formatReading(t)}°`]];
-  const rows: [string, string, boolean?][] = [
-    ...(name ? [['For', name.toUpperCase(), true] as [string, string, boolean]] : []),
-    ['Skin reading', `${formatReading(t)}°C`],
-    ['Target', '28.0°C'],
-    ['Profile', result.profile],
-    ['Calibrated', today],
-    ['Kit ID', result.kitId],
+  const labels: [value: number, label: string][] = [[28, '28°']];
+  if (Math.abs(t - 32) >= 0.9) labels.push([32, '32°']);
+  labels.push([t, `${formatReading(t)}°`]);
+
+  const rows: { key: string; value: string; ink?: boolean }[] = [
+    { key: 'Skin reading', value: `${formatReading(t)}°C` },
+    { key: 'Target', value: '28.0°C' },
+    { key: 'Profile', value: result.profile },
+    { key: 'Calibrated', value: today },
+    { key: 'Kit ID', value: result.kitId },
   ];
+  if (name) rows.unshift({ key: 'For', value: name.toUpperCase(), ink: true });
 
   return (
     <section className={cx('sa-screen sa-report', revealed && 'is-revealed', leaving && 'is-leaving')}>
@@ -82,7 +85,7 @@ export function ReportScreen({ answers, delay, leaving, onCart, onRetake }: Repo
         <div className="sa-cal mono" data-sa-in="" style={next()}>
           <p className="sa-cal__title">Calibration</p>
           <dl className="sa-cal__rows">
-            {rows.map(([key, value, ink]) => (
+            {rows.map(({ key, value, ink }) => (
               <div key={key} className="sa-cal__row">
                 <dt className={cx(ink && 'is-ink')}>{key}</dt>
                 <dd>{value}</dd>
@@ -137,8 +140,8 @@ export function ReportScreen({ answers, delay, leaving, onCart, onRetake }: Repo
           </div>
         )}
         <p className="sa-disclaimer" data-sa-in="" style={next()}>
-          This reading is a guide based on your answers, not a medical diagnosis. If your skin reacts strongly, talk to a
-          dermatologist.
+          This reading is a guide based on your answers, not a medical diagnosis. If your skin reacts strongly, talk to
+          a dermatologist.
         </p>
       </div>
     </section>

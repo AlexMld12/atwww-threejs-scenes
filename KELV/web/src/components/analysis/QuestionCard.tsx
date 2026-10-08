@@ -4,15 +4,7 @@ import Image from 'next/image';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ErrorIcon } from '@/components/ui/icons';
 import { cx } from '@/lib/css';
-import {
-  EMAIL,
-  ERROR_CONSENT,
-  ERROR_EMAIL,
-  STEPS,
-  isAnswered,
-  type Answers,
-  type Step,
-} from '@/analysis/logic';
+import { EMAIL, ERROR_CONSENT, ERROR_EMAIL, STEPS, isAnswered, type Answers, type Step } from '@/analysis/logic';
 import { Button } from './Button';
 import { cascade, useRevealed } from './cascade';
 
@@ -38,10 +30,7 @@ interface QuestionCardProps extends Handlers {
   leaving: boolean;
 }
 
-/**
- * Steps 1–7 share one card: the old content fades, the card animates to the new height
- * (the steps have different numbers of options), then the new content comes in.
- */
+/** Steps 1–7 share one card: the old content fades, the card animates its height, the new one comes in. */
 export function QuestionCard({ step, answers, delay, leaving, ...handlers }: QuestionCardProps) {
   const [shown, setShown] = useState(step);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -87,7 +76,15 @@ export function QuestionCard({ step, answers, delay, leaving, ...handlers }: Que
         {current.kind === 'form' ? (
           <ContactBody key={shown} step={current} answers={answers} delay={bodyDelay} out={out} {...handlers} />
         ) : (
-          <OptionsBody key={shown} index={shown} step={current} answers={answers} delay={bodyDelay} out={out} {...handlers} />
+          <OptionsBody
+            key={shown}
+            index={shown}
+            step={current}
+            answers={answers}
+            delay={bodyDelay}
+            out={out}
+            {...handlers}
+          />
         )}
       </div>
     </section>

@@ -3,54 +3,69 @@
 import Image from 'next/image';
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { Lines, Words } from '@/components/ui/Words';
-import { designLength, designScale, clamp01, easeInOutCubic, easeOutExpo, lerp } from '@/lib/math';
-import type { CSSVars } from '@/lib/css';
+import { designLength, designScale, clamp01, easeInOutCubic, easeInOutSine, easeOutExpo, lerp } from '@/lib/math';
+import { cx, type CSSVars } from '@/lib/css';
 import { useFrame } from '@/lib/scroll';
+import type { ProductName } from '@/scene/product-config';
+import { useProductStage } from './use-product-stage';
 
 interface Pillar {
   a: string;
   b: string;
   accent: string;
   id: string;
-  /** Centre offset from the screen centre, side and in-plane rotation, in design px / deg. */
-  product: { img: string; x: number; y: number; size: number; angle: number };
+  /** `y` puts the bottle's own centre on the screen's centre (design px). */
+  product: { model: ProductName; img: string; y: number };
   rings: { x: number; y: number; r: number }[];
 }
 
 const PILLARS: Pillar[] = [
   {
-    a: 'Mental', b: 'Focus', accent: 'var(--c-orange)', id: '01',
-    product: { img: '/images/product-1.webp', x: 10.25, y: -3, size: 736, angle: 10.03 },
+    a: 'Mental',
+    b: 'Focus',
+    accent: 'var(--c-orange)',
+    id: '01',
+    product: { model: 'K1_COOL_Foam', img: '/images/product-1.webp', y: -12.58 },
     rings: [{ x: 209, y: 309, r: 651.5 }],
   },
   {
-    a: 'Stamina', b: 'Boost', accent: 'var(--c-orange)', id: '02',
-    product: { img: '/images/product-2.webp', x: 3.2, y: -42.15, size: 805.4, angle: -6.1 },
+    a: 'Stamina',
+    b: 'Boost',
+    accent: 'var(--c-orange)',
+    id: '02',
+    product: { model: 'K2_CALM_Serum', img: '/images/product-2.webp', y: -36.11 },
     rings: [],
   },
   {
-    a: 'Imune', b: 'Control', accent: 'var(--c-ink)', id: '03',
-    product: { img: '/images/product-3.webp', x: 0.25, y: -37.2, size: 829.4, angle: 1.67 },
-    rings: [{ x: -193.5, y: 106.5, r: 431 }, { x: 351, y: 283, r: 487.5 }],
+    a: 'Imune',
+    b: 'Control',
+    accent: 'var(--c-ink)',
+    id: '03',
+    product: { model: 'K3_SEAL_Cream', img: '/images/product-3.webp', y: -36.11 },
+    rings: [
+      { x: -193.5, y: 106.5, r: 431 },
+      { x: 351, y: 283, r: 487.5 },
+    ],
   },
 ];
 const DESCRIPTION =
   'Lorem ipsum dolor sit amet consectetur. Ultricies sagittis id lorem id enim velit id sodales mauris. Augue vel mauris';
 const TAGLINE = 'Three steps back to\nThree lorcsa dkjad back to baseline.';
 
+// One scale and one centre line for all three, so they stand in the same place (the client's request).
+const PRODUCT_SIZE = 805.4;
+const MODELS = PILLARS.map((pillar) => pillar.product.model);
+const DEG = Math.PI / 180;
 const TILT_MAX = 18;
 const TILT_EASE = 0.12;
 const CLICK_SPIN_S = 1.2;
-const SCROLL_TURNS = 1.5;
+// One turn per transition over most of the segment, so it can be followed; the product swaps when
+// the bottle passes side-on (270°), independently of the texts' swap at B = 0.5.
+const SPIN_FROM = 0.1;
+const SPIN_EASE = 0.1;
 const RING_FADE_MS = 400;
 
-/**
- * Sticky 320vh section, timeline copied from drinksom.eu's power-pillars:
- *   y = progress through the pinned part, the first 30 % is a pause on pillar 1,
- *   D = current pillar, B = easeInOutCubic transition to D+1 in the last 35 % of a segment.
- * Everything switches at B = 0.5: the background is 50/50 and the product is edge-on
- * (B · 540° = 270°), so the image swap cannot be seen.
- */
+/** 02–04 (drinksom power-pillars): everything swaps at B = 0.5, while the product is edge-on. */
 export function Pillars() {
   const sectionRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
@@ -65,6 +80,7 @@ export function Pillars() {
   const productRef = useRef<HTMLDivElement>(null);
   const spinRef = useRef<HTMLDivElement>(null);
   const faceRefs = useRef<(HTMLImageElement | null)[]>([]);
+  const { canvasRef, ready, draw } = useProductStage(MODELS, 'pillars-compile');
 
   const state = useRef({
     on: false,
@@ -73,6 +89,7 @@ export function Pillars() {
     ringsFor: -1,
     zoom: -1,
     tilt: { x: 0, y: 0, targetX: 0, targetY: 0 },
+    spin: Number.NaN,
     clickStart: -1,
     swapTimer: 0 as number | ReturnType<typeof setTimeout>,
   });
@@ -130,7 +147,10 @@ export function Pillars() {
     titleRef.current!.getBoundingClientRect();
     for (const row of titleRows) row.classList.remove('is-swap');
 
-    const groups = [copyRef.current!.querySelector('.pillar-copy__desc')!, stickyRef.current!.querySelector('.pillar-tag')!];
+    const groups = [
+      copyRef.current!.querySelector('.pillar-copy__desc')!,
+      stickyRef.current!.querySelector('.pillar-tag')!,
+    ];
     clearTimeout(s.swapTimer);
     let outDuration = 0;
     groups.forEach((group, g) => {
@@ -195,6 +215,7 @@ export function Pillars() {
     const y = span > 0 ? clamp01(-rect.top / span) : 0;
     setOn(clamp01((viewport - rect.top) / viewport) >= 1);
 
+    // A 30 % pause on pillar 1, then each transition (B) takes the last 35 % of its segment.
     const f = clamp01((y - 0.3) / 0.7);
     const position = (f <= 0.1 ? (f / 0.1) * 0.25 : 0.25 + ((f - 0.1) / 0.9) * 0.75) * n;
     const d = Math.min(n - 1, Math.floor(position));
@@ -217,9 +238,11 @@ export function Pillars() {
       if (first || !s.on) setStatic(wanted);
       else if (wanted !== s.shown) swapTo(wanted);
     }
-    for (const face of faceRefs.current) {
-      const src = PILLARS[middle].product.img;
-      if (face && face.getAttribute('src') !== src) face.setAttribute('src', src);
+    if (!ready) {
+      for (const face of faceRefs.current) {
+        const src = PILLARS[middle].product.img;
+        if (face && face.getAttribute('src') !== src) face.setAttribute('src', src);
+      }
     }
     if (s.on) showRings(s.visible);
 
@@ -227,10 +250,8 @@ export function Pillars() {
     const to = PILLARS[Math.min(d + 1, n - 1)].product;
     const scale = designScale();
     const product = productRef.current!.style;
-    product.setProperty('--px', `${lerp(from.x, to.x, b) * scale}px`);
     product.setProperty('--py', `${lerp(from.y, to.y, b) * scale}px`);
-    product.setProperty('--ps', `${lerp(from.size, to.size, b) * scale}px`);
-    product.setProperty('--pa', `${lerp(from.angle, to.angle, b)}deg`);
+    product.setProperty('--ps', `${PRODUCT_SIZE * scale}px`);
 
     let click = 0;
     if (s.clickStart >= 0) {
@@ -241,10 +262,23 @@ export function Pillars() {
     const tilt = s.tilt;
     tilt.x += (tilt.targetX - tilt.x) * TILT_EASE;
     tilt.y += (tilt.targetY - tilt.y) * TILT_EASE;
-    const spin = spinRef.current!.style;
-    spin.setProperty('--spin', `${b * SCROLL_TURNS * 360 + click}deg`);
-    spin.setProperty('--tx', `${tilt.x.toFixed(3)}deg`);
-    spin.setProperty('--ty', `${tilt.y.toFixed(3)}deg`);
+    // Turns add up across segments, so the damping never runs a turn backwards at a boundary.
+    const turn = last ? 0 : easeInOutSine(clamp01((position - d - SPIN_FROM) / (1 - SPIN_FROM)));
+    const target = (d + turn) * 360;
+    s.spin = Number.isNaN(s.spin) || Math.abs(target - s.spin) < 0.01 ? target : s.spin + (target - s.spin) * SPIN_EASE;
+    const spin = s.spin + click;
+    if (ready) {
+      if (rect.top < viewport && rect.bottom > 0) {
+        const shown = Math.min(n - 1, Math.floor(s.spin / 360 + 0.25));
+        // The touched side tilts away: CSS rotateX(+) is three's rotation.x(−).
+        draw(PILLARS[shown].product.model, { spin: spin * DEG, tiltX: -tilt.x * DEG, tiltY: tilt.y * DEG });
+      }
+    } else {
+      const style = spinRef.current!.style;
+      style.setProperty('--spin', `${spin}deg`);
+      style.setProperty('--tx', `${tilt.x.toFixed(3)}deg`);
+      style.setProperty('--ty', `${tilt.y.toFixed(3)}deg`);
+    }
   });
 
   // The touched side tilts away, as if pushed.
@@ -292,7 +326,13 @@ export function Pillars() {
                 }}
                 className="pillar-ring"
                 viewBox={`0 0 ${2 * ring.r} ${2 * ring.r}`}
-                style={{ '--rx': designLength(ring.x), '--ry': designLength(ring.y), '--rr': designLength(ring.r) } as CSSVars}
+                style={
+                  {
+                    '--rx': designLength(ring.x),
+                    '--ry': designLength(ring.y),
+                    '--rr': designLength(ring.r),
+                  } as CSSVars
+                }
               >
                 <circle cx={ring.r} cy={ring.r} r={ring.r} pathLength={1} strokeWidth={1} />
               </svg>
@@ -300,7 +340,8 @@ export function Pillars() {
           )}
         </div>
 
-        <div ref={productRef} className="pillar-product" aria-hidden="true">
+        <div ref={productRef} className={cx('pillar-product', ready && 'is-3d')} aria-hidden="true">
+          <canvas ref={canvasRef} className="pillar-product__canvas" />
           <div ref={spinRef} className="pillar-product__spin">
             {[0, 1].map((i) => (
               <Image

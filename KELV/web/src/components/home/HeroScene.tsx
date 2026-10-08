@@ -2,19 +2,17 @@
 
 import { useEffect, useRef, type RefObject } from 'react';
 import { clamp01, prefersReducedMotion } from '@/lib/math';
+import { finishTask, type PreloadTask } from '@/lib/preload';
 import { useFrame, useScroll } from '@/lib/scroll';
-import { INTRO_DURATION, REST_TIME } from '@/scene/config';
+import { INTRO_DURATION, LOOK, REST_TIME } from '@/scene/config';
 import type { HeroScene as Scene } from '@/scene/hero-scene';
+
+const HERO_TASKS: PreloadTask[] = ['hero-code', 'hero-data', 'hero-model', 'hero-lut', 'hero-compile'];
 
 const FADE_IN_S = 0.5;
 const MAX_PIXEL_RATIO = 2;
 
-/**
- * The three products, rendered over the Figma box of the hero (and of its copy at the end
- * of the page, so the loop jump is invisible). On load the clip plays its intro up to the
- * Figma frame; scrolling through the hero scrubs the rest (turn and open), backwards on
- * the way up.
- */
+/** The 3D products over the hero (and its loop copy): the intro plays on load, scrolling scrubs the rest. */
 export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Scene | null>(null);
@@ -31,14 +29,19 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     let disposed = false;
 
     import('@/scene/hero-scene')
-      .then(({ createHeroScene }) => createHeroScene(canvas))
+      .then(({ createHeroScene }) => {
+        finishTask('hero-code');
+        return createHeroScene(canvas);
+      })
       .then((created) => {
         if (disposed) return created.dispose();
         scene.current = created;
+        if (process.env.NODE_ENV === 'development') Object.assign(window, { __kelvHero: created, __LOOK: LOOK });
         last.current.width = 0;
         root.classList.add('has-3d');
       })
       .catch((error: unknown) => {
+        for (const task of HERO_TASKS) finishTask(task);
         root.classList.add('no-3d');
         console.error('[hero scene]', error);
       });

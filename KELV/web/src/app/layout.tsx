@@ -12,9 +12,7 @@ export const viewport: Viewport = {
   themeColor: '#030f38',
 };
 
-// Runs before first paint: refresh always starts at the top (the scroll animations start
-// from 0), `js` hides reveal targets, and a direct visit to /skin-analysis shows the panel
-// from the first frame. The timeout is a safety net that shows the page if JS fails.
+// Runs before first paint; the timeout shows the page even if the app never boots.
 const boot = `
 history.scrollRestoration = 'manual';
 var root = document.documentElement;

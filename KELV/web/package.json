@@ -10,7 +10,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --test src/analysis/logic.test.ts",
-    "hero": "node scripts/optimize-hero.mjs"
+    "hero": "node scripts/optimize-hero.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "products": "node scripts/optimize-products.mjs",
+    "wisdom": "node scripts/optimize-wisdom.mjs"
   },
   "dependencies": {
     "lenis": "1.3.26",
@@ -30,6 +34,7 @@
     "eslint": "^9.39",
     "eslint-config-next": "16.3.8",
     "meshoptimizer": "^1.3.0",
+    "prettier": "^3.9.9",
     "sharp": "^0.35.5",
     "typescript": "^5.9.3"
   }

@@ -4,8 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   agentRules: false,
   devIndicators: false,
-  // Images are exported from Figma at their final size and colour-matched to it; the
-  // optimiser would re-encode them.
+  // Figma exports are final size and colour-matched; the optimiser would re-encode them.
   images: { unoptimized: true },
 };
 

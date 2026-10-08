@@ -36,8 +36,8 @@
   position: absolute;
   z-index: 4;
   opacity: 0;
-  transform: translateY(calc(-1 * clamp(6px, 0.34884vw, 0.34884vw))) scale(0.96);
-  filter: blur(clamp(8px, 0.46512vw, 0.46512vw));
+  transform: translateY(var(--pl-el-dy)) scale(0.96);
+  filter: blur(var(--pl-el-blur));
   transition: opacity 0.3s var(--ease-p2o), transform 0.3s var(--ease-p2o), filter 0.3s var(--ease-p2o);
   pointer-events: none;
 }
@@ -46,9 +46,9 @@
 .pillars__sticky.is-on .pillar-copy  { transition: opacity 0.8s var(--ease-p2o) 0.4s,  transform 0.8s var(--ease-p2o) 0.4s,  filter 0.8s var(--ease-p2o) 0.4s; }
 .pillars__sticky.is-on .pillar-tag   { transition: opacity 0.7s var(--ease-p2o) 0.55s, transform 0.7s var(--ease-p2o) 0.55s; }
 .pillars__sticky .pl-pre.pl-el { transition: none !important; }
-.pillar-title.pl-pre   { opacity: 0; transform: translateY(var(--rv-y)); filter: blur(clamp(6px, 0.34884vw, 0.34884vw)); }
-.pillar-copy.pl-pre    { opacity: 0; transform: translateY(clamp(25px, 1.45349vw, 1.45349vw)); filter: blur(var(--rv-blur)); }
-.pillar-tag.pl-pre     { opacity: 0; transform: translateY(clamp(15px, 0.87209vw, 0.87209vw)); filter: none; }
+.pillar-title.pl-pre   { opacity: 0; transform: translateY(var(--rv-y)); filter: blur(var(--pl-title-blur)); }
+.pillar-copy.pl-pre    { opacity: 0; transform: translateY(var(--pl-copy-y)); filter: blur(var(--rv-blur)); }
+.pillar-tag.pl-pre     { opacity: 0; transform: translateY(var(--pl-tag-y)); filter: none; }
 
 .pillar-title {
   left: var(--pl-title-x);
@@ -68,7 +68,7 @@
 }
 
 .pillar-title > span { transition: opacity 0.55s var(--ease-p2o), transform 0.55s var(--ease-p2o), filter 0.55s var(--ease-p2o); }
-.pillar-title > span.is-swap { transition: none; opacity: 0; transform: translateY(clamp(14px, 0.81395vw, 0.81395vw)); filter: blur(var(--rv-blur)); }
+.pillar-title > span.is-swap { transition: none; opacity: 0; transform: translateY(var(--pl-swap-y)); filter: blur(var(--rv-blur)); }
 .pillar-title > .pillar-title__b { transition-delay: 0.07s; }
 
 .pillar-copy {
@@ -133,8 +133,7 @@
   width: var(--ps, 0px);
   height: var(--ps, 0px);
   translate: -50% -50%;
-  rotate: var(--pa, 0deg);
-  perspective: clamp(1200px, 69.76744vw, 69.76744vw);
+  perspective: var(--perspective);
   opacity: 0;
   transition: opacity 0.6s var(--ease-p2o);
   pointer-events: none;
@@ -155,6 +154,8 @@
   -webkit-backface-visibility: hidden;
 }
 .pillar-product__face--back { transform: rotateY(180deg); }
+.pillar-product__canvas { position: absolute; left: 50%; top: 50%; }
+.pillar-product.is-3d .pillar-product__spin { display: none; }
 
 .pillar-product__hit {
   position: absolute;

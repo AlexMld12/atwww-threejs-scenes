@@ -18,3 +18,4 @@ desktop.ini
 # log-urile de sesiune si comenzile agentului; CLAUDE.md e deja exclus la radacina
 .claude/
 archive/
+__pycache__/

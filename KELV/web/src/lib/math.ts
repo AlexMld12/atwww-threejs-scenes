@@ -3,6 +3,7 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
 export const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+export const easeInOutSine = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
 export const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 export const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
 

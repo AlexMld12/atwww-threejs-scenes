@@ -5,12 +5,7 @@ import { RollText } from '@/components/ui/RollText';
 import { Cta } from './Cta';
 import { Ticks } from './Ticks';
 
-/**
- * The fixed header + CTAs. Rendered twice: white, and a dark copy clipped to the part of
- * the screen over light sections (`--lb-a` / `--lb-b`, useLightBand), so the colour
- * changes exactly where a section edge crosses the text. mix-blend-mode would give
- * off-white on navy and random colours over images.
- */
+/** Fixed header + CTAs; the dark copy is clipped to the light sections (useLightBand). */
 export function Chrome({ dark = false }: { dark?: boolean }) {
   const tabIndex = dark ? -1 : undefined;
   return (

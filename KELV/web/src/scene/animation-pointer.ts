@@ -13,10 +13,7 @@ interface SamplerDef {
   interpolation?: 'LINEAR' | 'STEP' | 'CUBICSPLINE';
 }
 
-/**
- * KHR_animation_pointer support for the emissive-strength channels (the K1 light-up), which
- * GLTFLoader in three r186 does not read.
- */
+/** KHR_animation_pointer for the emissive-strength channels (K1 light-up), which GLTFLoader ignores. */
 export class AnimationPointerPlugin implements GLTFLoaderPlugin {
   readonly name = 'KHR_animation_pointer';
 
@@ -51,7 +48,12 @@ export class AnimationPointerPlugin implements GLTFLoaderPlugin {
           if (mesh.material.name !== materialName || targeted.has(mesh.material)) return;
           targeted.add(mesh.material);
           clip.tracks.push(
-            new NumberKeyframeTrack(`${mesh.uuid}.material.emissiveIntensity`, times.array, values.array, interpolation),
+            new NumberKeyframeTrack(
+              `${mesh.uuid}.material.emissiveIntensity`,
+              times.array,
+              values.array,
+              interpolation,
+            ),
           );
         });
         if (!targeted.size) throw new Error(`Missing animated material: ${materialName}`);

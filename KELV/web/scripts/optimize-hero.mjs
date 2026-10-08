@@ -1,8 +1,4 @@
-// Compresses the hero scene GLB for the web: meshopt geometry, 2048 px WebP textures and
-// only the HERO_Full clip. gltf-transform has no KHR_animation_pointer support, so the K1
-// light-up channels are carried through by the small extension below.
-//
-// Usage: npm run hero -- <path to HERO_130_animated.glb>
+// npm run hero -- <HERO_130_animated.glb>: meshopt, 2048 px WebP, HERO_Full only, pointer channels kept.
 import { Extension, NodeIO, PropertyType } from '@gltf-transform/core';
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extensions';
 import { dedup, meshopt, prune, textureCompress } from '@gltf-transform/functions';
@@ -38,17 +34,20 @@ class AnimationPointer extends Extension {
   write(context) {
     const { json } = context.jsonDoc;
     const materials = this.document.getRoot().listMaterials();
-    this.document.getRoot().listAnimations().forEach((animation, a) => {
-      animation.listChannels().forEach((channel, c) => {
-        const target = this.targets.get(channel);
-        if (!target) return;
-        const index = materials.indexOf(target.material);
-        json.animations[a].channels[c].target = {
-          path: 'pointer',
-          extensions: { [POINTER]: { pointer: `/materials/${index}${target.rest}` } },
-        };
+    this.document
+      .getRoot()
+      .listAnimations()
+      .forEach((animation, a) => {
+        animation.listChannels().forEach((channel, c) => {
+          const target = this.targets.get(channel);
+          if (!target) return;
+          const index = materials.indexOf(target.material);
+          json.animations[a].channels[c].target = {
+            path: 'pointer',
+            extensions: { [POINTER]: { pointer: `/materials/${index}${target.rest}` } },
+          };
+        });
       });
-    });
     return this;
   }
 }
@@ -69,8 +68,7 @@ for (const animation of document.getRoot().listAnimations()) {
 }
 const keep = [...pointer.targets.keys()].filter((channel) => !channel.isDisposed());
 await document.transform(
-  // Channels are left out on purpose: prune would drop the light-up channels, which have
-  // no target node.
+  // Not channels: prune would drop the light-up ones, which have no target node.
   prune({
     propertyTypes: [PropertyType.ANIMATION_SAMPLER, PropertyType.ACCESSOR, PropertyType.TEXTURE],
     keepLeaves: true,
