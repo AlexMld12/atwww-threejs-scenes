@@ -3,16 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useRef, type PointerEvent } from 'react';
 import { Lines, Words } from '@/components/ui/Words';
-import {
-  designScale,
-  clamp01,
-  easeInOutCubic,
-  easeInOutSine,
-  easeOutExpo,
-  isMobile,
-  lerp,
-  mobileUnit,
-} from '@/lib/math';
+import { designScale, clamp01, easeInOutCubic, easeInOutSine, isMobile, lerp, mobileUnit } from '@/lib/math';
 import { cx, type CSSVars } from '@/lib/css';
 import { useFrame } from '@/lib/scroll';
 import type { ProductName } from '@/scene/product-config';
@@ -80,6 +71,7 @@ const CLICK_SPIN_S = 1.2;
 const SPIN_FROM = 0.1;
 const SPIN_EASE = 0.1;
 const RING_FADE_MS = 400;
+const ENTER_DELAY_S = 0.15;
 // On phones the whole stage (product, rings) is the desktop one at this share of the mobile unit.
 const MOBILE_STAGE = 0.56;
 
@@ -234,17 +226,36 @@ export function Pillars() {
     }, outDuration * 1000);
   }
 
+  /** The first pillar comes in as the swaps do: the title from blur in place, the words up from their lines. */
+  function enterTexts() {
+    const sticky = stickyRef.current!;
+    const titleRows = [titleARef.current!, titleBRef.current!];
+    const groups = [copyRef.current!.querySelector('.pillar-copy__desc')!, sticky.querySelector('.pillar-tag')!];
+    for (const row of titleRows) row.classList.add('is-swap');
+    for (const group of groups) {
+      for (const part of group.querySelectorAll<HTMLElement>('.sw-in')) {
+        part.classList.remove('is-out', 'is-enter');
+        part.classList.add('is-below');
+      }
+    }
+    sticky.getBoundingClientRect();
+    for (const row of titleRows) row.classList.remove('is-swap');
+    groups.forEach((group, g) => {
+      group.querySelectorAll<HTMLElement>('.sw-in').forEach((part, j) => {
+        part.style.transitionDelay = `${ENTER_DELAY_S + g * 0.06 + 0.03 * j}s`;
+        part.classList.replace('is-below', 'is-enter');
+      });
+    });
+  }
+
   function setOn(on: boolean) {
     const s = state.current;
     if (on === s.on) return;
     s.on = on;
     const sticky = stickyRef.current!;
-    const elements = sticky.querySelectorAll('.pl-el');
     if (on) {
-      for (const el of elements) el.classList.add('pl-pre');
-      sticky.getBoundingClientRect();
       sticky.classList.add('is-on');
-      for (const el of elements) el.classList.remove('pl-pre');
+      enterTexts();
       s.ringsFor = -1;
     } else {
       sticky.classList.remove('is-on');
@@ -260,7 +271,8 @@ export function Pillars() {
     const viewport = window.innerHeight;
     const rect = section.getBoundingClientRect();
 
-    const zoom = easeOutExpo(clamp01(1 - rect.top / viewport));
+    // The card fills the screen exactly when the section docks, the moment the product appears.
+    const zoom = easeInOutSine(clamp01(1 - rect.top / viewport));
     if (Math.abs(zoom - s.zoom) > 1e-4) {
       s.zoom = zoom;
       zoomRef.current!.style.setProperty('--e', zoom.toFixed(5));

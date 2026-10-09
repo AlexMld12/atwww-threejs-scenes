@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import type { Ref } from 'react';
 import { PageLink } from '@/components/layers/PageLink';
 import { Mega } from '@/components/ui/Mega';
@@ -14,15 +13,6 @@ const POLICIES = [
 export function Footer({ ref }: { ref?: Ref<HTMLElement> }) {
   return (
     <footer ref={ref} className="footer" id="footer">
-      <Image
-        className="footer__glow"
-        src="/images/hero-glow.webp"
-        alt=""
-        width={2602}
-        height={2210}
-        loading="eager"
-        aria-hidden
-      />
       <Mega className="footer__mega" />
       <Reveal className="footer__info mono" delay={0.2} lines>
         Three steps back to baseline. Cool. Calm. Seal. Repeat.

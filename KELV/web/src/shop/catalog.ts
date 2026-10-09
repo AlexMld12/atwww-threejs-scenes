@@ -1,3 +1,5 @@
+import type { ProductName } from '@/scene/product-config';
+
 /** The shop's content. Foam Cleanser is the Figma copy; Serum and Cream follow its template (copy written to match, to be confirmed). */
 
 export interface Product {
@@ -9,6 +11,10 @@ export interface Product {
   code: string;
   step: number;
   image: string;
+  /** Vertical centre of the bottle in `image` (share of its height), to centre it in the cards. */
+  imageCentre: number;
+  /** The GLB on the product page. */
+  model: ProductName;
   price: number;
   /** One line on the cards, a longer one on the product page. */
   summary: string;
@@ -39,6 +45,8 @@ export const PRODUCTS: Product[] = [
     code: 'K1/COOL',
     step: 1,
     image: '/images/shop/product-k1.webp',
+    imageCentre: 0.516,
+    model: 'K1_COOL_Foam',
     price: 45.54,
     summary: 'Lifts sweat, sunscreen and city residue without stripping. A cool finish that resets skin.',
     lead: 'Lifts sweat, sunscreen and city residue without stripping. A cool finish that resets skin for the next step.',
@@ -90,6 +98,8 @@ export const PRODUCTS: Product[] = [
     code: 'K2/CALM',
     step: 2,
     image: '/images/shop/product-k2.webp',
+    imageCentre: 0.544,
+    model: 'K2_CALM_Serum',
     price: 45.54,
     summary: 'Takes the edge off redness and visible stress. Lightweight, absorbs fast.',
     lead: 'Takes the edge off redness and visible stress. Lightweight, absorbs fast.',
@@ -141,6 +151,8 @@ export const PRODUCTS: Product[] = [
     code: 'K3/SEAL',
     step: 3,
     image: '/images/shop/product-k3.webp',
+    imageCentre: 0.544,
+    model: 'K3_SEAL_Cream',
     price: 45.54,
     summary: 'Locks hydration in and rebuilds the barrier overnight. Soft, never heavy.',
     lead: 'Locks hydration in and rebuilds the barrier overnight. Soft, never heavy.',

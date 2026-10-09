@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { PageLink } from '@/components/layers/PageLink';
+import type { CSSVars } from '@/lib/css';
 import { Reveal } from '@/components/ui/Reveal';
 import { RollText } from '@/components/ui/RollText';
 import { useCart } from '@/shop/cart';
@@ -17,7 +18,15 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
     <Reveal as="article" className="card" delay={index * STAGGER}>
       <PageLink href={href} className="card__media" aria-label={product.name}>
         <span className="pill mono">Step {product.step}/3</span>
-        <Image className="card__img" src={product.image} alt="" width={1024} height={1024} unoptimized />
+        <Image
+          className="card__img"
+          src={product.image}
+          alt=""
+          width={1024}
+          height={1024}
+          unoptimized
+          style={{ '--img-cy': product.imageCentre } as CSSVars}
+        />
       </PageLink>
       <div className="card__body">
         <PageLink href={href} className="card__title">

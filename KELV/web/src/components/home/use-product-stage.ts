@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { finishTask, type PreloadTask } from '@/lib/preload';
+import { markRendered, onRenderScale, renderScale } from '@/lib/quality';
 import { PRODUCTS, PRODUCT_LOOK, type ProductName } from '@/scene/product-config';
 import type { ProductPose, ProductStage } from '@/scene/product-stage';
 
 const MAX_PIXEL_RATIO = 2;
 
 /** A 3D product canvas: `draw` keeps it on whole device pixels and renders only when something changed. */
-export function useProductStage(names: ProductName[], compileTask: PreloadTask) {
+export function useProductStage(names: ProductName[], compileTask?: PreloadTask) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stage = useRef<ProductStage | null>(null);
   const last = useRef({ product: '', pose: '', dirty: true });
@@ -32,10 +33,11 @@ export function useProductStage(names: ProductName[], compileTask: PreloadTask) 
       Object.assign(box.current, { width, height, dpr, x: Number.NaN, y: Number.NaN });
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      current.setSize(width, height, dpr);
+      current.setSize(width, height, dpr * renderScale());
       last.current.dirty = true;
     };
     const observer = new ResizeObserver(resize);
+    const stopScale = onRenderScale(resize);
 
     import('@/scene/product-stage')
       .then(({ createProductStage }) => createProductStage(canvas, names, compileTask))
@@ -55,13 +57,14 @@ export function useProductStage(names: ProductName[], compileTask: PreloadTask) 
       })
       .catch((error: unknown) => {
         for (const name of names) finishTask(PRODUCTS[name].task);
-        finishTask(compileTask);
+        if (compileTask) finishTask(compileTask);
         console.error('[product stage]', error);
       });
 
     return () => {
       disposed = true;
       observer.disconnect();
+      stopScale();
       stage.current?.dispose();
       stage.current = null;
     };
@@ -87,11 +90,12 @@ export function useProductStage(names: ProductName[], compileTask: PreloadTask) 
     }
 
     const s = last.current;
-    const key = `${pose.spin} ${pose.tiltX} ${pose.tiltY} ${pose.roll ?? 0}`;
+    const key = `${pose.spin} ${pose.tiltX} ${pose.tiltY} ${pose.roll ?? 0} ${pose.zoom ?? 1} ${pose.orientation ?? ''}`;
     if (!s.dirty && s.product === product && s.pose === key) return;
     if (s.product !== product) current.setProduct(product);
     current.setPose(pose);
     current.render();
+    markRendered();
     Object.assign(s, { product, pose: key, dirty: false });
   }, []);
 

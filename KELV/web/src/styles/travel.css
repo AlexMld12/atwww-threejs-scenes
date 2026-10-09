@@ -5,13 +5,73 @@
   background: var(--c-light);
   overflow: hidden;
 }
+/* not in Figma (the user's request): the zone ends in the footer's navy, on one smoothstep ramp */
+.travel::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--z8-fade);
+  background: linear-gradient(
+    to bottom,
+    rgb(3 15 56 / 0.0000) 0.00%,
+    rgb(3 15 56 / 0.0051) 4.17%,
+    rgb(3 15 56 / 0.0197) 8.33%,
+    rgb(3 15 56 / 0.0430) 12.50%,
+    rgb(3 15 56 / 0.0741) 16.67%,
+    rgb(3 15 56 / 0.1121) 20.83%,
+    rgb(3 15 56 / 0.1562) 25.00%,
+    rgb(3 15 56 / 0.2056) 29.17%,
+    rgb(3 15 56 / 0.2593) 33.33%,
+    rgb(3 15 56 / 0.3164) 37.50%,
+    rgb(3 15 56 / 0.3762) 41.67%,
+    rgb(3 15 56 / 0.4376) 45.83%,
+    rgb(3 15 56 / 0.5000) 50.00%,
+    rgb(3 15 56 / 0.5624) 54.17%,
+    rgb(3 15 56 / 0.6238) 58.33%,
+    rgb(3 15 56 / 0.6836) 62.50%,
+    rgb(3 15 56 / 0.7407) 66.67%,
+    rgb(3 15 56 / 0.7944) 70.83%,
+    rgb(3 15 56 / 0.8438) 75.00%,
+    rgb(3 15 56 / 0.8879) 79.17%,
+    rgb(3 15 56 / 0.9259) 83.33%,
+    rgb(3 15 56 / 0.9570) 87.50%,
+    rgb(3 15 56 / 0.9803) 91.67%,
+    rgb(3 15 56 / 0.9949) 95.83%,
+    rgb(3 15 56 / 1.0000) 100.00%
+  );
+  pointer-events: none;
+}
+/* a soft radial (smoothstep edge: a linear falloff, scaled up, reads as a line) */
 .travel__glow {
   position: absolute;
   left: calc(50% + var(--z8-glow-dx) - var(--z8-glow-w) / 2);
   top: var(--z8-glow-top);
   width: var(--z8-glow-w);
   height: var(--z8-glow-h);
-  max-width: none;
+  background: radial-gradient(
+    closest-side,
+    rgb(170 221 243 / 1.0000) 25.00%,
+    rgb(170 221 243 / 0.9928) 28.75%,
+    rgb(170 221 243 / 0.9720) 32.50%,
+    rgb(170 221 243 / 0.9392) 36.25%,
+    rgb(170 221 243 / 0.8960) 40.00%,
+    rgb(170 221 243 / 0.8438) 43.75%,
+    rgb(170 221 243 / 0.7840) 47.50%,
+    rgb(170 221 243 / 0.7183) 51.25%,
+    rgb(170 221 243 / 0.6480) 55.00%,
+    rgb(170 221 243 / 0.5748) 58.75%,
+    rgb(170 221 243 / 0.5000) 62.50%,
+    rgb(170 221 243 / 0.4253) 66.25%,
+    rgb(170 221 243 / 0.3520) 70.00%,
+    rgb(170 221 243 / 0.2817) 73.75%,
+    rgb(170 221 243 / 0.2160) 77.50%,
+    rgb(170 221 243 / 0.1562) 81.25%,
+    rgb(170 221 243 / 0.1040) 85.00%,
+    rgb(170 221 243 / 0.0608) 88.75%,
+    rgb(170 221 243 / 0.0280) 92.50%,
+    rgb(170 221 243 / 0.0072) 96.25%,
+    rgb(170 221 243 / 0.0000) 100.00%
+  );
   transform-origin: 50% 50%;
   will-change: transform;
   pointer-events: none;
@@ -31,15 +91,8 @@
 .tp-reveal {
   position: absolute;
   inset: 0;
-  rotate: -24deg;
-  scale: 0.55;
-  opacity: 0;
-  transition: rotate 1.2s var(--ease-expo-o), scale 1.2s var(--ease-expo-o), opacity 0.6s var(--ease-p2o);
   transform-style: preserve-3d;
 }
-.tp-reveal.is-in { rotate: 0deg; scale: 1; opacity: 1; }
-
-html:not(.is-ready) .tp-reveal { transition: none; }
 .tp-spin {
   position: absolute;
   inset: 0;

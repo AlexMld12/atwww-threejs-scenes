@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ErrorIcon } from '@/components/ui/icons';
 import { cx } from '@/lib/css';
-import { EMAIL, ERROR_CONSENT, ERROR_EMAIL, STEPS, isAnswered, type Answers, type Step } from '@/analysis/logic';
+import { EMAIL, ERROR_EMAIL, STEPS, isAnswered, type Answers, type Step } from '@/analysis/logic';
 import { Button } from './Button';
 import { cascade, useRevealed } from './cascade';
 import { PageLink } from '@/components/layers/PageLink';
@@ -188,16 +188,14 @@ function ContactBody({
 }: BodyProps & { step: Extract<Step, { kind: 'form' }> }) {
   const revealed = useRevealed();
   const [emailError, setEmailError] = useState(false);
-  const [consentError, setConsentError] = useState(false);
   const next = cascade(delay);
   const email = answers.email.trim();
+  // The reading is sent to them: a name and a valid email are required.
+  const complete = Boolean(answers.name.trim()) && EMAIL.test(email);
 
   const submit = () => {
-    const badEmail = Boolean(email) && !EMAIL.test(email);
-    const missingEmail = answers.consent && !email;
-    setEmailError(badEmail);
-    setConsentError(missingEmail);
-    if (!badEmail && !missingEmail) onSubmit();
+    setEmailError(Boolean(email) && !EMAIL.test(email));
+    if (complete) onSubmit();
   };
 
   return (
@@ -238,7 +236,6 @@ function ContactBody({
             const value = event.target.value;
             onField('email', value);
             if (EMAIL.test(value.trim())) setEmailError(false);
-            if (value.trim()) setConsentError(false);
           }}
           onBlur={() => setEmailError(Boolean(email) && !EMAIL.test(email))}
           onKeyDown={(event) => event.key === 'Enter' && submit()}
@@ -250,16 +247,12 @@ function ContactBody({
           type="checkbox"
           name="consent"
           checked={answers.consent}
-          onChange={(event) => {
-            onField('consent', event.target.checked);
-            if (!event.target.checked) setConsentError(false);
-          }}
+          onChange={(event) => onField('consent', event.target.checked)}
         />
         <span>
           By submitting, you agree to our <PageLink href="/privacy-policy">Privacy policy</PageLink>
         </span>
       </label>
-      <FieldError message={consentError ? ERROR_CONSENT : null} />
       <p className="sa-form__info" data-sa-in="" style={next()}>
         We only use your email for your reading and the reminders you choose.
         <br />
@@ -267,7 +260,7 @@ function ContactBody({
       </p>
       <div className="sa-nav" data-sa-in="" style={next()}>
         <Button variant="ghost" label="Back" onClick={onBack} />
-        <Button variant="blue" label="See my reading" onClick={submit} />
+        <Button variant="blue" label="See my reading" disabled={!complete} onClick={submit} />
       </div>
     </div>
   );

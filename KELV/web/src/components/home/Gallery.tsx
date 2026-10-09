@@ -16,8 +16,7 @@ const CENTRE_END = 0.35;
 const ZOOM_SLOW_END = 0.45;
 const ZOOM_END = 0.92;
 const ZOOM_SLOW_SHARE = 0.15;
-// On Ancient Wisdom: the header and CTAs come back, the CTAs rise to the middle, then the text.
-const CHROME_AT = 0.6;
+// On Ancient Wisdom: the CTAs rise to the middle, then the text.
 const CTA_FROM = 0.64;
 const CTA_LENGTH = 0.1;
 const TEXT_FROM = 0.76;
@@ -48,8 +47,9 @@ export function Gallery() {
   const screenMaskRef = useRef<HTMLDivElement>(null);
   const wisdomRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
-  const canvasRef = useWisdomScene(sectionRef, tileRef);
-  const state = useRef({ eased: 0, wordsIn: false, chromeOff: false, shift: -1, frame: { w: 1, h: 1, cy: 0 } });
+  const sceneProgress = useRef(0);
+  const canvasRef = useWisdomScene(sectionRef, tileRef, sceneProgress);
+  const state = useRef({ eased: 0, wordsIn: false, shift: -1, frame: { w: 1, h: 1, cy: 0 } });
 
   useEffect(() => {
     const tile = tileRef.current;
@@ -67,10 +67,7 @@ export function Gallery() {
 
   useEffect(() => {
     for (const word of textRef.current?.querySelectorAll('.sw-in') ?? []) word.classList.add('is-below');
-    return () => {
-      document.documentElement.classList.remove('chrome-off');
-      setChromeVar('--cta-shift', null);
-    };
+    return () => setChromeVar('--cta-shift', null);
   }, []);
 
   useFrame(() => {
@@ -87,6 +84,8 @@ export function Gallery() {
     const raw = span > 0 ? clamp01(-rect.top / span) : 0;
     s.eased = Math.abs(raw - s.eased) > 1e-4 ? s.eased + (raw - s.eased) * LERP : raw;
     const e = s.eased;
+    // The scene plays from when the grid, centred, zooms into it to the end of the section.
+    sceneProgress.current = clamp01((e - CENTRE_END) / (1 - CENTRE_END));
 
     const centre = smoothstep(clamp01(e / CENTRE_END));
     const grow = zoomCurve(e);
@@ -116,13 +115,6 @@ export function Gallery() {
         word.style.transitionDelay = '';
         word.classList.add('is-below');
       }
-    }
-
-    const inSection = rect.top < vh * 0.5 && rect.bottom > vh * 0.5;
-    const chromeOff = inSection && e < CHROME_AT;
-    if (chromeOff !== s.chromeOff) {
-      s.chromeOff = chromeOff;
-      document.documentElement.classList.toggle('chrome-off', chromeOff);
     }
 
     // The CTAs go back down while the next section's edge rises from the bottom to the middle.

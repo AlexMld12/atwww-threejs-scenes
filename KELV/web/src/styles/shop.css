@@ -187,10 +187,12 @@
   box-shadow: 0 0 0 1px var(--sh-border);
 }
 .card__media { position: relative; display: block; height: var(--sh-card-body); }
+/* the bottle's own centre on the card's: --img-cy is where it sits in the image */
 .card__img {
   position: absolute;
-  left: var(--sh-card-img-x);
-  top: var(--sh-card-img-y);
+  left: 50%;
+  top: 50%;
+  translate: -50% calc(var(--img-cy, 0.5) * -100%);
   width: var(--sh-card-img);
   height: var(--sh-card-img);
   max-width: none;
@@ -267,13 +269,48 @@
 .pdp__hero, .pdp__scene { position: relative; height: var(--sh-area-h); overflow: hidden; }
 .pdp__hero { background: linear-gradient(#d6edf6, #eff7fb); }
 .pdp__hero .pill { top: var(--sh-pill-top); left: var(--sh-edge); }
-.pdp__product {
+.pdp__product { position: absolute; inset: 0; }
+
+/* The product's GLB: dragged round, zoomed with + and − (the packshot image until it loads) */
+.viewer { position: absolute; inset: 0; }
+.viewer__img {
   position: absolute;
-  left: var(--sh-hero-img-x);
-  top: var(--sh-hero-img-y);
+  left: 50%;
+  top: 50%;
   width: var(--sh-hero-img);
+  height: var(--sh-hero-img);
+  max-width: none;
+  translate: -50% -50%;
+  transition: opacity 0.4s var(--ease-p2o);
 }
-.pdp__product img { width: 100%; height: auto; }
+.viewer.is-3d .viewer__img { opacity: 0; }
+.viewer__stage { position: absolute; inset: 0; cursor: grab; touch-action: none; }
+.viewer__stage:active { cursor: grabbing; }
+.viewer__canvas { position: absolute; left: 50%; top: 50%; opacity: 0; transition: opacity 0.4s var(--ease-p2o); }
+.viewer.is-3d .viewer__canvas { opacity: 1; }
+.viewer__zoom {
+  position: absolute;
+  top: var(--sh-pill-top);
+  right: var(--sh-edge);
+  display: flex;
+  gap: var(--sh-zoom-gap);
+}
+.viewer__btn {
+  display: grid;
+  place-items: center;
+  width: var(--sh-zoom-btn);
+  height: var(--sh-zoom-btn);
+  padding: 0;
+  border: 0;
+  border-radius: var(--btn-radius);
+  background: var(--sh-ink);
+  color: #fff;
+  font-size: var(--sh-zoom-fs);
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s ease-out;
+}
+@media (hover: hover) { .viewer__btn:hover { background: var(--c-orange); } }
 .pdp__scene img {
   position: absolute;
   left: var(--sh-scene-x);
@@ -588,12 +625,10 @@
   .grid { grid-template-columns: 1fr; }
   .card { height: auto; }
   .card__body { padding-bottom: var(--sh-card-pad); }
-  .card__img { left: calc(50% - var(--sh-card-img) / 2); }
   .soon__body { padding-bottom: var(--sh-card-pad); }
 
   .pdp { grid-template-columns: 1fr; }
   .pdp__media { border-right: 0; }
-  .pdp__product { left: calc(50% - var(--sh-hero-img) / 2); }
   .pdp__info { position: static; }
   .pdp__info > * { padding-left: var(--sh-edge); }
   .buy { grid-template-columns: var(--sh-qty-w) 1fr; }

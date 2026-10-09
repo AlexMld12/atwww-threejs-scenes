@@ -104,11 +104,6 @@
   --pl-copy-dy:    calc(-59 * var(--u));
   --pl-copy-w:     calc(280 * var(--u));
   --pl-copy-gap:   calc(16 * var(--u));
-  --pl-el-dy:      calc(-6 * var(--u));
-  --pl-el-blur:    calc(8 * var(--u));
-  --pl-title-blur: calc(6 * var(--u));
-  --pl-copy-y:     calc(25 * var(--u));
-  --pl-tag-y:      calc(15 * var(--u));
   --pl-swap-y:     calc(14 * var(--u));
 
   /* 05–06 Gallery, Ancient Wisdom */
@@ -150,14 +145,9 @@
 
   /* 08–09 Travel product, footer */
   --travel-h:      calc(1042 * var(--u));
-  /* Footer glow: the hero's, 0.85× around the same centre, so it stops short of the footer's bottom */
-  --ft-glow-top:    calc(-1152 * var(--u));
-  --ft-blend:       calc(460 * var(--u));
-  --ft-glow-x:      calc(1129.65 * var(--u));
-  --ft-glow-w:      calc(2211.7 * var(--u));
-  --ft-glow-h:      calc(1878.5 * var(--u));
   /* Zone 8's blue ellipse (Figma xref 30); it grows and rises with the scroll */
   --z8-glow-top:    calc(608 * var(--u));
+  --z8-fade:        calc(560 * var(--u));
   --z8-glow-dx:     calc(-2 * var(--u));
   --z8-glow-w:      calc(2238 * var(--u));
   --z8-glow-h:      calc(1769 * var(--u));
@@ -277,12 +267,8 @@
     /* 08–09 Travel product, footer */
     --tp-s:          calc(330 * var(--mu));
     --travel-h:      calc(700 * var(--mu));
-    --ft-glow-top:   calc(-576 * var(--mu));
-    --ft-blend:      calc(320 * var(--mu));
-    --ft-glow-x:     calc(553 * var(--mu));
-    --ft-glow-w:     calc(1106 * var(--mu));
-    --ft-glow-h:     calc(939 * var(--mu));
     --z8-glow-top:   calc(380 * var(--mu));
+    --z8-fade:       calc(380 * var(--mu));
     --z8-glow-dx:    0px;
     --z8-glow-w:     calc(1100 * var(--mu));
     --z8-glow-h:     calc(870 * var(--mu));
@@ -500,8 +486,6 @@
   --sh-pill-pad:          calc(13 * var(--u));
   --sh-card-pad:          calc(16 * var(--u));
   --sh-card-img:          calc(511 * var(--u));
-  --sh-card-img-x:        calc(-42 * var(--u));
-  --sh-card-img-y:        calc(-42 * var(--u));
   --sh-card-body:         calc(473 * var(--u));
   --sh-card-title-top:    calc(16 * var(--u));
   --sh-card-summary-top:  calc(11 * var(--u));
@@ -523,8 +507,9 @@
   --sh-area-h:            calc(850 * var(--u));
   --sh-pill-top:          calc(15 * var(--u));
   --sh-hero-img:          calc(823 * var(--u));
-  --sh-hero-img-x:        calc(13 * var(--u));
-  --sh-hero-img-y:        calc(-29 * var(--u));
+  --sh-zoom-btn:          calc(40 * var(--u));
+  --sh-zoom-gap:          calc(8 * var(--u));
+  --sh-zoom-fs:           calc(18 * var(--u));
   --sh-scene-w:           calc(1523 * var(--u));
   --sh-scene-h:           calc(1015 * var(--u));
   --sh-scene-x:           calc(-337 * var(--u));
@@ -619,14 +604,13 @@
     --sh-col-gap:       calc(12 * var(--mu));
     --sh-card-body:     calc(340 * var(--mu));
     --sh-card-img:      calc(380 * var(--mu));
-    --sh-card-img-x:    calc(-20 * var(--mu));
-    --sh-card-img-y:    calc(-24 * var(--mu));
     --sh-soon-img-h:    calc(340 * var(--mu));
     --sh-soon-body-h:   auto;
     --sh-area-h:        calc(460 * var(--mu));
     --sh-hero-img:      calc(460 * var(--mu));
-    --sh-hero-img-x:    calc(-35 * var(--mu));
-    --sh-hero-img-y:    calc(-10 * var(--mu));
+    --sh-zoom-btn:      calc(40 * var(--mu));
+    --sh-zoom-gap:      calc(8 * var(--mu));
+    --sh-zoom-fs:       calc(18 * var(--mu));
     --sh-scene-w:       calc(690 * var(--mu));
     --sh-scene-h:       calc(460 * var(--mu));
     --sh-scene-x:       calc(-170 * var(--mu));

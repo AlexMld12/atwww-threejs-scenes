@@ -22,6 +22,10 @@ export interface ProductPose {
   tiltY: number;
   /** In-plane rotation of the whole render about the frame's centre, radians clockwise (like CSS rotate). */
   roll?: number;
+  /** Camera zoom (1 = the packshot framing). */
+  zoom?: number;
+  /** A free orientation (quaternion x, y, z, w) in place of spin and tilt: the product page's 360° view. */
+  orientation?: [number, number, number, number];
 }
 
 export interface ProductStage {
@@ -96,7 +100,7 @@ export function loadProduct(name: ProductName) {
 export async function createProductStage(
   canvas: HTMLCanvasElement,
   names: ProductName[],
-  compileTask: PreloadTask,
+  compileTask?: PreloadTask,
 ): Promise<ProductStage> {
   const templates = await Promise.all(names.map(loadProduct));
   RectAreaLightUniformsLib.init();
@@ -200,6 +204,12 @@ export async function createProductStage(
   // Compile every product as it will be drawn, and upload the textures, while the preloader runs.
   for (const model of products.values()) model.visible = true;
   await renderer.compileAsync(scene, camera);
+  // The cap's transmission pass draws the rest into a linear HDR target: a program variant of its own.
+  const transmissionTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+  renderer.setRenderTarget(transmissionTarget);
+  await renderer.compileAsync(scene, camera);
+  renderer.setRenderTarget(null);
+  transmissionTarget.dispose();
   const anisotropy = renderer.capabilities.getMaxAnisotropy();
   for (const material of materials) {
     for (const value of Object.values(material)) {
@@ -209,15 +219,25 @@ export async function createProductStage(
     }
   }
   setProduct(current);
-  finishTask(compileTask);
+  if (compileTask) finishTask(compileTask);
 
   return {
     setProduct,
 
     setPose(pose) {
-      tilt.rotation.x = pose.tiltX;
-      spin.rotation.y = pose.tiltY + pose.spin;
+      if (pose.orientation) {
+        tilt.quaternion.set(...pose.orientation);
+        spin.rotation.y = 0;
+      } else {
+        tilt.rotation.x = pose.tiltX;
+        spin.rotation.y = pose.tiltY + pose.spin;
+      }
       roll.rotation.z = -(pose.roll ?? 0);
+      const zoom = pose.zoom ?? 1;
+      if (zoom !== camera.zoom) {
+        camera.zoom = zoom;
+        camera.updateProjectionMatrix();
+      }
     },
 
     setSize(width, height, pixelRatio) {

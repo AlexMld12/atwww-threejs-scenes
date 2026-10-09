@@ -19,10 +19,7 @@
 .cta--r { right: var(--pad-edge); }
 
 .site-header { transition: opacity 0.5s var(--ease-p2o); }
-html.chrome-off .site-header,
-html.chrome-off .cta,
 html.cta-off .cta { opacity: 0; pointer-events: none; }
-html.chrome-off .site-header a, html.chrome-off .site-header button { pointer-events: none; }
 .cta__line {
   position: absolute;
   left: 0;

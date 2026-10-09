@@ -39,10 +39,22 @@ export interface HeroScene {
 type LitMaterial = THREE.MeshPhysicalMaterial;
 
 const FOAM_WIDTH = 0.045;
-const BOUNCE_ANGLES = [180, 240, 300];
 const FOAM_HEIGHT = 0.15;
 
 const capEdge: THREE.IUniform<THREE.Vector2> = { value: new THREE.Vector2() };
+const labelPrint: THREE.IUniform<THREE.Vector2> = { value: new THREE.Vector2() };
+// The mask is raised to a power: filtered down, thin text turns grey in it and would glow (washed out).
+// K1's light on the serum, in its shader: from K1's centre, wrapped round (no terminator) and fading with distance.
+const k1Spill: THREE.IUniform<THREE.Vector4> = { value: new THREE.Vector4() };
+const k1SpillShape: THREE.IUniform<THREE.Vector2> = { value: new THREE.Vector2() };
+const K1_SPILL = `#include <emissivemap_fragment>
+  vec3 toK1 = k1Spill.xyz + vViewPosition;
+  float k1Distance = length(toK1);
+  float k1Facing = clamp((dot(normal, toK1 / k1Distance) + k1SpillShape.y) / (1.0 + k1SpillShape.y), 0.0, 1.0);
+  float k1Falloff = 1.0 / (1.0 + k1Distance * k1Distance / (k1SpillShape.x * k1SpillShape.x));
+  totalEmissiveRadiance += k1Spill.w * k1Facing * k1Facing * k1Falloff * diffuseColor.rgb;`;
+const LABEL_PRINT = `totalEmissiveRadiance *= pow(texture2D(emissiveMap, vEmissiveMapUv).rgb, vec3(labelPrint.y));
+  totalEmissiveRadiance += labelPrint.x * diffuseColor.rgb;`;
 // Fresnel-weighted emission: brightest where the cap's walls are seen edge-on.
 const CAP_EDGE_GLOW = `#include <emissivemap_fragment>
   totalEmissiveRadiance += capEdge.x * pow(1.0 - abs(dot(normal, normalize(vViewPosition))), capEdge.y);`;
@@ -76,7 +88,8 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
   installFilmic(lutInfo);
   RectAreaLightUniformsLib.init();
 
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  // Only the composite quad reaches the canvas; the scene is antialiased in the HDR target.
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.CustomToneMapping;
@@ -85,8 +98,9 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
 
   const scene = new THREE.Scene();
   scene.add(gltf.scene);
-  const camera = gltf.cameras[0] as THREE.PerspectiveCamera | undefined;
-  if (!camera) throw new Error('Animated camera missing');
+  const animatedCamera = gltf.cameras[0] as THREE.PerspectiveCamera | undefined;
+  if (!animatedCamera) throw new Error('Animated camera missing');
+  const camera = animatedCamera;
 
   // ---- materials ----
   const materials = new Set<LitMaterial>();
@@ -95,6 +109,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
     if (mesh.isMesh) for (const m of [mesh.material].flat()) materials.add(m as LitMaterial);
   });
   const glowMaterials: LitMaterial[] = [];
+
   const capMaterials: LitMaterial[] = [];
   const baseRoughness = new Map<LitMaterial, number>();
   const lifted = Object.keys(LOOK.lift).map((product) => ({
@@ -104,7 +119,12 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
   const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
   for (const material of materials) {
     const isCap = material.name.endsWith('Cap_Clear');
-    if (manifest.glowMaterials.includes(material.name)) glowMaterials.push(material);
+    if (manifest.glowMaterials.includes(material.name)) {
+      glowMaterials.push(material);
+    }
+    // K1's label: its white ground glows (the GLB's mask), its print adds its own colour on top.
+    const isSpilled = !isCap && material.name.includes('K2_CALM_Serum');
+    const isLabel = manifest.glowMaterials.includes(material.name) && Boolean(material.emissiveMap && material.map);
     if (isCap) capMaterials.push(material);
     else baseRoughness.set(material, material.roughness);
     const lift = lifted.find(({ product }) => material.name.includes(product));
@@ -124,9 +144,25 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
           .replace('#include <transmission_pars_fragment>', clearCapTransmission)
           .replace('void main() {', `uniform vec2 capEdge;\nvoid main() {`)
           .replace('#include <emissivemap_fragment>', CAP_EDGE_GLOW);
+      } else if (isSpilled) {
+        shader.uniforms.k1Spill = k1Spill;
+        shader.uniforms.k1SpillShape = k1SpillShape;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('void main() {', `uniform vec4 k1Spill;\nuniform vec2 k1SpillShape;\nvoid main() {`)
+          .replace('#include <emissivemap_fragment>', K1_SPILL);
+      } else if (isLabel) {
+        shader.uniforms.labelPrint = labelPrint;
+        shader.fragmentShader = shader.fragmentShader
+          .replace(
+            'void main() {',
+            `uniform vec2 labelPrint;
+void main() {`,
+          )
+          .replace('#include <emissivemap_fragment>', LABEL_PRINT);
       }
     };
-    material.customProgramCacheKey = () => (isCap ? 'kelv-hero-cap' : 'kelv-hero');
+    const key = isCap ? 'cap' : isSpilled ? 'spill' : isLabel ? 'label' : 'base';
+    material.customProgramCacheKey = () => `kelv-hero-${key}`;
   }
 
   // ---- lighting ----
@@ -153,19 +189,6 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
   const foamNode = gltf.scene.getObjectByName('K1_COOL_Foam');
   if (!foamNode) throw new Error('K1_COOL_Foam missing');
   const foam: THREE.Object3D = foamNode;
-
-  // K1's light onto the serum, from the side of its body that faces it. Each area light lengthens every shader.
-  const forward = new THREE.Vector3(0, 0, -1);
-  const bounceLights = BOUNCE_ANGLES.map((degrees) => {
-    const angle = THREE.MathUtils.degToRad(degrees);
-    const direction = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
-    const light = new THREE.RectAreaLight(0xffffff, 0, 0.021, 0.094);
-    light.position.copy(direction).multiplyScalar(0.0201);
-    light.position.y = -0.0303;
-    light.quaternion.setFromUnitVectors(forward, direction);
-    return light;
-  });
-  foam.add(...bounceLights);
 
   const foamCentre = new THREE.Vector3();
   const neighbourCentre = new THREE.Vector3();
@@ -240,9 +263,13 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
 
   // After the mixer, which only writes values that changed.
   function updateGlow() {
-    const glow = glowCurve.evaluate(Math.max(0, time))[0] * LOOK.emission;
-    for (const m of glowMaterials) m.emissiveIntensity = glow;
-    for (const l of bounceLights) l.intensity = glow * LOOK.bounce;
+    const level = glowCurve.evaluate(Math.max(0, time))[0];
+    const glow = level * LOOK.emission;
+    for (const m of glowMaterials) m.emissiveIntensity = m.emissiveMap ? level * LOOK.labelGlow : glow;
+    labelPrint.value.set(level * LOOK.labelPrint, LOOK.labelMaskPower);
+    const centre = foamCentre.clone().applyMatrix4(camera.matrixWorldInverse);
+    k1Spill.value.set(centre.x, centre.y, centre.z, level * LOOK.k1Spill.strength);
+    k1SpillShape.value.set(LOOK.k1Spill.radius, LOOK.k1Spill.wrap);
     for (const { name, light } of glowLights) light.intensity = glow * LOOK.glowLights[name];
   }
 
@@ -274,7 +301,6 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
       for (const material of list) material.emissiveIntensity = LOOK.lift[product];
     }
     for (const material of glowMaterials) material.emissive.set(LOOK.emissionColor);
-    for (const light of bounceLights) light.color.set(LOOK.emissionColor);
     scene.updateMatrixWorld(true);
     aimGlowLights();
     updateGlow();

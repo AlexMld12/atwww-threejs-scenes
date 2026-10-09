@@ -2,6 +2,7 @@
 
 import Lenis from 'lenis';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { sampleFrame } from './quality';
 
 type FrameCallback = (now: number) => void;
 
@@ -21,6 +22,18 @@ const ScrollContext = createContext<ScrollContextValue | null>(null);
 
 const FONT_TIMEOUT_MS = 2000;
 
+/** The loop runs one way: footer → hero. Scrolling up past the top of a lap stops there instead of wrapping. */
+function preventUpwardWrap(lenis: Lenis) {
+  const scrollTo = lenis.scrollTo.bind(lenis);
+  lenis.scrollTo = (target, options) => {
+    if (options?.programmatic === false && typeof target === 'number' && lenis.limit > 0) {
+      const lapStart = Math.floor(lenis.targetScroll / lenis.limit) * lenis.limit;
+      target = Math.max(target, lapStart);
+    }
+    scrollTo(target, options);
+  };
+}
+
 export function ScrollProvider({ children }: { children: ReactNode }) {
   const callbacks = useRef(new Set<FrameCallback>());
   const lenisRef = useRef<Lenis | null>(null);
@@ -37,11 +50,15 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
       syncTouch: true,
       syncTouchLerp: 0.1,
       touchMultiplier: 1,
+      // Their Lenis (1.3.17) predates this option: the scroll stays smooth with reduced motion on.
+      respectReducedMotion: false,
     });
+    preventUpwardWrap(instance);
     lenisRef.current = instance;
     setLenis(instance);
 
     let frame = requestAnimationFrame(function tick(now) {
+      sampleFrame(now);
       instance.raf(now);
       for (const callback of callbacks.current) callback(now);
       frame = requestAnimationFrame(tick);

@@ -22,12 +22,17 @@ export const LOOK = {
   top: 0.086,
   emission: 1.25,
   emissionColor: '#ffffff',
+  /** K1's label: the glow of its white ground, and its print's own colour (low: the orange burns to yellow). */
+  labelGlow: 0.8,
+  labelPrint: 0.2,
+  labelMaskPower: 6,
   roughness: 0.86,
   /** Self-illumination per product, standing in for the indirect light of the Cycles render. */
-  lift: { K3_SEAL_Cream: 0.0425 },
-  bounce: 0.153,
+  lift: { K2_CALM_Serum: 0.04, K3_SEAL_Cream: 0.0425 },
+  /** K1's light on K2, computed in its shader (`radius` in metres: where it has halved). */
+  k1Spill: { strength: 0.22, radius: 0.06, wrap: 0.6 },
   /** K1's glow onto each neighbour: a light the size of its body, on its surface, facing that product. */
-  glowLights: { K2_CALM_Serum: 0.0175, K3_SEAL_Cream: 0.102 },
+  glowLights: { K3_SEAL_Cream: 0.102 },
   cap: {
     roughness: 0.03,
     transmission: 1,
@@ -48,7 +53,7 @@ export const LOOK = {
   ],
   grade: { contrast: 1.11, saturation: 1, lookMix: 1, vignette: 0.5, grain: 0.1 },
   /** `outside`: share of the glow kept over the background (Figma has none there). */
-  bloom: { strength: 0.2, radius: 2, threshold: 1, outside: 0 },
+  bloom: { strength: 0, radius: 2, threshold: 1, outside: 0 },
 };
 
 export type Look = typeof LOOK;

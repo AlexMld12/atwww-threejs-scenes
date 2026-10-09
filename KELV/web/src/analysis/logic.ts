@@ -314,4 +314,3 @@ export function calibrated(d = new Date()) {
 
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const ERROR_EMAIL = 'Check the email address. It needs an @ and a domain, like name@example.com.';
-export const ERROR_CONSENT = 'Add an email so we can send your reading, or untick the box.';

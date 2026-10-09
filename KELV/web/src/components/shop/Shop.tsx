@@ -9,7 +9,6 @@ import { layerFor, normalizePath } from '@/lib/page-layers';
 import { useScroll } from '@/lib/scroll';
 import { productBySlug } from '@/shop/catalog';
 import { legalByPath } from '@/shop/legal';
-import { CartDrawer } from './CartDrawer';
 import { LegalPage } from './LegalPage';
 import { ProductPage } from './ProductPage';
 import { ProductsPage } from './ProductsPage';
@@ -73,7 +72,6 @@ export function Shop() {
           <ShopFooter />
         </div>
       </RevealDelay.Provider>
-      <CartDrawer />
     </div>
   );
 }

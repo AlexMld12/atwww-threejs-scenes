@@ -7,6 +7,7 @@ import { useFrame, useScroll } from '@/lib/scroll';
 import { INTRO_DURATION, LOOK, REST_TIME } from '@/scene/config';
 import type { HeroScene as Scene } from '@/scene/hero-scene';
 import { isLayerPage } from '@/lib/page-layers';
+import { markRendered, renderScale } from '@/lib/quality';
 
 const HERO_TASKS: PreloadTask[] = ['hero-code', 'hero-data', 'hero-model', 'hero-lut', 'hero-compile'];
 
@@ -19,7 +20,7 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
   const scene = useRef<Scene | null>(null);
   const introStart = useRef<number | null>(null);
   const reducedMotion = useRef(false);
-  const last = useRef({ time: -1, width: 0, height: 0, x: Number.NaN, y: Number.NaN, visible: false });
+  const last = useRef({ time: -1, width: 0, height: 0, scale: 1, x: Number.NaN, y: Number.NaN, visible: false });
   const { ready } = useScroll();
 
   useEffect(() => {
@@ -82,12 +83,12 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     const snap = (v: number) => Math.round(v * dpr) / dpr;
     const width = snap(box.width);
     const height = snap(box.height);
-    if (width !== state.width || height !== state.height) {
-      state.width = width;
-      state.height = height;
+    const scale = renderScale();
+    if (width !== state.width || height !== state.height || scale !== state.scale) {
+      Object.assign(state, { width, height, scale });
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      current.setSize(width, height, dpr);
+      current.setSize(width, height, dpr * scale);
       state.time = -1;
     }
     const x = snap(box.left);
@@ -111,6 +112,7 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     state.time = time;
     current.setTime(time);
     current.render();
+    markRendered();
   });
 
   return <canvas ref={canvasRef} className="hero-canvas" aria-hidden="true" />;

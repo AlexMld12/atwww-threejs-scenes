@@ -7,19 +7,31 @@ import { useFrame } from '@/lib/scroll';
 import { WISDOM_LOOK } from '@/scene/wisdom-config';
 import type { WisdomScene } from '@/scene/wisdom-scene';
 import { isLayerPage } from '@/lib/page-layers';
+import { markRendered, onRenderScale, renderScale } from '@/lib/quality';
 
 const TASKS: PreloadTask[] = ['wisdom-code', 'wisdom-data', 'wisdom-model', 'wisdom-compile'];
 const MAX_PIXEL_RATIO = 2;
+// Shares of the full-screen resolution: the smallest one with 1.5 canvas pixels per drawn pixel (as sharp as full).
+const DETAIL = [0.5, 0.75, 1];
+const OVERSAMPLE = 1.5;
+const DETAIL_HYSTERESIS = 1.15;
+
+const detailFor = (shown: number) => DETAIL.find((d) => d >= shown * OVERSAMPLE) ?? 1;
 
 /**
- * The REF_129 shelf in the gallery's middle tile, scrubbed by the whole pass of the section.
+ * The REF_129 shelf in the gallery's middle tile, scrubbed by `progress` (the zoom into it, set by the gallery).
  * The canvas is drawn at the size the tile reaches when it covers the screen and scaled down into it,
- * so it is sharp at the end of the zoom.
+ * so it is sharp at the end of the zoom. While the tile is smaller, it renders fewer pixels.
  */
-export function useWisdomScene(section: RefObject<HTMLElement | null>, tile: RefObject<HTMLElement | null>) {
+export function useWisdomScene(
+  section: RefObject<HTMLElement | null>,
+  tile: RefObject<HTMLElement | null>,
+  progress: RefObject<number>,
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useRef<WisdomScene | null>(null);
-  const last = useRef({ time: -1, width: 0, height: 0, dpr: 0 });
+  const resizeRef = useRef(() => {});
+  const last = useRef({ time: -1, width: 0, height: 0, ratio: 0, detail: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -38,14 +50,18 @@ export function useWisdomScene(section: RefObject<HTMLElement | null>, tile: Ref
       const scale = Math.max(window.innerWidth / w, window.innerHeight / h);
       const width = Math.round(w * scale * dpr) / dpr;
       const height = Math.round(h * scale * dpr) / dpr;
-      if (width === state.width && height === state.height && dpr === state.dpr) return;
-      Object.assign(state, { width, height, dpr, time: -1 });
+      if (!state.detail) state.detail = detailFor(canvas.getBoundingClientRect().width / width);
+      const ratio = dpr * state.detail * renderScale();
+      if (width === state.width && height === state.height && ratio === state.ratio) return;
+      Object.assign(state, { width, height, ratio, time: -1 });
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       canvas.style.transform = `scale(${w / width}, ${h / height})`;
-      current.setSize(width, height, dpr);
+      current.setSize(width, height, ratio);
       current.render();
     };
+    resizeRef.current = resize;
+    const stopScale = onRenderScale(resize);
     window.addEventListener('resize', resize);
 
     import('@/scene/wisdom-scene')
@@ -69,6 +85,7 @@ export function useWisdomScene(section: RefObject<HTMLElement | null>, tile: Ref
     return () => {
       disposed = true;
       window.removeEventListener('resize', resize);
+      stopScale();
       scene.current?.dispose();
       scene.current = null;
     };
@@ -83,13 +100,20 @@ export function useWisdomScene(section: RefObject<HTMLElement | null>, tile: Ref
     if (rect.bottom <= 0 || rect.top >= vh) return;
 
     const state = last.current;
-    // From the section's top entering the screen to the end of its sticky part.
-    const progress = clamp01((vh - rect.top) / rect.height);
-    const time = Math.round(progress * current.duration * 1000) / 1000;
+    const canvas = canvasRef.current;
+    const shown = canvas ? canvas.getBoundingClientRect().width / state.width : 1;
+    const detail = detailFor(shown);
+    // Steps down only well below the threshold, so scrolling back and forth on it does not reallocate.
+    if (detail > state.detail || detailFor(shown * DETAIL_HYSTERESIS) < state.detail) {
+      state.detail = detail;
+      resizeRef.current();
+    }
+    const time = Math.round(clamp01(progress.current) * current.duration * 1000) / 1000;
     if (time === state.time) return;
     state.time = time;
     current.setTime(time);
     current.render();
+    markRendered();
   });
 
   return canvasRef;

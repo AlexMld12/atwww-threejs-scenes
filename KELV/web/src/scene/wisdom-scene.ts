@@ -86,7 +86,8 @@ export async function createWisdomScene(canvas: HTMLCanvasElement): Promise<Wisd
   installFilmic(lutInfo);
   RectAreaLightUniformsLib.init();
 
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  // Only the composite quad reaches the canvas; the scene is antialiased in the HDR target.
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
   renderer.setClearColor(0x040e31, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.CustomToneMapping;

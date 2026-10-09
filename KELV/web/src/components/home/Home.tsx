@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useRef } from 'react';
 import { Chrome } from '@/components/chrome/Chrome';
 import { StaticReveals } from '@/components/ui/Reveal';
@@ -15,7 +14,8 @@ import { useHeroSnap } from './use-hero-snap';
 import { useLightBand } from './use-light-band';
 import { useZoneGlow } from './use-zone-glow';
 
-const FOOTER_LIGHT_END = 0.28;
+// Zone 8 turns navy over its last 560 of 1042 design px (travel.css): the header flips halfway through.
+const ZONE_LIGHT_END = 0.73;
 
 export function Home() {
   const heroProducts = useRef<HTMLImageElement>(null);
@@ -26,9 +26,7 @@ export function Home() {
 
   useLightBand([
     { ref: join, end: 1 },
-    { ref: zone, end: 1 },
-    // The blue blended into the footer's top stays light this far (dark and white text read alike there).
-    { ref: footer, end: FOOTER_LIGHT_END },
+    { ref: zone, end: ZONE_LIGHT_END },
   ]);
   useHeroSnap();
   const zoneGlow = useZoneGlow(zone);
@@ -46,15 +44,7 @@ export function Home() {
         <Gallery />
         <Join ref={join} />
         <section ref={zone} className="travel" id="travel">
-          <Image
-            ref={zoneGlow}
-            className="travel__glow"
-            src="/images/zone8-glow.webp"
-            alt=""
-            width={1119}
-            height={885}
-            aria-hidden
-          />
+          <div ref={zoneGlow} className="travel__glow" aria-hidden="true" />
         </section>
       </main>
 

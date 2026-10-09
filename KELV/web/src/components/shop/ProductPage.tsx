@@ -10,6 +10,7 @@ import { PRODUCTS, formatPrice, type Product } from '@/shop/catalog';
 import { Accordion } from './Accordion';
 import { MoreInfo } from './MoreInfo';
 import { ProductCard } from './ProductCard';
+import { ProductViewer } from './ProductViewer';
 import { useStickySide } from './use-sticky-side';
 
 export function ProductPage({ product }: { product: Product }) {
@@ -26,7 +27,7 @@ export function ProductPage({ product }: { product: Product }) {
           <div className="pdp__hero">
             <span className="pill mono">Step {product.step}/3</span>
             <Reveal as="div" className="pdp__product" fx="blur">
-              <Image src={product.image} alt={product.name} width={1024} height={1024} unoptimized priority />
+              <ProductViewer product={product} />
             </Reveal>
           </div>
           <div className="pdp__scene">
