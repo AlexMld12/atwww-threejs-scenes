@@ -517,3 +517,51 @@ mobil — regulile s-au citit din clasele Tailwind din DOM-ul arhivat: `lg` = 10
   sub titlu — fără linie de separație. Banda deschisă a header-ului intră 28 % în footer.
 - Pillars: fiecare produs are tagline-ul lui („Step one of three. / K1 / Cool. Cleanse without
   stripping." etc.), schimbat odată cu descrierea (`setTagline`).
+
+## 2026-10-09 — performanță, scroll, retușuri hero / pillars / galerie / 07–09, shop 3D
+
+**Performanță** (măsurat cu CDP, randare sincronizată cu readPixels, RTX 4050 la dpr 2):
+- Galeria randa REF_129 la tot ecranul × dpr (2844×1614) și când tile-ul era mic: 14.5 ms/cadru.
+  Acum rezoluția urmează tile-ul desenat (`use-wisdom-scene.ts`: trepte 0.5 / 0.75 / 1, cu 1.5 pixeli
+  de canvas per pixel afișat — mai puțin înmuia vizibil etichetele): 4 ms la intrare.
+- Hero + galerie: `antialias: false` pe canvas (pe canvas ajunge doar quad-ul compozit; MSAA e în ținta HDR).
+  Pixeli identici, hero 17.8 → 9.2 ms.
+- `lib/quality.ts`: scara adaptivă a tuturor canvasurilor 3D (1 → 0.8 → 0.65 → 0.5). Cadrele cu randare 3D
+  sunt comparate cu cele fără; scade doar dacă mediana > max(21 ms, 1.3 × baza). Nu mai urcă la loc.
+- Blocaj de ~600 ms la intrarea în Pillars: varianta de shader a pasului de transmisie (ținta HDR liniară)
+  se compila sincron. `product-stage.ts` o compilează în preloader (compileAsync cu ținta HalfFloat setată).
+
+**Scroll** (`lib/scroll.tsx`): `respectReducedMotion: false`, pentru că drinksom are Lenis 1.3.17, fără opțiunea asta,
+iar 1.3.26 oprea smooth-ul cu „reduced motion” activ. `preventUpwardWrap`: în sus, scroll-ul se oprește la
+începutul turei (nu mai trece din hero în footer); în jos, footer → hero merge ca înainte.
+
+**Hero** (`scene/config.ts`, `hero-scene.ts`):
+- Bloom 0 (spăla textul).
+- Eticheta lui K1 strălucește prin masca albă din GLB, `labelGlow` 0.8 (masca ridicată la puterea
+  `labelMaskPower` 6: filtrată, sub textul subțire devenea gri și strălucea), plus printul colorat
+  `labelPrint` 0.2 (mai mult virează portocaliul spre galben).
+- Luminile de ricoșeu (3, prinse de K1 și rotite cu el) și lumina K1 → K2 au fost scoase: lăsau pe K2 o
+  graniță / pată care se mișca. În locul lor, `k1Spill` (0.22, rază 0.06 m, wrap 0.6) în shader-ul lui K2.
+  `lift` K2 0.04.
+
+**Pillars**: zoom-ul cardului e `easeInOutSine` pe toată apropierea și se termină când secțiunea se fixează,
+adică exact când apare produsul (fără întârziere). Primul pilon intră ca swap-urile (titlu din blur, cuvinte de jos).
+
+**Galeria**: scena e derulată de zoom (`CENTRE_END` → final), nu de intrarea secțiunii. Header-ul și CTA-urile
+rămân vizibile (`chrome-off` scos); CTA-urile tot urcă la mijloc.
+
+**07–09**:
+- Produsul urcă de jos, rotindu-se (scrubbed, fără scale/fade), sub formular (`POSES.join.y` =
+  distanța de la marginea de jos a formularului) și nu trece niciodată peste formular.
+- Zona 8: elipsa e un `radial-gradient` CSS cu margine smoothstep (`zone8-glow.webp` șters: marginea
+  liniară, mărită, se vedea ca linie), crește 0.85 → 1.9.
+- Rampa spre bleumarin (`--z8-fade` 560) e toată în zona 8. Footer-ul e bleumarin curat (fără glow și fără racord).
+- Header-ul: zona 8 deschisă până la 0.73.
+
+**Shop**:
+- Cardurile: sticla e centrată după centrul ei real (`imageCentre` în catalog).
+- Pagina de produs: `ProductViewer.tsx` (GLB-ul, trackball 360° cu inerție, zoom + / − între 0.8 și 2.4,
+  `data-lenis-prevent`, `touch-action: none`).
+- Sertarul coșului e montat în `Site.tsx`, în afara straturilor (învelit în `.shop` pentru tokeni).
+
+**Skin analysis**: „See my reading” cere nume + email valid; consimțământul e opțional.

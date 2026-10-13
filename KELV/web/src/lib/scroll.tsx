@@ -26,7 +26,8 @@ const FONT_TIMEOUT_MS = 2000;
 function preventUpwardWrap(lenis: Lenis) {
   const scrollTo = lenis.scrollTo.bind(lenis);
   lenis.scrollTo = (target, options) => {
-    if (options?.programmatic === false && typeof target === 'number' && lenis.limit > 0) {
+    // Only while the loop is on: elsewhere (the shop) the bottom is `limit` itself, which would read as a lap start.
+    if (lenis.options.infinite && options?.programmatic === false && typeof target === 'number' && lenis.limit > 0) {
       const lapStart = Math.floor(lenis.targetScroll / lenis.limit) * lenis.limit;
       target = Math.max(target, lapStart);
     }
