@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { hdrSamples } from '@/lib/quality';
 import type { Look } from './config';
 
 export type Grade = Pick<Look, 'bloom' | 'grade'>;
@@ -85,7 +86,7 @@ export function createPostprocessing(renderer: THREE.WebGLRenderer, lut: THREE.D
       depthBuffer: samples > 0,
       samples,
     });
-  const hdr = target(4);
+  const hdr = target(hdrSamples());
   const bright = target();
   const blurX = target();
   const blurY = target();

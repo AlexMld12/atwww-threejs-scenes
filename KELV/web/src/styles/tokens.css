@@ -203,14 +203,10 @@
     --head-h:      calc(56 * var(--mu));
     --tick-h:      calc(16 * var(--mu));
     --ticks-top:   calc(12 * var(--mu));
-    --logo-w:      calc(94.34 * var(--mu));
+    --logo-w:      calc(80 * var(--mu));
     --fs-cta:      calc(12 * var(--mu));
-    --btn-bottom:  calc(24 * var(--mu));
-    --btn-h-m:     calc(58 * var(--mu));
     --btn-pad:     calc(14 * var(--mu));
     --fs-btn:      calc(14 * var(--mu));
-    --fs-body-m:   calc(14 * var(--mu));
-    --lh-body-m:   calc(16 * var(--mu));
 
     /* 01 Hero: the products fill the first screen, the mega title and the paragraph below it */
     --hero-screen:  100svh;
@@ -237,14 +233,14 @@
     --fs-pl-b:      calc(38 * var(--mu));
     --pl-title-gap: calc(-4 * var(--mu));
     --pl-copy-w:    calc(320 * var(--mu));
-    --pl-copy-bottom: 20%;
-    --pl-tag-bottom:  calc(12% + 4 * var(--mu));
+    --pl-copy-bottom: calc(96 * var(--mu));
+    --pl-tag-bottom:  calc(40 * var(--mu));
 
     /* 05–06 Gallery, Ancient Wisdom: portrait tiles filling the screen, text centred */
     --g-gap:          calc(8 * var(--mu));
     --w-title-top:    calc(130 * var(--mu));
     --w-title-gap:    calc(2 * var(--mu));
-    --w-text-bottom:  calc(130 * var(--mu));
+    --w-text-bottom:  calc(40 * var(--mu));
     --w-text-w:       min(100vw - 2 * var(--pad-edge), calc(370 * var(--mu)));
     --fs-w-text:      calc(16 * var(--mu));
     --lh-w-text:      calc(19 * var(--mu));

@@ -19,6 +19,15 @@ const listeners = new Set<() => void>();
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1];
 
+// Phones and tablets: their GPUs fill far fewer pixels than a desktop's at a higher device pixel ratio.
+const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
+
+/** The device pixel ratio the 3D canvases start from: up to 2, up to 1.5 on touch screens. */
+export const pixelRatio = () => Math.min(window.devicePixelRatio || 1, isTouch() ? 1.5 : 2);
+
+/** MSAA samples of the scenes' HDR target. */
+export const hdrSamples = () => (isTouch() ? 2 : 4);
+
 /** The share of the device pixel ratio the 3D canvases render at. */
 export const renderScale = () => STEPS[step];
 

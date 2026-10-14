@@ -173,6 +173,6 @@
     translate: -50% 0;
     text-align: center;
   }
-  .pillar-copy__desc { font-size: var(--fs-body-m); line-height: var(--lh-body-m); }
+  .pillar-copy__desc { display: none; }
   .pillar-tag { bottom: var(--pl-tag-bottom); }
 }

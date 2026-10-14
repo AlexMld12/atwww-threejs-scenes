@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { finishTask, type PreloadTask } from '@/lib/preload';
-import { markRendered, onRenderScale, renderScale } from '@/lib/quality';
+import { markRendered, onRenderScale, pixelRatio, renderScale } from '@/lib/quality';
 import { PRODUCTS, PRODUCT_LOOK, type ProductName } from '@/scene/product-config';
 import type { ProductPose, ProductStage } from '@/scene/product-stage';
-
-const MAX_PIXEL_RATIO = 2;
 
 /** A 3D product canvas: `draw` keeps it on whole device pixels and renders only when something changed. */
 export function useProductStage(names: ProductName[], compileTask?: PreloadTask) {
@@ -26,7 +24,7 @@ export function useProductStage(names: ProductName[], compileTask?: PreloadTask)
     const resize = () => {
       const current = stage.current;
       if (!current) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+      const dpr = pixelRatio();
       const width = Math.round(host.clientWidth * dpr) / dpr;
       const height = Math.round(host.clientHeight * dpr) / dpr;
       if (!width || !height) return;

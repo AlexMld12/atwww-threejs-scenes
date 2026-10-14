@@ -7,10 +7,9 @@ import { useFrame } from '@/lib/scroll';
 import { WISDOM_LOOK } from '@/scene/wisdom-config';
 import type { WisdomScene } from '@/scene/wisdom-scene';
 import { isLayerPage } from '@/lib/page-layers';
-import { markRendered, onRenderScale, renderScale } from '@/lib/quality';
+import { markRendered, onRenderScale, pixelRatio, renderScale } from '@/lib/quality';
 
 const TASKS: PreloadTask[] = ['wisdom-code', 'wisdom-data', 'wisdom-model', 'wisdom-compile'];
-const MAX_PIXEL_RATIO = 2;
 // Shares of the full-screen resolution: the smallest one with 1.5 canvas pixels per drawn pixel (as sharp as full).
 const DETAIL = [0.5, 0.75, 1];
 const OVERSAMPLE = 1.5;
@@ -46,7 +45,7 @@ export function useWisdomScene(
       const state = last.current;
       const w = box.offsetWidth;
       const h = box.offsetHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+      const dpr = pixelRatio();
       const scale = Math.max(window.innerWidth / w, window.innerHeight / h);
       const width = Math.round(w * scale * dpr) / dpr;
       const height = Math.round(h * scale * dpr) / dpr;

@@ -7,12 +7,11 @@ import { useFrame, useScroll } from '@/lib/scroll';
 import { INTRO_DURATION, LOOK, REST_TIME } from '@/scene/config';
 import type { HeroScene as Scene } from '@/scene/hero-scene';
 import { isLayerPage } from '@/lib/page-layers';
-import { markRendered, renderScale } from '@/lib/quality';
+import { markRendered, pixelRatio, renderScale } from '@/lib/quality';
 
 const HERO_TASKS: PreloadTask[] = ['hero-code', 'hero-data', 'hero-model', 'hero-lut', 'hero-compile'];
 
 const FADE_IN_S = 0.5;
-const MAX_PIXEL_RATIO = 2;
 
 /** The 3D products over the hero (and its loop copy): the intro plays on load, scrolling scrubs the rest. */
 export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[] }) {
@@ -79,7 +78,7 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     if (!target) return;
     const box = target.getBoundingClientRect();
 
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+    const dpr = pixelRatio();
     const snap = (v: number) => Math.round(v * dpr) / dpr;
     const width = snap(box.width);
     const height = snap(box.height);
