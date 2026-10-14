@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { transmissionScale } from '@/lib/quality';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
@@ -30,7 +31,8 @@ export interface HeroScene {
   duration: number;
   /** Re-applies LOOK after it was changed at runtime (the dev tuning hook). */
   applyLook(): void;
-  setSize(width: number, height: number, pixelRatio: number): void;
+  /** `left` / `frameWidth`: the drawn strip of a wider frame (the part of it on screen). */
+  setSize(width: number, height: number, pixelRatio: number, left?: number, frameWidth?: number): void;
   setTime(seconds: number): void;
   render(): void;
   dispose(): void;
@@ -90,6 +92,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroSc
 
   // Only the composite quad reaches the canvas; the scene is antialiased in the HDR target.
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
+  renderer.transmissionResolutionScale = transmissionScale();
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.CustomToneMapping;
@@ -323,15 +326,21 @@ void main() {`,
     duration: manifest.duration,
     applyLook,
 
-    setSize(width, height, pixelRatio) {
+    setSize(width, height, pixelRatio, left = 0, frameWidth = width) {
       renderer.setPixelRatio(pixelRatio);
       renderer.setSize(width, height, false);
-      post.setSize(Math.round(width * pixelRatio), Math.round(height * pixelRatio));
+      post.setSize(
+        Math.round(width * pixelRatio),
+        Math.round(height * pixelRatio),
+        left / frameWidth,
+        width / frameWidth,
+      );
       // Wider than the reference keeps the vertical framing; narrower widens the view.
-      camera.aspect = width / height;
+      camera.aspect = frameWidth / height;
       const scale = Math.max(1, referenceAspect / camera.aspect);
       camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(baseFov) / 2) * scale));
-      camera.updateProjectionMatrix();
+      if (width < frameWidth) camera.setViewOffset(frameWidth, height, left, 0, width, height);
+      else camera.clearViewOffset();
     },
 
     setTime,

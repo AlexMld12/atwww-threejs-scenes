@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { transmissionScale } from '@/lib/quality';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
@@ -88,6 +89,7 @@ export async function createWisdomScene(canvas: HTMLCanvasElement): Promise<Wisd
 
   // Only the composite quad reaches the canvas; the scene is antialiased in the HDR target.
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
+  renderer.transmissionResolutionScale = transmissionScale();
   renderer.setClearColor(0x040e31, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.CustomToneMapping;

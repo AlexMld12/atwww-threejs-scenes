@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { transmissionScale } from '@/lib/quality';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
@@ -106,6 +107,7 @@ export async function createProductStage(
   RectAreaLightUniformsLib.init();
 
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  renderer.transmissionResolutionScale = transmissionScale();
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.LinearToneMapping;

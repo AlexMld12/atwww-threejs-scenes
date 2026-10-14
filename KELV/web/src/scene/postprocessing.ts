@@ -40,6 +40,7 @@ const finalShader = (curveSize: number) => /* glsl */ `
   uniform sampler2D inputImage, bloomImage, lookCurve;
   uniform mat3 linearToAP1, ap1ToLinear;
   uniform float contrast, saturation, lookMix, vignette, grain, bloom, bloomOutside;
+  uniform vec2 viewX;
 
   float cct(float x) { return x <= 0.0078125 ? 10.5402377416545 * x + 0.0729055341958355 : (log2(x) + 9.72) / 17.52; }
   float uncct(float x) { return x <= 0.155251141552511 ? (x - 0.0729055341958355) / 10.5402377416545 : exp2(x * 17.52 - 9.72); }
@@ -65,7 +66,8 @@ const finalShader = (curveSize: number) => /* glsl */ `
     color = max(vec3(0.0), ap1ToLinear * vec3(uncct(logColor.r), uncct(logColor.g), uncct(logColor.b)));
     color = mix(color, vec3(curveValue(color.r), curveValue(color.g), curveValue(color.b)), lookMix);
 
-    color *= 1.0 - vignette * smoothstep(0.24, 0.70, length(vUv - 0.5));
+    vec2 frameUv = vec2(viewX.x + vUv.x * viewX.y, vUv.y);
+    color *= 1.0 - vignette * smoothstep(0.24, 0.70, length(frameUv - 0.5));
     float noise = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
     color *= exp2(noise * grain * 0.6);
 
@@ -124,6 +126,7 @@ export function createPostprocessing(renderer: THREE.WebGLRenderer, lut: THREE.D
     grain: { value: 0 },
     bloom: { value: 0 },
     bloomOutside: { value: 1 },
+    viewX: { value: new THREE.Vector2(0, 1) },
   };
   const composite = pass(finalShader(curveData.length), uniforms, true);
 
@@ -152,7 +155,9 @@ export function createPostprocessing(renderer: THREE.WebGLRenderer, lut: THREE.D
       renderer.setRenderTarget(null);
     },
 
-    setSize(width: number, height: number) {
+    /** `left` and `share`: the drawn strip of the full frame, horizontally (0 and 1 when it is all drawn). */
+    setSize(width: number, height: number, left = 0, share = 1) {
+      uniforms.viewX.value.set(left, share);
       hdr.setSize(width, height);
       const quarter = [Math.max(1, Math.round(width / 4)), Math.max(1, Math.round(height / 4))] as const;
       for (const t of [bright, blurX, blurY]) t.setSize(...quarter);

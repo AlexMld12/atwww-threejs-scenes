@@ -1,8 +1,9 @@
 /**
  * Adaptive render scale for the 3D canvases. Frames that drew a scene are timed against frames that did not;
  * when they run clearly slower (a weak GPU), every canvas drops one resolution step. It never goes back up.
+ * Lower steps read as blurred on phones, so it stops at 0.75.
  */
-const STEPS = [1, 0.8, 0.65, 0.5];
+const STEPS = [1, 0.85, 0.75];
 const WINDOW = 30;
 const SLOW_MS = 21;
 const SLOW_RATIO = 1.3;
@@ -19,14 +20,17 @@ const listeners = new Set<() => void>();
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1];
 
-// Phones and tablets: their GPUs fill far fewer pixels than a desktop's at a higher device pixel ratio.
+// Phones and tablets: weaker GPUs, so the passes that do not show as blur are drawn lighter.
 const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
 
-/** The device pixel ratio the 3D canvases start from: up to 2, up to 1.5 on touch screens. */
-export const pixelRatio = () => Math.min(window.devicePixelRatio || 1, isTouch() ? 1.5 : 2);
+/** The device pixel ratio the 3D canvases start from. */
+export const pixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);
 
 /** MSAA samples of the scenes' HDR target. */
 export const hdrSamples = () => (isTouch() ? 2 : 4);
+
+/** Resolution share of the caps' refraction pass, which the cap's roughness blurs anyway. */
+export const transmissionScale = () => (isTouch() ? 0.5 : 1);
 
 /** The share of the device pixel ratio the 3D canvases render at. */
 export const renderScale = () => STEPS[step];

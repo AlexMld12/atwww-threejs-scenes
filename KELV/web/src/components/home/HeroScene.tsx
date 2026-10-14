@@ -19,7 +19,17 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
   const scene = useRef<Scene | null>(null);
   const introStart = useRef<number | null>(null);
   const reducedMotion = useRef(false);
-  const last = useRef({ time: -1, width: 0, height: 0, scale: 1, x: Number.NaN, y: Number.NaN, visible: false });
+  const last = useRef({
+    time: -1,
+    width: 0,
+    height: 0,
+    left: 0,
+    frameWidth: 0,
+    scale: 1,
+    x: Number.NaN,
+    y: Number.NaN,
+    visible: false,
+  });
   const { ready } = useScroll();
 
   useEffect(() => {
@@ -80,17 +90,22 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
 
     const dpr = pixelRatio();
     const snap = (v: number) => Math.round(v * dpr) / dpr;
-    const width = snap(box.width);
+    const frameWidth = snap(box.width);
     const height = snap(box.height);
+    // Only the part of the frame inside the screen is drawn (on phones it is much wider than the screen).
+    const left = snap(Math.max(0, -box.left));
+    const width = Math.min(frameWidth - left, snap(document.documentElement.clientWidth - box.left - left));
+    if (width <= 0) return;
     const scale = renderScale();
-    if (width !== state.width || height !== state.height || scale !== state.scale) {
-      Object.assign(state, { width, height, scale });
+    const changed = width !== state.width || height !== state.height || left !== state.left;
+    if (changed || frameWidth !== state.frameWidth || scale !== state.scale) {
+      Object.assign(state, { width, height, left, frameWidth, scale });
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      current.setSize(width, height, dpr * scale);
+      current.setSize(width, height, dpr * scale, left, frameWidth);
       state.time = -1;
     }
-    const x = snap(box.left);
+    const x = snap(box.left + left);
     const y = snap(box.top);
     if (x !== state.x || y !== state.y) {
       state.x = x;
