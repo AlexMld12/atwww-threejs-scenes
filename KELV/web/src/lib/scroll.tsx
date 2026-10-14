@@ -3,7 +3,7 @@
 import Lenis from 'lenis';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { setFrameScroll } from './layout';
-import { sampleFrame } from './quality';
+import { isTouch, sampleFrame } from './quality';
 
 type FrameCallback = (now: number) => void;
 
@@ -36,6 +36,13 @@ function preventUpwardWrap(lenis: Lenis) {
   };
 }
 
+/** Native (touch) scrolling cannot wrap: at the end, where the hero copy fills the screen, it jumps to the real hero. */
+function wrapNativeScroll(lenis: Lenis) {
+  if (!lenis.options.infinite || lenis.limit <= 0) return;
+  const y = window.scrollY;
+  if (y >= lenis.limit - 0.5) window.scrollTo(0, y - lenis.limit);
+}
+
 export function ScrollProvider({ children }: { children: ReactNode }) {
   const callbacks = useRef(new Set<FrameCallback>());
   const lenisRef = useRef<Lenis | null>(null);
@@ -44,12 +51,13 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Same options as drinksom.eu; `infinite` drives the footer → hero loop.
+    // drinksom.eu's options, except touch: native scrolling there (a JS-driven one lagged on phones).
+    const touch = isTouch();
     const instance = new Lenis({
       lerp: 0.14,
       smoothWheel: true,
       infinite: true,
-      syncTouch: true,
+      syncTouch: !touch,
       syncTouchLerp: 0.1,
       touchMultiplier: 1,
       // Their Lenis (1.3.17) predates this option: the scroll stays smooth with reduced motion on.
@@ -62,6 +70,7 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
     let frame = requestAnimationFrame(function tick(now) {
       sampleFrame(now);
       instance.raf(now);
+      if (touch) wrapNativeScroll(instance);
       setFrameScroll();
       for (const callback of callbacks.current) callback(now);
       frame = requestAnimationFrame(tick);

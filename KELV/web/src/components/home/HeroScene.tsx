@@ -3,7 +3,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { clamp01, prefersReducedMotion } from '@/lib/math';
 import { finishTask, type PreloadTask } from '@/lib/preload';
-import { viewRect, viewportSize } from '@/lib/layout';
+import { frameScroll, viewRect, viewportSize } from '@/lib/layout';
 import { useFrame, useScroll } from '@/lib/scroll';
 import { INTRO_DURATION, LOOK, REST_TIME } from '@/scene/config';
 import type { HeroScene as Scene } from '@/scene/hero-scene';
@@ -108,8 +108,9 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
       current.setSize(width, height, dpr * scale, left, frameWidth);
       state.time = -1;
     }
+    // Placed on the page, not on the screen: the browser scrolls it with the hero (native touch scrolling too).
     const x = snap(box.left + left);
-    const y = snap(box.top);
+    const y = snap(box.top + frameScroll());
     if (x !== state.x || y !== state.y) {
       state.x = x;
       state.y = y;

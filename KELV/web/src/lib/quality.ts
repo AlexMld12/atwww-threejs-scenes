@@ -21,7 +21,7 @@ const listeners = new Set<() => void>();
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1];
 
 // Phones and tablets: weaker GPUs, so the passes that do not show as blur are drawn lighter.
-const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
+export const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
 
 /** The device pixel ratio the 3D canvases start from. */
 export const pixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);

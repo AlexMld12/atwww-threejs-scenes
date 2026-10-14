@@ -53,7 +53,7 @@
 html.no-3d .hero__placeholder { visibility: visible; }
 
 .hero-canvas {
-  position: fixed;
+  position: absolute;
   left: 0;
   top: 0;
   z-index: 2;
