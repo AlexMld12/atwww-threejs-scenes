@@ -565,3 +565,31 @@ rămân vizibile (`chrome-off` scos); CTA-urile tot urcă la mijloc.
 - Sertarul coșului e montat în `Site.tsx`, în afara straturilor (învelit în `.shop` pentru tokeni).
 
 **Skin analysis**: „See my reading” cere nume + email valid; consimțământul e opțional.
+
+## 2026-10-14 — mobil: margini, header, footer, performanță pe telefon
+
+- **Mobil (< 1024):**
+  - `--pad-edge` 10 mu (home), `--sh-edge` / `--sa-edge` 10 mu (shop, quiz);
+  - header: `--head-top` 22 mu, logo 80 mu;
+  - butonul fix OPEN SHOP de jos e scos (`display: none`), rămân TAKE QUIZ / BUY NOW;
+  - Pillars: descrierea lungă ascunsă, „0N/03” la 96 mu și tagline-ul la 40 mu de jos;
+  - Ancient Wisdom: textul la 40 mu de jos.
+- **Galeria pe mobil:** am încercat scena întreagă (rândul din mijloc landscape, zoom „contain”). Userul a cerut-o înapoi: rămâne portret, zoom „cover”.
+- **Footer:**
+  - fixat (sticky `.footer__pin`) încă `--ft-hold` = 60vh/60svh de scroll; produsul rămâne pe loc în acest timp (`past` scade `f.height - vh`);
+  - pe mobil, lista cu rânduri despărțite de linii (nu cutia gri); produsul aterizează la `y: 0`.
+- **Bucla:** din hero nu se urcă niciodată în footer, nici după o tură (userul a refuzat varianta „înapoi în footer”).
+- **Header shop pe mobil:** rândul e centrat vertical, butonul are 40 mu (`--sh-btn-h-m`).
+- **Performanță pe telefon** (Honor Magic 6 Lite, lag la scroll în hero și galerie):
+  - **Cauza principală:** layout forțat în bucla de cadre (getBoundingClientRect / scrollY / innerHeight după scrieri de stil). În galerie, cu emulare 6×: 6952 → 537 recalculări forțate, callback-urile rAF −40 %, cadrul median 20.8 → 14 ms.
+  - `lib/layout.ts`: `viewRect` (cutia în document, măsurată o dată, minus scroll-ul cadrului), `viewRectInSticky` (formularul din Join), `viewportSize`, `frameScroll`. Se remăsoară la resize, la schimbarea înălțimii paginii (ResizeObserver pe html) și la schimbarea stratului de pagină.
+  - ⚠️ Orice citire nouă în `useFrame` trece prin `lib/layout.ts`, nu prin DOM.
+  - Galeria: opacity directă în loc de variabile CSS moștenite.
+  - 3D pe touch:
+    - DPR rămâne 2 (la 1.5 se vedea blurat);
+    - scara adaptivă coboară cel mult la 0.75;
+    - MSAA 2× pe ținta HDR;
+    - transmisia capacelor la 0.5;
+    - hero + galerie redesenează cel mult la 30 fps;
+    - hero-ul desenează doar fâșia vizibilă (`setViewOffset`; vigneta pe cadrul întreg prin `viewX`).
+  - **Scroll nativ pe touch** (`syncTouch: !isTouch()`): la capăt, `wrapNativeScroll` sare din copia hero-ului în hero. Canvas-ul hero e `position: absolute` în pagină, nu fixed.
