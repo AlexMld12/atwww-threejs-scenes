@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useEffect, useRef, type RefObject } from 'react';
 import { clamp01, designScale, easeInOutCubic, easeOutCubic, isMobile, lerp, mobileUnit } from '@/lib/math';
 import { cx } from '@/lib/css';
+import { frameScroll, layoutVersion, viewRect, viewRectInSticky, viewportSize } from '@/lib/layout';
 import { useFrame } from '@/lib/scroll';
 import type { ProductName } from '@/scene/product-config';
 import { useProductStage } from './use-product-stage';
@@ -42,7 +43,7 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
   const ref = useRef<HTMLDivElement>(null);
   const spinRef = useRef<HTMLDivElement>(null);
   const { canvasRef, ready, draw } = useProductStage(MODELS, 'travel-compile');
-  const state = useRef({ ctaOff: false, fade: 1, form: null as Element | null });
+  const state = useRef({ ctaOff: false, fade: 1, form: null as Element | null, size: 0, sizeVersion: -1 });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -51,14 +52,18 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
 
   useFrame(() => {
     const el = ref.current;
-    const j = join.current?.getBoundingClientRect();
-    const z = zone.current?.getBoundingClientRect();
-    const f = footer.current?.getBoundingClientRect();
-    if (!el || !j || !z || !f) return;
+    if (!el || !join.current || !zone.current || !footer.current) return;
+    const j = viewRect(join.current);
+    const z = viewRect(zone.current);
+    const f = viewRect(footer.current);
     const s = state.current;
     const root = document.documentElement;
-    const vh = window.innerHeight;
-    const y = window.scrollY;
+    const vh = viewportSize().height;
+    const y = frameScroll();
+    if (s.sizeVersion !== layoutVersion()) {
+      s.sizeVersion = layoutVersion();
+      s.size = el.offsetHeight;
+    }
 
     const pinned = j.height - vh;
     const pin = pinned > 0 ? clamp01(-j.top / pinned) : 0;
@@ -72,8 +77,10 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
     const middle = y + z.top + z.height / 2 - vh / 2;
     const end = y + f.top;
     const scale = mobile ? mobileUnit() : designScale();
-    const form = (s.form ??= join.current?.querySelector('.join__form') ?? null)?.getBoundingClientRect();
-    const below = (vh / 2 + el.offsetHeight / 2) / scale;
+    s.form ??= join.current.querySelector('.join__form');
+    const sticky = s.form?.parentElement;
+    const form = s.form && sticky ? viewRectInSticky(s.form, sticky) : null;
+    const below = (vh / 2 + s.size / 2) / scale;
     const underForm = { ...poses.join, y: (form ? form.bottom - vh / 2 : 0) / scale + poses.join.y };
     underForm.y = lerp(Math.max(below, underForm.y), underForm.y, rise);
     let from = underForm;

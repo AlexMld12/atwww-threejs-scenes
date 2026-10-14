@@ -3,11 +3,12 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { clamp01 } from '@/lib/math';
 import { finishTask, type PreloadTask } from '@/lib/preload';
+import { viewRect, viewportSize } from '@/lib/layout';
 import { useFrame } from '@/lib/scroll';
 import { WISDOM_LOOK } from '@/scene/wisdom-config';
 import type { WisdomScene } from '@/scene/wisdom-scene';
 import { isLayerPage } from '@/lib/page-layers';
-import { markRendered, onRenderScale, pixelRatio, renderScale } from '@/lib/quality';
+import { markRendered, onRenderScale, pixelRatio, renderScale, sceneFrameMs } from '@/lib/quality';
 
 const TASKS: PreloadTask[] = ['wisdom-code', 'wisdom-data', 'wisdom-model', 'wisdom-compile'];
 // Shares of the full-screen resolution: the smallest one with 1.5 canvas pixels per drawn pixel (as sharp as full).
@@ -26,11 +27,12 @@ export function useWisdomScene(
   section: RefObject<HTMLElement | null>,
   tile: RefObject<HTMLElement | null>,
   progress: RefObject<number>,
+  zoom: RefObject<number>,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useRef<WisdomScene | null>(null);
   const resizeRef = useRef(() => {});
-  const last = useRef({ time: -1, width: 0, height: 0, ratio: 0, detail: 0 });
+  const last = useRef({ time: -1, drawnAt: -Infinity, width: 0, height: 0, ratio: 0, detail: 0, tileWidth: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -49,7 +51,8 @@ export function useWisdomScene(
       const scale = Math.max(window.innerWidth / w, window.innerHeight / h);
       const width = Math.round(w * scale * dpr) / dpr;
       const height = Math.round(h * scale * dpr) / dpr;
-      if (!state.detail) state.detail = detailFor(canvas.getBoundingClientRect().width / width);
+      state.tileWidth = w;
+      if (!state.detail) state.detail = detailFor((w * zoom.current) / width);
       const ratio = dpr * state.detail * renderScale();
       if (width === state.width && height === state.height && ratio === state.ratio) return;
       Object.assign(state, { width, height, ratio, time: -1 });
@@ -88,19 +91,19 @@ export function useWisdomScene(
       scene.current?.dispose();
       scene.current = null;
     };
-  }, [tile]);
+  }, [tile, zoom]);
 
-  useFrame(() => {
+  useFrame((now) => {
     const current = scene.current;
     const host = section.current;
     if (!current || !host || isLayerPage()) return;
-    const vh = window.innerHeight;
-    const rect = host.getBoundingClientRect();
+    const vh = viewportSize().height;
+    const rect = viewRect(host);
     if (rect.bottom <= 0 || rect.top >= vh) return;
 
     const state = last.current;
-    const canvas = canvasRef.current;
-    const shown = canvas ? canvas.getBoundingClientRect().width / state.width : 1;
+    // The tile's width on screen (the gallery's zoom scales it) over the canvas' full width.
+    const shown = state.width ? (state.tileWidth * zoom.current) / state.width : 1;
     const detail = detailFor(shown);
     // Steps down only well below the threshold, so scrolling back and forth on it does not reallocate.
     if (detail > state.detail || detailFor(shown * DETAIL_HYSTERESIS) < state.detail) {
@@ -108,8 +111,9 @@ export function useWisdomScene(
       resizeRef.current();
     }
     const time = Math.round(clamp01(progress.current) * current.duration * 1000) / 1000;
-    if (time === state.time) return;
+    if (time === state.time || now - state.drawnAt < sceneFrameMs()) return;
     state.time = time;
+    state.drawnAt = now;
     current.setTime(time);
     current.render();
     markRendered();

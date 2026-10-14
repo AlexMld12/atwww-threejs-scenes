@@ -2,6 +2,7 @@
 
 import { useRef, type RefObject } from 'react';
 import { clamp01, lerp } from '@/lib/math';
+import { viewRect, viewportSize } from '@/lib/layout';
 import { useFrame } from '@/lib/scroll';
 
 // Grows from its design size until it covers the zone's background (the user's request: no white space).
@@ -16,8 +17,8 @@ export function useZoneGlow(zone: RefObject<HTMLElement | null>) {
     const section = zone.current;
     const image = glow.current;
     if (!section || !image) return;
-    const vh = window.innerHeight;
-    const rect = section.getBoundingClientRect();
+    const vh = viewportSize().height;
+    const rect = viewRect(section);
     if (rect.bottom < -vh || rect.top > vh) return;
     const p = clamp01((vh - rect.top) / rect.height);
     if (Math.abs(p - last.current) < 1e-4) return;

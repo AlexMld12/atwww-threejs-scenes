@@ -3,11 +3,12 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { clamp01, prefersReducedMotion } from '@/lib/math';
 import { finishTask, type PreloadTask } from '@/lib/preload';
+import { viewRect, viewportSize } from '@/lib/layout';
 import { useFrame, useScroll } from '@/lib/scroll';
 import { INTRO_DURATION, LOOK, REST_TIME } from '@/scene/config';
 import type { HeroScene as Scene } from '@/scene/hero-scene';
 import { isLayerPage } from '@/lib/page-layers';
-import { markRendered, pixelRatio, renderScale } from '@/lib/quality';
+import { markRendered, pixelRatio, renderScale, sceneFrameMs } from '@/lib/quality';
 
 const HERO_TASKS: PreloadTask[] = ['hero-code', 'hero-data', 'hero-model', 'hero-lut', 'hero-compile'];
 
@@ -21,6 +22,7 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
   const reducedMotion = useRef(false);
   const last = useRef({
     time: -1,
+    drawnAt: -Infinity,
     width: 0,
     height: 0,
     left: 0,
@@ -70,15 +72,16 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     const current = scene.current;
     if (!canvas || !current) return;
     const state = last.current;
-    const viewport = window.innerHeight;
+    const { height: viewport, clientWidth } = viewportSize();
 
     const target = isLayerPage()
       ? undefined
       : targets
           .map((t) => t.current)
           .find((element) => {
-            const rect = element?.getBoundingClientRect();
-            return rect && rect.bottom > 0 && rect.top < viewport;
+            if (!element) return false;
+            const rect = viewRect(element);
+            return rect.bottom > 0 && rect.top < viewport;
           });
 
     if (state.visible !== Boolean(target)) {
@@ -86,7 +89,7 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
       canvas.classList.toggle('is-visible', state.visible);
     }
     if (!target) return;
-    const box = target.getBoundingClientRect();
+    const box = viewRect(target);
 
     const dpr = pixelRatio();
     const snap = (v: number) => Math.round(v * dpr) / dpr;
@@ -94,7 +97,7 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     const height = snap(box.height);
     // Only the part of the frame inside the screen is drawn (on phones it is much wider than the screen).
     const left = snap(Math.max(0, -box.left));
-    const width = Math.min(frameWidth - left, snap(document.documentElement.clientWidth - box.left - left));
+    const width = Math.min(frameWidth - left, snap(clientWidth - box.left - left));
     if (width <= 0) return;
     const scale = renderScale();
     const changed = width !== state.width || height !== state.height || left !== state.left;
@@ -118,12 +121,13 @@ export function HeroScene({ targets }: { targets: RefObject<HTMLElement | null>[
     const intro = reducedMotion.current ? INTRO_DURATION : Math.min(INTRO_DURATION, elapsed);
     canvas.style.opacity = String(clamp01(elapsed / FADE_IN_S));
 
-    const section = (target.parentElement ?? target).getBoundingClientRect();
+    const section = viewRect(target.parentElement ?? target);
     const progress = clamp01(-section.top / section.height);
     const time = Math.round((intro + progress * (current.duration - REST_TIME)) * 1000) / 1000;
 
-    if (time === state.time) return;
+    if (time === state.time || now - state.drawnAt < sceneFrameMs()) return;
     state.time = time;
+    state.drawnAt = now;
     current.setTime(time);
     current.render();
     markRendered();

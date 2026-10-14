@@ -64,7 +64,7 @@
   position: absolute;
   inset: 0;
   background: var(--c-navy-g);
-  opacity: var(--g-mask, 0.05);
+  opacity: 0.05;
   pointer-events: none;
 }
 
@@ -73,7 +73,7 @@
   inset: 0;
   z-index: 1;
   background: var(--c-navy-g);
-  opacity: var(--g-screen, 0);
+  opacity: 0;
   pointer-events: none;
 }
 
@@ -81,7 +81,7 @@
   position: absolute;
   inset: 0;
   z-index: 2;
-  opacity: var(--g-o, 0);
+  opacity: 0;
   pointer-events: none;
 }
 

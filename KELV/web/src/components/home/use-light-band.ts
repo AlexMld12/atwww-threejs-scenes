@@ -2,6 +2,7 @@
 
 import { useRef, type RefObject } from 'react';
 import { setChromeVar } from '@/components/chrome/chrome-vars';
+import { viewRect, viewportSize } from '@/lib/layout';
 import { useFrame } from '@/lib/scroll';
 
 export interface LightSection {
@@ -15,12 +16,12 @@ export function useLightBand(sections: LightSection[]) {
   const last = useRef({ top: -1, bottom: -1 });
 
   useFrame(() => {
-    const vh = window.innerHeight;
+    const vh = viewportSize().height;
     let top = Infinity;
     let bottom = -Infinity;
     for (const { ref, end } of sections) {
-      const rect = ref.current?.getBoundingClientRect();
-      if (!rect) continue;
+      if (!ref.current) continue;
+      const rect = viewRect(ref.current);
       const from = Math.max(0, rect.top);
       const to = Math.min(vh, rect.top + rect.height * end);
       if (to > from) {

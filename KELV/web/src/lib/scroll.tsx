@@ -2,6 +2,7 @@
 
 import Lenis from 'lenis';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { setFrameScroll } from './layout';
 import { sampleFrame } from './quality';
 
 type FrameCallback = (now: number) => void;
@@ -61,6 +62,7 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
     let frame = requestAnimationFrame(function tick(now) {
       sampleFrame(now);
       instance.raf(now);
+      setFrameScroll();
       for (const callback of callbacks.current) callback(now);
       frame = requestAnimationFrame(tick);
     });

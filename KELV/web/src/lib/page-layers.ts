@@ -1,3 +1,4 @@
+import { invalidateLayout } from './layout';
 import type Lenis from 'lenis';
 
 /** Pages that live in the same document as the home and slide over it (no reload, the home keeps its state). */
@@ -140,6 +141,7 @@ function setPage(layer: LayerId | null) {
   const html = document.documentElement;
   if (layer) html.dataset.page = layer;
   else delete html.dataset.page;
+  invalidateLayout();
 }
 
 /** The new layer slides up over the current page (the home or another layer). */

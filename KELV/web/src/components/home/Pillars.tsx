@@ -5,6 +5,7 @@ import { useEffect, useRef, type PointerEvent } from 'react';
 import { Lines, Words } from '@/components/ui/Words';
 import { designScale, clamp01, easeInOutCubic, easeInOutSine, isMobile, lerp, mobileUnit } from '@/lib/math';
 import { cx, type CSSVars } from '@/lib/css';
+import { viewRect, viewportSize } from '@/lib/layout';
 import { useFrame } from '@/lib/scroll';
 import type { ProductName } from '@/scene/product-config';
 import { useProductStage } from './use-product-stage';
@@ -268,8 +269,8 @@ export function Pillars() {
     if (!section) return;
     const s = state.current;
     const n = PILLARS.length;
-    const viewport = window.innerHeight;
-    const rect = section.getBoundingClientRect();
+    const viewport = viewportSize().height;
+    const rect = viewRect(section);
 
     // The card fills the screen exactly when the section docks, the moment the product appears.
     const zoom = easeInOutSine(clamp01(1 - rect.top / viewport));

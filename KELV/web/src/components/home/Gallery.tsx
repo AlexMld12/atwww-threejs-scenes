@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { setChromeVar } from '@/components/chrome/chrome-vars';
 import { Words } from '@/components/ui/Words';
 import { clamp01, smoothstep } from '@/lib/math';
+import { viewRect, viewportSize } from '@/lib/layout';
 import { useFrame } from '@/lib/scroll';
 import { useWisdomScene } from './use-wisdom-scene';
 
@@ -48,7 +49,8 @@ export function Gallery() {
   const wisdomRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const sceneProgress = useRef(0);
-  const canvasRef = useWisdomScene(sectionRef, tileRef, sceneProgress);
+  const zoomScale = useRef(1);
+  const canvasRef = useWisdomScene(sectionRef, tileRef, sceneProgress, zoomScale);
   const state = useRef({ eased: 0, wordsIn: false, shift: -1, frame: { w: 1, h: 1, cy: 0 } });
 
   useEffect(() => {
@@ -78,8 +80,8 @@ export function Gallery() {
     const wisdom = wisdomRef.current;
     if (!section || !zoom || !mask || !screenMask || !wisdom) return;
     const s = state.current;
-    const { innerWidth: vw, innerHeight: vh } = window;
-    const rect = section.getBoundingClientRect();
+    const { width: vw, height: vh } = viewportSize();
+    const rect = viewRect(section);
     const span = rect.height - vh;
     const raw = span > 0 ? clamp01(-rect.top / span) : 0;
     s.eased = Math.abs(raw - s.eased) > 1e-4 ? s.eased + (raw - s.eased) * LERP : raw;
@@ -91,14 +93,16 @@ export function Gallery() {
     const grow = zoomCurve(e);
     const { frame } = s;
     const scale = 1 + (Math.max(vw / frame.w, vh / frame.h) - 1) * grow;
+    zoomScale.current = scale;
     zoom.style.transform = `translateY(${(-(frame.cy - vh / 2) * centre).toFixed(2)}px) scale(${scale.toFixed(4)})`;
 
     // Over the scene the two masks compose to 5 % → 70 %; at full size only the screen mask is left.
     const screenOpacity = 0.7 * grow;
     const tileOpacity = Math.max(0, 1 - (1 - (0.05 + 0.65 * grow)) / (1 - screenOpacity));
-    screenMask.style.setProperty('--g-screen', screenOpacity.toFixed(4));
-    mask.style.setProperty('--g-mask', tileOpacity.toFixed(4));
-    wisdom.style.setProperty('--g-o', clamp01((e - TEXT_FROM) / TEXT_LENGTH).toFixed(3));
+    // Plain opacity, not a custom property: those restyle every descendant (all the words of the text).
+    setOpacity(screenMask, screenOpacity.toFixed(4));
+    setOpacity(mask, tileOpacity.toFixed(4));
+    setOpacity(wisdom, clamp01((e - TEXT_FROM) / TEXT_LENGTH).toFixed(3));
 
     const wordsProgress = clamp01((raw - TEXT_FROM) / TEXT_LENGTH);
     const words = () => textRef.current?.querySelectorAll<HTMLElement>('.sw-in') ?? [];
@@ -156,6 +160,10 @@ export function Gallery() {
       </div>
     </section>
   );
+}
+
+function setOpacity(element: HTMLElement, value: string) {
+  if (element.style.opacity !== value) element.style.opacity = value;
 }
 
 function GalleryTile({ className, src }: { className: string; src: string }) {

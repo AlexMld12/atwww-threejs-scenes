@@ -29,6 +29,9 @@ export const pixelRatio = () => Math.min(window.devicePixelRatio || 1, 2);
 /** MSAA samples of the scenes' HDR target. */
 export const hdrSamples = () => (isTouch() ? 2 : 4);
 
+/** Shortest time between two draws of a full-screen scene (hero, gallery): 30 fps on touch screens. */
+export const sceneFrameMs = () => (isTouch() ? 30 : 0);
+
 /** Resolution share of the caps' refraction pass, which the cap's roughness blurs anyway. */
 export const transmissionScale = () => (isTouch() ? 0.5 : 1);
 
