@@ -94,7 +94,7 @@ html.no-3d .hero__placeholder { visibility: visible; }
     translate: -50% 0;
   }
   .hero__info { width: var(--w-hero-info); font-size: var(--fs-hero-info); line-height: var(--lh-hero-info); }
-  .hero__info--l { left: 8%; top: calc(var(--hero-screen) * 0.26); }
-  .hero__info--r { right: 8%; top: calc(var(--hero-screen) * 0.62); }
+  .hero__info--l { left: var(--pad-edge); top: calc(var(--hero-screen) * 0.26); }
+  .hero__info--r { right: var(--pad-edge); top: calc(var(--hero-screen) * 0.62); }
   .hero__para { left: 50%; top: calc(var(--hero-screen) + var(--para-top)); }
 }

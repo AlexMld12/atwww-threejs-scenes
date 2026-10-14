@@ -617,7 +617,9 @@
 
 @media (max-width: 1023.98px) {
   .shop-title { display: none; }
-  .shop-head__end { margin-top: var(--sh-btn-top); }
+  .shop-head { align-items: center; }
+  .shop-logo { margin-top: 0; }
+  .shop-head__end { height: var(--sh-btn-h-m); margin-top: 0; }
 
   .goals__list { display: grid; grid-template-columns: repeat(4, 1fr); }
   .goal { width: auto; height: var(--sh-goal-h); }

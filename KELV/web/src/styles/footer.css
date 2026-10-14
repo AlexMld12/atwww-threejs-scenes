@@ -1,10 +1,16 @@
 .footer {
   position: relative;
-  height: 100vh;
-  overflow: clip;
+  height: calc(100vh + var(--ft-hold));
   background: var(--c-navy);
 }
-.footer > * { position: absolute; }
+/* Pinned for --ft-hold of scroll, so the footer is not passed in one flick */
+.footer__pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: clip;
+}
+.footer__pin > * { position: absolute; }
 .footer__mega {
   z-index: 1;
   left: calc(50% - var(--ft-x));
@@ -63,19 +69,27 @@
 .footer__by { color: rgba(255, 255, 255, 0.2); }
 
 @media (max-width: 1023.98px) {
-  .footer { height: 100svh; }
+  .footer { height: calc(100svh + var(--ft-hold)); }
+  .footer__pin { height: 100svh; }
   .footer__mega { left: 50%; translate: -50% 0; }
   .footer__info { left: var(--pad-edge); top: var(--ft-info-top); text-align: left; }
+  /* not in Figma (the user's request): a plain list of ruled rows instead of the desktop bar */
   .footer__bar {
     left: var(--pad-edge);
     right: var(--pad-edge);
     width: auto;
     height: auto;
     translate: none;
-    flex-direction: column;
-    gap: var(--ft-bar-gap);
-    padding: var(--ft-bar-pad);
+    display: block;
+    padding: 0;
+    border-radius: 0;
+    background: none;
   }
-  .footer__policies { flex-wrap: wrap; justify-content: center; }
+  .footer__policies { display: contents; }
+  .footer__bar > a, .footer__policies > a, .footer__credit {
+    display: block;
+    padding: var(--ft-row-pad) 0;
+    border-top: var(--ft-rule) solid var(--c-ink-20);
+  }
   .loop { height: 100svh; }
 }

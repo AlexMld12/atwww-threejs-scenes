@@ -21,7 +21,7 @@ const POSES = {
 const MOBILE_POSES = {
   join: { x: 0, y: 235, angle: 10.03 },
   middle: { x: 0, y: 0, angle: -15 },
-  footer: { x: 0, y: 40, angle: 10.03 },
+  footer: { x: 0, y: 0, angle: 10.03 },
 };
 const MODELS: ProductName[] = ['K1_COOL_Foam'];
 /** Share of section 7's pinned scroll at which the product starts rising from below the screen. */
@@ -91,8 +91,8 @@ export function TravelProduct({ join, zone, footer }: TravelProductProps) {
       turns = 1 + t;
     }
 
-    // Past the footer it travels up with it and fades before reaching the hero copy.
-    const past = Math.max(0, y - end);
+    // Held while the footer is pinned, then it travels up with it and fades before reaching the hero copy.
+    const past = Math.max(0, y - end - (f.height - vh));
     const fade = 1 - easeInOutCubic(clamp01(past / (vh * FADE_OUT)));
     if (fade !== s.fade) {
       s.fade = fade;

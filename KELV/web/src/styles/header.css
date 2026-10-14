@@ -109,7 +109,10 @@
     height: var(--btn-h-m);
     padding: 0 var(--btn-pad);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    transition: opacity 0.5s var(--ease-p2o);
   }
+  /* The footer's link list takes the bottom of the screen */
+  html.cta-off .site-header .btn-shop { opacity: 0; pointer-events: none; }
   .cta {
     top: calc(var(--head-top) + var(--head-h) / 2);
     bottom: auto;
