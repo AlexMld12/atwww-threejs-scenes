@@ -13,9 +13,10 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 // ../command-center-nobg (itself aligned to the live slider), so the colours
 // match the other AMAGI scenes rather than the Figma mock.
 //
-// Mount: the Webflow div `.projects-logo` (absolute, 100% × 100%). The canvas
-// fills it; the logo's resting place and size inside it are fractions of the div
-// (logoX / logoY / logoHeight), overridable per Webflow breakpoint.
+// Mount: the Webflow div `.projects-logo` (absolute, e.g. 100% × 150% of the
+// header). The logo rests at logoX / logoY (fractions of the div) at a FIXED
+// size (Figma 181 px tall, scaling up above a 1720 px viewport); the canvas is
+// a small box around it.
 //
 // Behaviour:
 //   • intro — rises from below while turning, fading in (once, first time the
@@ -70,14 +71,24 @@ const params = {
   // ── Camera ───────────────────────────────────────────────────────────────
   fov: 30,                // narrow = little perspective skew away from the centre
 
-  // ── Where the logo rests inside .projects-logo (fractions of the div) ────
-  // Defaults = the Figma frame (1424×840): logo centre at (704, 315), 180 px tall.
+  // ── Logo size — FIXED, independent of the div / canvas ──────────────────
+  // Figma: 86 × 181 px on a 1720 px frame. Same as the CSS
+  //   height: clamp(181px, 181 / 1720 * 100vw, 181 / 1720 * 100vw)
+  // i.e. 181 px, growing with the viewport above 1720 px. The model is scaled
+  // by HEIGHT; its width follows the 3D model's own proportions.
+  logoHeightPx:    181,
+  logoRefViewport: 1720,
+
+  // ── Where the logo rests inside .projects-logo (centre, fractions of the div)
   // Per Webflow breakpoint overrides go in AMAGI_LOGO_CONFIG.tablet /
   // .mobileLandscape / .mobile (they cascade down like Webflow's — see lp()).
-  logoX:        0.494,  // centre, fraction of the div width
-  logoY:        0.375,  // centre, fraction of the div height
-  logoHeight:   0.214,  // fraction of the div height
-  logoMaxWidth: 0.25,   // cap: logo width never exceeds this fraction of the div width
+  logoX: 0.49,
+  logoY: 0.43,
+
+  // The canvas is only as big as the logo needs (cheap, and it can't cause page
+  // overflow): the logo box plus this padding, in LOGO HEIGHTS. Bottom covers
+  // the intro rise (introRise) so the logo is never clipped on its way up.
+  canvasPad: { x: 0.5, top: 0.35, bottom: 1.3 },
 
   // ── Lights — positions/intensities VERBATIM from command-center-nobg ─────
   // (expressed there relative to logoBase and a floor at y = -1.4; the floor
@@ -101,8 +112,8 @@ const TAU = Math.PI * 2;
 const ASSET_BASE = window.AMAGI_LOGO_ASSET_BASE || import.meta.env.BASE_URL;
 
 // ─── Mount ───────────────────────────────────────────────────────────────────
-// The Webflow div `.projects-logo` (absolute, 100% × 100% of its section) is
-// the canvas area; the logo is placed inside it by logoX / logoY / logoHeight.
+// The Webflow div `.projects-logo` gives the logo its resting place (logoX /
+// logoY are fractions of it). Its size does NOT affect the logo's size.
 // Waits for the div instead of failing: Webflow (or a CMS/interaction) can
 // insert it after this module runs. If it never shows up, say so once, quietly.
 const MOUNT_SELECTOR = '.projects-logo, [data-amagi-logo]';
@@ -146,7 +157,8 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 2 : 1.75));
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const cvs = renderer.domElement;
-cvs.style.cssText = 'position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none;opacity:0';
+// Positioned/sized in px by measure() — a small box around the logo.
+cvs.style.cssText = 'position:absolute;left:0;top:0;display:block;pointer-events:none;opacity:0';
 appEl.appendChild(cvs);
 
 const scene  = new THREE.Scene();
@@ -309,19 +321,38 @@ function lp(key) {
 }
 
 function measure() {
-  cw = cvs.clientWidth  || 1;
-  ch = cvs.clientHeight || 1;
+  const dw = appEl.clientWidth, dh = appEl.clientHeight;
+  const vw = window.innerWidth;
+
+  // Logo size: clamp(Hpx, Hpx / ref * 100vw, Hpx / ref * 100vw) = max(Hpx, Hpx·vw/ref)
+  const hPx    = lp('logoHeightPx');
+  const aspect = logoSize.y > 0 ? logoSize.x / logoSize.y : 0.5;
+  const h = Math.max(hPx, (hPx * vw) / lp('logoRefViewport'));
+  const w = h * aspect;
+  // Resting centre, in the div's coordinates.
+  const dx = dw * lp('logoX'), dy = dh * lp('logoY');
+
+  // Canvas = logo box + padding, kept inside the div horizontally (the div is
+  // 100% wide, so this stops the canvas ever causing a sideways scroll).
+  const pad = params.canvasPad;
+  let left  = dx - w / 2 - pad.x * h;
+  let right = dx + w / 2 + pad.x * h;
+  left = Math.max(0, left); right = Math.min(dw, right);
+  const top = dy - h / 2 - pad.top * h;
+  cw = Math.max(1, Math.round(right - left));
+  ch = Math.max(1, Math.round(h * (1 + pad.top + pad.bottom)));
+  Object.assign(cvs.style, { left: `${left}px`, top: `${top}px`, width: `${cw}px`, height: `${ch}px` });
   renderer.setSize(cw, ch, false);
   camera.aspect = cw / ch;
 
-  const aspect = logoSize.y > 0 ? logoSize.x / logoSize.y : 0.5;
-  box.h  = Math.max(1, Math.min(ch * lp('logoHeight'), (cw * lp('logoMaxWidth')) / aspect));
-  box.w  = box.h * aspect;
-  box.cx = cw * lp('logoX');
-  box.cy = ch * lp('logoY');
+  // Logo box in CANVAS coordinates (what the camera, hit test and follow use).
+  box.h  = h;
+  box.w  = w;
+  box.cx = dx - left;
+  box.cy = dy - top;
   canvasRect = cvs.getBoundingClientRect();
   if (debugBox) Object.assign(debugBox.style, {
-    left: `${box.cx - box.w / 2}px`, top: `${box.cy - box.h / 2}px`, width: `${box.w}px`, height: `${box.h}px`,
+    left: `${dx - w / 2}px`, top: `${dy - h / 2}px`, width: `${w}px`, height: `${h}px`,
   });
   placeCamera();
   dirty = true;
@@ -434,8 +465,8 @@ const findTouch = (list, id) => { for (const t of list) if (t.identifier === id)
 window.addEventListener('touchstart', (e) => {
   if (touchId !== null || !ready || intro.state !== 'done') return;
   const t = e.changedTouches[0];
-  if (t.clientX < canvasRect.left || t.clientX > canvasRect.right ||
-      t.clientY < canvasRect.top  || t.clientY > canvasRect.bottom) return;
+  const r = appEl.getBoundingClientRect();   // the whole div, not just the small canvas
+  if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) return;
   touchId = t.identifier; touchStartX = t.clientX; touchStartY = t.clientY; touchAxis = 'undecided';
 }, { passive: true });
 window.addEventListener('touchmove', (e) => {
