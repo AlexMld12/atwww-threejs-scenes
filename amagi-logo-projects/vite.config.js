@@ -17,7 +17,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, '..', 'docs', SCENE_NAME),
     emptyOutDir: true,
-    target: 'es2020',
+    target: 'es2022',   // top-level await (waiting for the .projects-logo div)
     sourcemap: false,
     assetsInlineLimit: 0,
     // Stable, unhashed entry filename so the Webflow <script> can point at a fixed

@@ -103,8 +103,25 @@ const ASSET_BASE = window.AMAGI_LOGO_ASSET_BASE || import.meta.env.BASE_URL;
 // ─── Mount ───────────────────────────────────────────────────────────────────
 // The Webflow div `.projects-logo` (absolute, 100% × 100% of its section) is
 // the canvas area; the logo is placed inside it by logoX / logoY / logoHeight.
-const appEl = document.querySelector('.projects-logo');
-if (!appEl) throw new Error('[amagi-logo] no .projects-logo element on the page');
+// Waits for the div instead of failing: Webflow (or a CMS/interaction) can
+// insert it after this module runs. If it never shows up, say so once, quietly.
+const MOUNT_SELECTOR = '.projects-logo, [data-amagi-logo]';
+const appEl = await new Promise((resolve) => {
+  const found = document.querySelector(MOUNT_SELECTOR);
+  if (found) return resolve(found);
+  const mo = new MutationObserver(() => {
+    const el = document.querySelector(MOUNT_SELECTOR);
+    if (el) { mo.disconnect(); resolve(el); }
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+  const report = () => setTimeout(() => {
+    if (document.querySelector(MOUNT_SELECTOR)) return;
+    console.warn(
+      `[amagi-logo] waiting for an element matching "${MOUNT_SELECTOR}" — none on this page yet. ` +
+      `Found with a similar class: ${[...document.querySelectorAll('[class*="logo"]')].map((e) => '.' + [...e.classList].join('.')).join(', ') || 'nothing'}`);
+  }, 1500);
+  if (document.readyState === 'complete') report(); else window.addEventListener('load', report);
+});
 if (getComputedStyle(appEl).position === 'static') appEl.style.position = 'relative';
 // The div sits over the text, so it must not block clicks on it — all the
 // interaction listens on window.
