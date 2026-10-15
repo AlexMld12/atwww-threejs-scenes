@@ -206,11 +206,19 @@ const logoCenter = new THREE.Vector3();   // rest position (sibling world space)
 const logoSize   = new THREE.Vector3();   // world-space bbox size
 let ready = false;
 
+// The lights live in a rig pivoting on the logo's centre. animate() tilts the rig
+// with the logo's follow PITCH (not its yaw or spin): pitched toward a cursor low
+// on the page, the flame's face used to swing straight into the up-spot under it
+// and catch a hard specular blob. Tilting the rig along keeps the rest-pose
+// lighting on the face; yaw and spin still sweep the sheens across it.
+const lightRig = new THREE.Group();
+scene.add(lightRig);
+
 function addSpot(intensity, distance, angleDeg, penumbra, decay, pos, target) {
   const s = new THREE.SpotLight(params.accentColor, intensity, distance, angleDeg * DEG, penumbra, decay);
-  s.position.copy(pos);
-  s.target.position.copy(target);
-  scene.add(s, s.target);
+  s.position.copy(pos).sub(logoCenter);          // rig-local (rig sits at logoCenter)
+  s.target.position.copy(target).sub(logoCenter);
+  lightRig.add(s, s.target);
   return s;
 }
 
@@ -280,6 +288,7 @@ loader.load(`${ASSET_BASE}test_3_.glb`, (gltf) => {
   // Where the sibling's group would put the centre.
   logoCenter.copy(c).multiplyScalar(s).applyAxisAngle(new THREE.Vector3(0, 1, 0), NOBG.logoRotationY * DEG).add(logoBase);
   logoGroup.position.copy(logoCenter);
+  lightRig.position.copy(logoCenter);
 
   // The sibling's three spots, at its exact positions.
   const fy = NOBG.floorTargetY;
@@ -497,6 +506,7 @@ const damp = (v, t, rate, dt) => v + (t - v) * (1 - Math.exp(-rate * dt));
 const clock = new THREE.Clock();
 const qFollow = new THREE.Quaternion();
 const qSpin   = new THREE.Quaternion();
+const qRigYaw = new THREE.Quaternion();
 const eFollow = new THREE.Euler(0, 0, 0, 'YXZ');
 const AXIS_Y  = new THREE.Vector3(0, 1, 0);
 let dirty = true;
@@ -562,6 +572,10 @@ function frame() {
   qFollow.setFromEuler(eFollow);
   qSpin.setFromAxisAngle(AXIS_Y, spin + introSpin);
   logoGroup.quaternion.copy(qFollow).multiply(qSpin);
+  // Light rig = the follow rotation minus its yaw, i.e. only the pitch (applied
+  // about the yawed axis, exactly as the logo gets it). See lightRig.
+  qRigYaw.setFromAxisAngle(AXIS_Y, -followYaw);
+  lightRig.quaternion.copy(qFollow).multiply(qRigYaw);
   // The fade is the canvas' CSS opacity: one compositor op, and no transparent
   // material sorting artefacts on a double-sided mesh.
   cvs.style.opacity = opacity.toFixed(3);
