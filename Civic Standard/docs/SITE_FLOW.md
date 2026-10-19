@@ -125,3 +125,27 @@ Deschise:
 - Poziții verificate pe pixeli la 1440 × 850: cadrele 1 și 3 la ≤ 1 px.
 - Fonturile din PDF sunt Type3 fără nume: weight-ul se măsoară din grosimea tulpinilor (scratchpad, pymupdf + PIL).
   Inter (al treilea font dat de user) nu apare în nav / BUILT OUTSIDE; de verificat la secțiunile următoare.
+
+## 02 · Solid / Civic / Calm — în lucru (2026-10-19)
+
+- Figma 5930–6739 (809 px; linia de la 6740 și „THE DETAILS” sunt secțiunea următoare). Poziții din PDF: cuvintele
+  după originea și linia de bază a fiecăruia, pastilele după cutie, x față de centrul cadrului (720); liniile pe
+  marginea lor (stânga / dreapta), 1 px #2F4A3A la 15 %; cele din dreapta trec în secțiunea următoare (până la 7050).
+- Fontul cuvintelor e **Inter**, nu Aeonik (glifele din PDF au 0.753 em, Aeonik 0.70): Inter opsz 14 (nu Display),
+  −0.074 em — IoU 0.90–0.94 față de PDF, suprapus ≤ 2 px. Pastilele: Martian Mono 12, −0.027 em, #212325 pe #FDFAFA,
+  bordură #E0E0E0, înălțime 38, colțuri 19.
+- Referința de comportament: fluid.glass/about (`AboutBeliefs`, GSAP ScrollTrigger + DrawSVG, cod descărcat): totul
+  legat de scroll — cuvintele urcă din 150 % în masca lor (power3.inOut, 0.5 fiecare, la 0.05), pastilele apar cu
+  fade (0.1, de la 0.4). La ei intervalul se termină când secțiunea abia a intrat complet, deci se vede prost
+  (cererea userului: „mai târziu”) → la noi de la sus-ul secțiunii la 85 % din ecran până când secțiunea e toată pe
+  ecran (~700 px de scroll), urmărit cu întârziere (constantă 0.35 s): și la viteza maximă de scroll urcarea
+  durează ~0.85 s (prima variantă, 510 px fără întârziere: „prea rapidă”).
+- Liniile: aceeași ordine ca la ei (dreapta de jos în sus, apoi mijlocul, apoi stânga), dar pe timp și în buclă.
+  A treia variantă (ideea userului): linia slabă se trasează (3 s), peste ea o linie neagră plină de aceeași
+  grosime, ca în preloader, pe același contur (2.4 s), stă 0.4 s, se retrage negrul (2 s), apoi linia slabă (2.4 s),
+  pauză 0.3 s → din nou (10.5 s pe buclă). „Prea lent” la a doua variantă însemna pauzele, nu trasarea. Pornește
+  când secțiunea intră la 60 % din ecran, rulează doar cât e pe ecran.
+- Liniile din dreapta sunt tăiate la marginea secțiunii (`overflow: clip`) până facem „The Details”: ieșeau 311 px
+  sub ea și lungeau pagina („secțiunea prea mare”). De scos clip-ul când există secțiunea următoare.
+- Poarta hero-ului se aplică doar cât pagina e încă înaintea ei (o pagină aflată deja după ea nu mai e ținută).
+

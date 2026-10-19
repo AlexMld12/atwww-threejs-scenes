@@ -1,0 +1,70 @@
+/* Solid · Civic · Calm: three words with their pills over lines that draw themselves */
+.pillars {
+  position: relative;
+  height: var(--pl-h);
+  /* the right lines run on into the next section in Figma; cut here until it is built */
+  overflow: clip;
+  color: var(--forest);
+}
+
+.pillars__lines {
+  position: absolute;
+  top: 0;
+  overflow: visible;
+  fill: none;
+  stroke: rgb(47 74 58 / 0.15);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+/* the black line that traces over the faint one, as the preloader's */
+.pillars__ink {
+  stroke: var(--ink);
+}
+
+.pillars__lines--left {
+  left: 0;
+  width: var(--pl-left-w);
+  height: var(--pl-left-h);
+}
+
+.pillars__lines--right {
+  right: 0;
+  width: var(--pl-right-w);
+  height: var(--pl-right-h);
+}
+
+/* the word rises inside its own box (the mask) */
+.pillars__word {
+  position: absolute;
+  margin: 0;
+  overflow: hidden;
+  /* the letter spacing pulls the last letter out of the box: room for it in the mask */
+  padding-right: 0.15em;
+  font: 400 var(--pl-word-size) / 1 var(--font-inter);
+  /* the text cut, as in Figma, not the display one the browser would pick at this size */
+  font-variation-settings: 'opsz' 14;
+  letter-spacing: -0.074em;
+  white-space: nowrap;
+}
+
+.pillars__glyphs {
+  position: relative;
+  display: block;
+}
+
+.pillars__pill {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  height: var(--pl-pill-h);
+  padding: 0 var(--pl-pill-pad);
+  border: clamp(1px, 1 / 1720 * 100vw, 1 / 1720 * 100vw) solid #e0e0e0;
+  border-radius: var(--pl-pill-radius);
+  background: #fdfafa;
+  color: #212325;
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.027em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

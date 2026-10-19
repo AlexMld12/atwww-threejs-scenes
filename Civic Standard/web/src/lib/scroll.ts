@@ -142,7 +142,9 @@ function drive() {
 
   if (!pending) return;
   const ahead = MAX_AHEAD * screen();
-  wanted = Math.min(wanted, Math.max(gate(), shown));
+  // Only ahead of the gate: a page already past it (a jump, a restored scroll) is never held there.
+  const limit = gate();
+  if (shown <= limit + AT_PX) wanted = Math.min(wanted, limit);
   const to = clamp(wanted, shown - ahead, shown + ahead);
   if (Math.abs(wanted - shown) < 0.5) pending = false;
   else if (Math.abs(to - lenis.targetScroll) > 0.5) lenis.scrollTo(to, { lerp, programmatic: false });

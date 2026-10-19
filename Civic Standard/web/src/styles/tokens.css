@@ -60,6 +60,17 @@
   --bo-scroll-gap:    clamp(10.5px, 10.5 / 1720 * 100vw, 10.5 / 1720 * 100vw);
   --bo-scroll-arrow:  clamp(6.6px, 6.6 / 1720 * 100vw, 6.6 / 1720 * 100vw);
   --bo-arrow-shift:   clamp(6px, 6 / 1720 * 100vw, 6 / 1720 * 100vw);
+
+  /* Solid · Civic · Calm (Figma 5930–6739); x from the frame's centre (720), lines from their edge */
+  --pl-h:             clamp(809px, 809 / 1720 * 100vw, 809 / 1720 * 100vw);
+  --pl-word-size:     clamp(170px, 170 / 1720 * 100vw, 170 / 1720 * 100vw);
+  --pl-pill-h:        clamp(38px, 38 / 1720 * 100vw, 38 / 1720 * 100vw);
+  --pl-pill-pad:      clamp(22px, 22 / 1720 * 100vw, 22 / 1720 * 100vw);
+  --pl-pill-radius:   clamp(19px, 19 / 1720 * 100vw, 19 / 1720 * 100vw);
+  --pl-left-w:        clamp(193px, 193 / 1720 * 100vw, 193 / 1720 * 100vw);
+  --pl-left-h:        clamp(1120px, 1120 / 1720 * 100vw, 1120 / 1720 * 100vw);
+  --pl-right-w:       clamp(456px, 456 / 1720 * 100vw, 456 / 1720 * 100vw);
+  --pl-right-h:       clamp(1120px, 1120 / 1720 * 100vw, 1120 / 1720 * 100vw);
 }
 
 @supports (height: 100lvh) {
