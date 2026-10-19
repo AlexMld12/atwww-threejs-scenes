@@ -36,6 +36,16 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
   card.renderOrder = 1;
   card.position.copy(FRONT);
   card.visible = false;
+  const maskMaterial = new THREE.MeshBasicMaterial({
+    color: TAKEOVER.mask,
+    toneMapped: false,
+    depthTest: false,
+    transparent: true,
+    opacity: 0,
+  });
+  const mask = new THREE.Mesh(card.geometry, maskMaterial);
+  mask.renderOrder = 2;
+  card.add(mask);
 
   // Row offsets (mod one loop) that bring a bench row to height 0, and which panel that is.
   const landings = benchPanels
@@ -65,6 +75,11 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
       return landingScroll + (HERO.growScreens + 1) * stageHeight;
     },
 
+    /** How far the page may scroll: not past the landing until the bench faces the camera and the photo can grow. */
+    gate() {
+      return locked ? Infinity : landingScroll;
+    },
+
     /** Row travel the tube may reach: it stops where the bench row is level with the centre. */
     travelFor(scroll: number) {
       return Math.min(scroll, landingScroll) * SCROLL.travelPerPx;
@@ -82,7 +97,16 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
       if (locked) return angleFront(angle, 0);
       const target = angleFront(angle, direction);
       const remaining = (target - angle) * direction;
-      const speed = Math.min(HERO.seekSpeed, remaining * HERO.seekEase + Math.abs(motion) * 0.25);
+      // The page waits at the landing for the bench (`gate`): there the tube turns faster, and never slower than
+      // seekMinSpeed, or the last fraction of a turn would take seconds.
+      const held = scroll >= landingScroll - 1;
+      const speed = Math.max(
+        HERO.seekMinSpeed,
+        Math.min(
+          held ? HERO.seekHeldSpeed : HERO.seekSpeed,
+          remaining * HERO.seekEase * (held ? 2 : 1) + Math.abs(motion) * 0.25,
+        ),
+      );
       const next = angle + direction * speed * dt;
       if ((target - next) * direction <= 1e-4) {
         locked = true;
@@ -92,10 +116,10 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
     },
 
     /** After the landing, once the panel is in front: the photo grows from it to the full screen. */
-    grow(scroll: number, width: number, height: number, dt: number) {
-      const target = locked ? clamp01((scroll - landingScroll) / (HERO.growScreens * height)) : 0;
-      // Eased up, so a late lock still grows smoothly; straight back down, so it never lags behind the tube.
-      shownGrowth = target < shownGrowth ? target : shownGrowth + (target - shownGrowth) * (1 - Math.exp(-dt * 10));
+    grow(scroll: number, width: number, height: number) {
+      // Straight from the (smoothed) scroll: the page cannot pass the landing before the lock (`gate`), so the photo
+      // is full exactly when BUILT OUTSIDE takes over.
+      shownGrowth = locked ? clamp01((scroll - landingScroll) / (HERO.growScreens * height)) : 0;
       if (shownGrowth < 1e-3) {
         landed.mesh.visible = true;
         card.visible = false;
@@ -105,6 +129,8 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
       card.visible = true;
 
       const u = smooth(shownGrowth);
+      maskMaterial.opacity =
+        TAKEOVER.maskOpacity * smooth(clamp01((shownGrowth - TAKEOVER.maskFrom) / (1 - TAKEOVER.maskFrom)));
       // From the panel's place in the ring (where it is as the tube moves off) to the front.
       landed.mesh.updateWorldMatrix(true, false);
       landed.mesh.matrixWorld.decompose(from.position, from.quaternion, from.scale);

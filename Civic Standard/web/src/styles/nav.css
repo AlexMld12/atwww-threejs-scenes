@@ -28,7 +28,7 @@
   display: block;
   width: var(--nav-mark-w);
   height: var(--nav-h);
-  fill: var(--gold);
+  fill: var(--green);
 }
 
 .nav__rule {
@@ -91,24 +91,38 @@
   padding: 0;
 }
 
-/* hover: the label rolls up and out, a copy rolls in from below (on top, not transform, so it stays sharp) */
+/* hover: the button turns green; its label rolls letter by letter from the last one, and back on hover out
+   (each letter moves on top, not transform, so it stays sharp) */
+.pill,
+.roll__face {
+  --roll-step: 0.03s;
+  --roll-time: 0.5s;
+  --roll-ease: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.pill {
+  transition:
+    background-color 0.4s var(--roll-ease),
+    color 0.4s var(--roll-ease);
+}
+
 .roll {
-  position: relative;
-  display: block;
+  display: flex;
   height: var(--mono-lh);
   overflow: hidden;
 }
 
-/* the percentages below need a set height */
-.nav__search .roll {
-  height: var(--icon);
+.roll__letter {
+  position: relative;
+  display: block;
+  height: 100%;
 }
 
 .roll__face {
   position: relative;
   top: 0;
   display: block;
-  transition: top 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+  transition: top var(--roll-time) var(--roll-ease) calc(var(--i) * var(--roll-step));
 }
 
 .roll__face--next {
@@ -117,12 +131,25 @@
   left: 0;
 }
 
-.pill:hover .roll__face,
-.pill:focus-visible .roll__face {
-  top: -100%;
+.nav__search svg {
+  transition: scale 0.5s var(--roll-ease);
 }
 
-.pill:hover .roll__face--next,
-.pill:focus-visible .roll__face--next {
+:is(.pill, .built__actions):is(:hover, :focus-visible) .roll__face {
+  top: -100%;
+  transition-delay: calc((var(--n) - 1 - var(--i)) * var(--roll-step));
+}
+
+:is(.pill, .built__actions):is(:hover, :focus-visible) .roll__face--next {
   top: 0;
+}
+
+.pill:is(:hover, :focus-visible),
+.built__actions:hover .pill {
+  background: var(--green);
+  color: #fff;
+}
+
+.nav__search:is(:hover, :focus-visible) svg {
+  scale: 1.18;
 }

@@ -6,6 +6,7 @@
   --forest:           #0e1f14;
   --button-ink:       #241f21;
   --gold:             #e3b23c;
+  --green:            #2f4a3a;
   --mint:             #66ff99;
   --night:            #06120a;
 
@@ -58,6 +59,7 @@
   --bo-scroll-bottom: clamp(48.4px, 48.4 / 1720 * 100vw, 48.4 / 1720 * 100vw);
   --bo-scroll-gap:    clamp(10.5px, 10.5 / 1720 * 100vw, 10.5 / 1720 * 100vw);
   --bo-scroll-arrow:  clamp(6.6px, 6.6 / 1720 * 100vw, 6.6 / 1720 * 100vw);
+  --bo-arrow-shift:   clamp(6px, 6 / 1720 * 100vw, 6 / 1720 * 100vw);
 }
 
 @supports (height: 100lvh) {

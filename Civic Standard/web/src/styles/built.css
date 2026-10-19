@@ -30,7 +30,8 @@
 
 .built__mask {
   background: var(--night);
-  opacity: 0;
+  /* already on: it came in over the hero's photo as it grew (TAKEOVER.mask) */
+  opacity: 0.6;
 }
 
 .built__chrome {
@@ -135,8 +136,19 @@
 }
 
 .built__arrow {
+  position: relative;
+  left: 0;
   width: var(--bo-btn-h);
   height: var(--bo-btn-h);
+  transition:
+    left 0.5s cubic-bezier(0.65, 0, 0.35, 1),
+    background-color 0.4s cubic-bezier(0.65, 0, 0.35, 1),
+    color 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* the two buttons are one call to action: on hover the arrow moves off a little to the right */
+.built__actions:hover .built__arrow {
+  left: var(--bo-arrow-shift);
 }
 
 .built__arrow svg {
@@ -156,9 +168,34 @@
   color: var(--mint);
 }
 
+.built__scroll-arrow {
+  display: block;
+  overflow: hidden;
+}
+
+/* the arrow drops out at the bottom and comes back in from the top, on a loop */
 .built__scroll svg {
+  display: block;
+  animation: built-scroll 2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
   width: var(--bo-scroll-arrow);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.1;
+}
+
+@keyframes built-scroll {
+  0%,
+  30% {
+    translate: 0 0;
+  }
+  60% {
+    translate: 0 110%;
+  }
+  60.01% {
+    translate: 0 -110%;
+  }
+  90%,
+  100% {
+    translate: 0 0;
+  }
 }

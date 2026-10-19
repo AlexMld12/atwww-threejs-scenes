@@ -1,13 +1,15 @@
 import { useEffect, type RefObject } from 'react';
 import { clamp01, designPx } from '@/lib/design';
-import { indexAt, introAt, maskAt, photoAt, slot, TIMELINE } from './timeline';
+import { setScrollStops } from '@/lib/scroll';
+import { arrivedAt, INACTIVE, photoAt, positionAt, revealAt, STOPS, TIMELINE, titleAt } from './timeline';
 
-const MASK_OPACITY = 0.6;
-const INTRO_RISE = 24;
+const REVEAL_RISE = 24;
 // The navbar comes back this many screens before the stage has scrolled away.
 const NAV_RETURN = 0.5;
-// Text runs on its own clock once the item changes, as in the reference (SplitText lines, expo.out).
-const TITLE_S = 1.4;
+// Once a title is in its place, on its own clock as in the reference (SplitText lines, expo.out): it lights up,
+// then its lines come up one by one. Leaving, it dims and its text fades at once.
+const LIGHT_S = 1;
+const DIM_S = 0.4;
 const LINE_RISE = 40;
 const LINE_S = 1.6;
 const LINE_DELAY_S = 0.1;
@@ -16,12 +18,11 @@ const FADE_OUT_S = 0.2;
 
 const expoOut = (t: number) => (t >= 1 ? 1 : 1 - 2 ** (-10 * t));
 
-/** Drives BUILT OUTSIDE: the mask on the hero's photo, the content's reveal, then each item. */
+/** Drives BUILT OUTSIDE from the scroll: the reveal, the titles and photos, and each item's text once it arrives. */
 export function useBuiltOutside(root: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const section = root.current!;
     const stage = section.querySelector<HTMLElement>('.built__stage')!;
-    const mask = section.querySelector<HTMLElement>('.built__mask')!;
     const bar = section.querySelector<HTMLElement>('.built__bar')!;
     const reveals = [...section.querySelectorAll<HTMLElement>('[data-reveal]')];
     const photos = [...section.querySelectorAll<HTMLElement>('.built__photo')];
@@ -30,16 +31,19 @@ export function useBuiltOutside(root: RefObject<HTMLElement | null>) {
       heading: [item.querySelector<HTMLElement>('.built__number')!, item.querySelector<HTMLElement>('.built__title')!],
       body: item.querySelector<HTMLElement>('.built__body')!,
       lines: [...item.querySelectorAll<HTMLElement>('[data-line]')],
-      // The title moves from where it was when the item changed; -Infinity = already settled.
-      from: { top: 0, opacity: 0 },
-      title: { top: 0, opacity: 0 },
+      // How lit the title is (0 = INACTIVE, 1 = full) when it last arrived or left, and when that was.
+      light: 0,
+      lightFrom: 0,
       changedAt: -Infinity,
-      // Only the item that was shown fades out; the others stay hidden.
-      fading: false,
     }));
     const html = document.documentElement;
-    let index = -1;
+    let arrived = -1;
     let frame = 0;
+    const removeStops = setScrollStops(() => {
+      const top = section.getBoundingClientRect().top + window.scrollY;
+      const height = stage.clientHeight || window.innerHeight;
+      return STOPS.map((screens) => top + screens * height);
+    });
 
     const update = (now: number) => {
       frame = requestAnimationFrame(update);
@@ -51,59 +55,54 @@ export function useBuiltOutside(root: RefObject<HTMLElement | null>) {
       html.classList.toggle('is-nav-hidden', screens >= 0 && screens < TIMELINE.pinned + 1 - NAV_RETURN);
       if (screens < 0) return;
 
-      mask.style.opacity = String(MASK_OPACITY * maskAt(screens));
-      const intro = introAt(screens);
-      const rise = designPx(INTRO_RISE) * (1 - intro);
+      const reveal = revealAt(screens);
       reveals.forEach((element) => {
-        element.style.opacity = String(intro);
-        element.style.marginTop = `${rise}px`;
+        element.style.opacity = String(reveal);
+        element.style.marginTop = `${designPx(REVEAL_RISE) * (1 - reveal)}px`;
       });
 
       // The photo is neither moved nor scaled, only uncovered by a hard edge rising with the scroll.
-      let swept = 0;
       photos.forEach((photo, k) => {
-        if (k === 0) return;
-        const shown = photoAt(k, screens);
-        swept += shown;
-        photo.style.clipPath = `inset(${(1 - shown) * 100}% 0 0 0)`;
+        if (k > 0) photo.style.clipPath = `inset(${(1 - photoAt(k, screens)) * 100}% 0 0 0)`;
       });
-      const start = designPx(70);
-      bar.style.width = `${start + (window.innerWidth - start) * (swept / (photos.length - 1))}px`;
 
-      const next = indexAt(screens);
-      if (next !== index) {
-        const first = index < 0;
+      const position = positionAt(screens);
+      bar.style.width = `${(window.innerWidth * (position + 1)) / items.length}px`;
+
+      const next = arrivedAt(position);
+      if (next !== arrived) {
         items.forEach((entry, k) => {
-          entry.from = { ...entry.title };
-          entry.fading = k === index;
-          entry.changedAt = first ? -Infinity : now;
+          if (k !== arrived && k !== next) return;
+          entry.lightFrom = entry.light;
+          entry.changedAt = now;
         });
-        index = next;
+        arrived = next;
       }
 
       items.forEach((entry, k) => {
-        const { item, heading, body, lines, from } = entry;
+        const { item, heading, body, lines } = entry;
         const t = (now - entry.changedAt) / 1000;
-        const to = slot(k, index, height);
-        const u = expoOut(clamp01(t / TITLE_S));
-        entry.title = {
-          top: from.top + (to.top - from.top) * u,
-          opacity: from.opacity + (to.opacity - from.opacity) * u,
-        };
-        item.style.top = `${entry.title.top + rise}px`;
-        heading.forEach((element) => (element.style.opacity = String(entry.title.opacity * intro)));
+        const title = titleAt(k, position, height);
+        item.style.top = `${title.top}px`;
 
-        if (k === index) {
-          body.style.opacity = String(intro);
+        const here = k === arrived;
+        const u = here ? expoOut(clamp01(t / LIGHT_S)) : clamp01(t / DIM_S);
+        entry.light = entry.lightFrom + ((here ? 1 : 0) - entry.lightFrom) * u;
+        const opacity = title.opacity + (1 - INACTIVE) * entry.light;
+        heading.forEach((element) => (element.style.opacity = String(opacity * reveal)));
+
+        if (here) {
           body.style.visibility = 'visible';
+          body.style.opacity = '1';
           lines.forEach((line, j) => {
             const p = expoOut(clamp01((t - LINE_DELAY_S - j * LINE_STAGGER_S) / LINE_S));
             line.style.opacity = String(p);
             line.style.top = `${designPx(LINE_RISE) * (1 - p)}px`;
           });
         } else {
-          const left = entry.fading ? 1 - clamp01(t / FADE_OUT_S) : 0;
-          body.style.opacity = String(left * intro);
+          // Only the item that just left fades; the others are already hidden.
+          const left = Number.isFinite(t) && entry.lightFrom > 0 ? 1 - clamp01(t / FADE_OUT_S) : 0;
+          body.style.opacity = String(left);
           body.style.visibility = left > 0 ? 'visible' : 'hidden';
         }
       });
@@ -111,6 +110,7 @@ export function useBuiltOutside(root: RefObject<HTMLElement | null>) {
     frame = requestAnimationFrame(update);
     return () => {
       cancelAnimationFrame(frame);
+      removeStops();
       html.classList.remove('is-nav-hidden');
     };
   }, [root]);

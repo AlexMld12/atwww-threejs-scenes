@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { Roll } from '@/components/ui/Roll';
 import { BUILT_ITEMS } from './content';
 import { TIMELINE } from './timeline';
 import { useBuiltOutside } from './use-built-outside';
@@ -50,8 +51,8 @@ export function BuiltOutside() {
                   ))}
                 </p>
                 <div className="built__actions" data-line>
-                  <button type="button" className="pill built__browse">
-                    Browse the range
+                  <button type="button" className="pill built__browse" aria-label="Browse the range">
+                    <Roll text="Browse the range" />
                   </button>
                   <button type="button" className="pill pill--icon built__arrow" aria-label="Browse the range">
                     <svg viewBox="0 0 12 11.2" aria-hidden="true">
@@ -66,9 +67,11 @@ export function BuiltOutside() {
 
         <span className="built__scroll" data-reveal>
           Scroll
-          <svg viewBox="0 0 6.6 6.8" aria-hidden="true">
-            <path d="M3.3 0v6.2M0.5 3.6l2.8 2.8 2.8-2.8" />
-          </svg>
+          <span className="built__scroll-arrow">
+            <svg viewBox="0 0 6.6 6.8" aria-hidden="true">
+              <path d="M3.3 0v6.2M0.5 3.6l2.8 2.8 2.8-2.8" />
+            </svg>
+          </span>
         </span>
       </div>
     </section>

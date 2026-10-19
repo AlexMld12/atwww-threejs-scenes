@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { handOver, loaderMask, onLoaded, sceneIn } from '@/lib/intro';
 import { fetchWithProgress, finishTask, reportProgress } from '@/lib/preload';
-import { scrollPosition } from '@/lib/scroll';
+import { scrollPosition, setScrollGate } from '@/lib/scroll';
 import { createBackdrop } from './backdrop';
 import { createReflections } from './environment';
 import { createGlass } from './glass';
@@ -106,6 +106,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     renderer.capabilities.getMaxAnisotropy(),
   );
   const takeover = createTakeover(assets.benchMap, benchPanels);
+  const liftGate = setScrollGate(() => takeover.gate());
   const logoMesh = assets.gltf.scene.getObjectByProperty('isMesh', true) as THREE.Mesh;
   const glass = createGlass(renderer, logoMesh.geometry, reflections.texture, assets.backdropMap, assets.leavesMap);
   const logo = createLogo(assets.gltf.scene, glass);
@@ -156,14 +157,13 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
       row.rotation.y = angle * TUBE.familySpeeds[i % TUBE.familySpeeds.length] + INTRO.riseTwist * rest;
     });
     logo.turn.rotation.y = LOGO.facing - angle * LOGO.turnRatio;
-    // Until the handover the glass comes in under the preloader's mask, as the page loads.
-    const underMask = loadedAt < 0 && loaderMask.glass < 1;
+    // Until the handover the glass shows only under the preloader's disc, with its black lines.
     logo.setForm(loadedAt < 0 ? loaderMask.glass : 1, intro.tilt);
-    glass.setMask(underMask ? loaderMask : null, canvas);
+    glass.setMask(loadedAt < 0 ? loaderMask : null, canvas);
     // The navbar comes in as the first row rises into the frame (the tube's front edge), not when the rise starts.
     const frontEdge = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.position.z - TUBE.radius);
     if (loadedAt >= 0 && rows.some((row) => row.position.y + TUBE.panelHeight / 2 > -frontEdge)) sceneIn();
-    takeover.grow(scroll, canvas.clientWidth, stageHeight, dt);
+    takeover.grow(scroll, canvas.clientWidth, stageHeight);
 
     elapsed += dt;
     backdropUniforms.backdropTime.value = elapsed;
@@ -192,6 +192,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
   });
 
   return () => {
+    liftGate();
     stopLoaded();
     renderer.setAnimationLoop(null);
     observer.disconnect();

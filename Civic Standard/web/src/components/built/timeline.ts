@@ -1,16 +1,20 @@
-import { clamp01, designPx, easeInOut, smooth } from '@/lib/design';
+import { clamp01, designPx, easeInOut } from '@/lib/design';
 
-// In screens of scroll after the stage is pinned (the hero's photo is full screen at 0).
+// In screens of scroll after the stage is pinned (the hero's photo is full screen at 0, its mask already on).
 export const TIMELINE = {
-  mask: [0, 0.5],
-  intro: [0.35, 0.95],
-  // Photo i + 1 sweeps up over [start, start + length]; before it, a strip of it rises in from the bottom.
+  // The label, the bar's track and SCROLL come in; item 1 rises from the bottom to its place.
+  reveal: [0, 0.5],
+  arrive: [0.1, 0.9],
+  // Photo i + 1 sweeps up over [start, start + length], as the titles move; before it, a strip of it shows.
   changes: [1.5, 3.1],
   changeLength: 0.8,
   peekLength: 0.5,
   // Pinned length; the section is one screen longer, for the stage to scroll away.
   pinned: 4.6,
 };
+
+/** Where each item is in its place: the page rests there (lib/scroll, the stops), so a fast scroll can't skip one. */
+export const STOPS = [TIMELINE.arrive[1], ...TIMELINE.changes.map((start) => start + TIMELINE.changeLength)];
 
 // As in the reference (Valmont, Resn): the next photo shows a tenth of the screen before its edge sweeps up.
 const PEEK = 0.1;
@@ -24,8 +28,7 @@ export const INACTIVE = 0.3;
 
 const span = ([a, b]: readonly number[], t: number) => clamp01((t - a) / (b - a));
 
-export const maskAt = (screens: number) => smooth(span(TIMELINE.mask, screens));
-export const introAt = (screens: number) => easeInOut(span(TIMELINE.intro, screens));
+export const revealAt = (screens: number) => easeInOut(span(TIMELINE.reveal, screens));
 
 /** Shown share of photo `k` (k ≥ 1) from the bottom, straight from the scroll as in the reference: no easing. */
 export function photoAt(k: number, screens: number) {
@@ -35,18 +38,36 @@ export function photoAt(k: number, screens: number) {
   return PEEK * peek + (1 - PEEK) * sweep;
 }
 
-/** The item whose text is shown: it switches halfway through its photo's sweep. */
-export const indexAt = (screens: number) =>
-  TIMELINE.changes.filter((start) => screens >= start + TIMELINE.changeLength / 2).length;
+/** Where the list stands, from the scroll: −1 = item 1 waits at the bottom, k = item k + 1 is in its place. */
+export const positionAt = (screens: number) =>
+  -1 +
+  span(TIMELINE.arrive, screens) +
+  TIMELINE.changes.reduce((sum, start) => sum + span([start, start + TIMELINE.changeLength], screens), 0);
 
-/** Title top (CSS px) and opacity of item `k` while item `active` is shown. */
-export function slot(k: number, active: number, stageHeight: number) {
+/** Title top (CSS px) and opacity of item `k` while item `active` (−1 … items − 1) is in its place. */
+function slot(k: number, active: number, stageHeight: number) {
   if (k < active) return { top: designPx(STACK_TOP + k * STACK_STEP), opacity: INACTIVE };
   if (k === active) {
     const top = active === 0 ? STACK_TOP : STACK_TOP + (active - 1) * STACK_STEP + ACTIVE_GAP;
-    return { top: designPx(top), opacity: 1 };
+    return { top: designPx(top), opacity: INACTIVE };
   }
   const next = stageHeight - designPx(NEXT_FROM_BOTTOM);
   if (k === active + 1) return { top: next, opacity: INACTIVE };
   return { top: next + designPx(STACK_STEP), opacity: 0 };
+}
+
+/** The same at any position: the titles move with the scroll, eased through each step. */
+export function titleAt(k: number, position: number, stageHeight: number) {
+  const from = Math.floor(position);
+  const u = easeInOut(position - from);
+  const a = slot(k, from, stageHeight);
+  if (u === 0) return a;
+  const b = slot(k, from + 1, stageHeight);
+  return { top: a.top + (b.top - a.top) * u, opacity: a.opacity + (b.opacity - a.opacity) * u };
+}
+
+/** The item that is in its place (its text shows), or −1 while the titles move. */
+export function arrivedAt(position: number) {
+  const k = Math.round(position);
+  return k >= 0 && Math.abs(position - k) < 1e-3 ? k : -1;
 }

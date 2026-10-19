@@ -1,31 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { Roll } from '@/components/ui/Roll';
 import { LOGO_PARTS, LOGO_VIEWBOX } from '@/lib/logo-outline';
 
 const LINKS = ['Products', 'About', 'Sustainability'];
-
-/** On hover the label rolls up and out while a copy rolls in from below. */
-function Roll({ children }: { children: ReactNode }) {
-  return (
-    <span className="roll">
-      <span className="roll__face">{children}</span>
-      <span className="roll__face roll__face--next" aria-hidden="true">
-        {children}
-      </span>
-    </span>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 14.4 14.4" aria-hidden="true">
-      <circle cx="6.1" cy="6.1" r="5.35" />
-      <path d="M10 10l3.9 3.9" />
-    </svg>
-  );
-}
 
 export function Navbar() {
   return (
@@ -50,17 +29,18 @@ export function Navbar() {
       </Link>
       <nav className="nav__links" aria-label="Main">
         {LINKS.map((label) => (
-          <button key={label} type="button" className="pill">
-            <Roll>{label}</Roll>
+          <button key={label} type="button" className="pill" aria-label={label}>
+            <Roll text={label} />
           </button>
         ))}
         <button type="button" className="pill pill--icon nav__search" aria-label="Search">
-          <Roll>
-            <SearchIcon />
-          </Roll>
+          <svg viewBox="0 0 14.4 14.4" aria-hidden="true">
+            <circle cx="6.1" cy="6.1" r="5.35" />
+            <path d="M10 10l3.9 3.9" />
+          </svg>
         </button>
-        <button type="button" className="pill">
-          <Roll>Quote / 0</Roll>
+        <button type="button" className="pill" aria-label="Quote, 0 items">
+          <Roll text="Quote / 0" />
         </button>
       </nav>
     </header>

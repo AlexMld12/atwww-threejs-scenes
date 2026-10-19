@@ -99,6 +99,8 @@ export const HERO = {
   seekScreens: 0.6,
   seekSpeed: 1.5,
   seekEase: 1.6,
+  seekHeldSpeed: 3,
+  seekMinSpeed: 0.3,
 };
 
 // A panel at the front of the tube, centred, is Figma's frame-3 card (329 × 456 px); it grows through frame 4's
@@ -108,6 +110,10 @@ export const TAKEOVER = {
   imageAspect: 2880 / 1944,
   // Where the full-screen photo sits (object-position y): as in BUILT OUTSIDE, which takes over from it.
   alignY: 0.43,
+  // BUILT OUTSIDE's mask (--night, 60 %) comes over the photo while it grows, from this share of the growth on.
+  mask: '#06120A',
+  maskOpacity: 0.6,
+  maskFrom: 0.15,
 };
 
 export const ASSETS = '/hero/';

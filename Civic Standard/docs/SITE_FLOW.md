@@ -13,9 +13,9 @@
   (`lib/preload.ts`); masca are nevoie de cel puțin 2.6 s ca să nu „sară”;
 - (2026-10-19, a doua zi de lucru) **sticla intră sub mască**, nu după predare: discul SVG decupează și sticla 3D
   (uniform `mask` în `glass.ts`, discul trimis în px prin `loaderMask`, `lib/intro.ts`); în disc sticla crește
-  (adâncime + opacitate) cu progresul, iar liniile (trasarea 3 % + negrul) se sting cu ea. Sticla pornește doar când
-  scena e compilată și prinde discul din urmă în cel mult 1.4 s. La 100 %: numai sticlă, fără linii → predarea, apoi
-  `INTRO` (înclinare, rotire, rânduri, frunze). Conturul 3D (LineSegments2) a fost scos — nu mai e nevoie de el;
+  plină odată cu liniile negre (a doua variantă, cererea userului: liniile NU se sting pe parcurs). Dacă scena nu e
+  gata când vine discul, sticla intră în 0.6 s. Abia când masca e completă liniile se sting (0.7 s) → numai sticlă →
+  predarea, apoi `INTRO` (înclinare, rotire, rânduri, frunze). Conturul 3D (LineSegments2) a fost scos;
 - **fără tranziție între preloader și hero** (cererea userului): canvas-ul e sub preloader de la primul cadru, cu
   fundalul exact #F3F0EA (curba inversă, `backdrop.ts`); la 100 % scena preia conturul în ACELAȘI cadru (contur 3D
   LineSegments2 pe fața logo-ului, `logo.ts`; diferența la schimb = doar antialias), apoi `INTRO` din config:
@@ -61,15 +61,47 @@ Deschise:
 
 - Figma 0–90: logo-ul galben #E3B23C (37 × 40) + linie 1 px (#0E1F14 la 10 %) + „Civic Standard” 20 px, pastile albe
   40 px (colțuri 6, padding 21, distanță 3; căutarea 56 px, la 32 px de Sustainability), etichete mono 12 #241F21.
+- Aeonik intră în repo (decizia mea, lăsată de user): Vercel construiește din GitHub, iar pe site fontul e oricum public.
 - Fonturi (date de user, 2026-10-19): „Civic Standard” = Aeonik Pro (`src/fonts`, doar Regular primit; Figma e mai
   gros — tulpina 2.19 px față de 1.63 → un stroke de 0.28 px o egalează; de cerut Medium); butoanele = Martian Mono
   400 (userul a zis Light, dar tulpina măsurată în PDF = 400: 1.37 px, Light ar fi 1.19), wdth 100, −0.02 em
   (literele ±0.1 px, avansul 8.13 px la 12 px).
-- Hover: eticheta (și lupa) se rostogolește în sus, o copie vine de jos (0.6 s, animat pe `top`).
+- Logo-ul: #2F4A3A (cererea userului; în Figma era galben).
+- Hover (a doua variantă): butonul devine #2F4A3A cu text alb; eticheta se rostogolește literă cu literă, de la ultima
+  (pas 0.03 s, 0.5 s pe literă, `components/ui/Roll.tsx`), la hover out exact invers; lupa doar crește (×1.18).
 - `position: fixed`; intră odată cu primul rând de poze care urcă în cadru (`sceneIn`), nu la predare; urcă (animat pe `top`) cât BUILT OUTSIDE e fixat, revine
   cu 0.5 ecrane înainte de final. Linkurile nu duc nicăieri; logo-ul reîncarcă pagina (doar homepage există).
 
+## Scroll — viteză maximă (2026-10-19)
+
+- Problema: la scroll foarte rapid pagina trecea de creșterea pozei înainte ca banca să fie în față → BUILT OUTSIDE
+  apărea direct, cu poza plină („teleport”). Creșterea pornește doar după blocare.
+- `lib/scroll.ts`: toate intrările (rotiță, touchpad Win/Mac, deget + fling prin `syncTouch`, taste Space/Page/săgeți)
+  adună într-o țintă; pe fiecare cadru Lenis primește cel mult 0.45 ecrane înaintea scroll-ului afișat (≈ 2.6 ecrane/s,
+  măsurat 2.25 px/ms la 850 px) și nimic peste 1.2 ecrane nu se pune la coadă.
+- Poarta (`takeover.gate`): pagina nu trece de punctul băncii până nu e banca în față; acolo tubul se rotește mai
+  repede (3 rad/s, minim 0.3) → așteptare ~1 s la scroll rapid. Creșterea urmează direct scroll-ul (fără întârziere).
+- Snap în BUILT OUTSIDE: opririle = momentele în care un item e pe loc (`STOPS`: 0.9 / 2.3 / 3.9 ecrane).
+  Prima variantă (oprire 0.8 s + alunecare după pauză) era „bugită” pe touchpad: inerția (1–2 s de evenimente
+  după gest) pornea pasul următor la finalul opririi și ținea snap-ul în așteptare. Acum (a doua variantă):
+  între opriri UN GEST = UN PAS — primul eveniment al unui gest nou duce pagina la oprirea următoare în 0.8 s
+  (easeInOut), restul gestului (inerție, rotița ținută, degetul) se ignoră. Gest nou = pauză > 160 ms, schimbare
+  de sens sau un salt peste 1.6 × delta anterioară. Touch: un drag de 30 px = un pas. De la prima / ultima oprire
+  un gest nou iese liber; un gest liber care ajunge la opriri se oprește la prima întâlnită și e consumat.
+  Testat cu gesturi sintetice de touchpad (urcare 100 ms + inerție ×0.95 / cadru): 0.9 → 2.3 → 3.9 → ieșire și
+  înapoi, câte un pas pe gest.
+- ⚠️ În dev React montează de două ori: cleanup-ul primei scene ridica poarta celei de-a doua — `setScrollGate`
+  întoarce acum o funcție care o ridică doar dacă e încă a ei.
+
 ## 01 · BUILT OUTSIDE — în lucru (2026-10-19)
+
+- A doua variantă (cererea userului, aceeași zi): masca #06120A vine peste poza din hero CÂT CREȘTE (plan 3D peste
+  card, de la 15 % din creștere, 60 % la ecran plin), deci BUILT OUTSIDE pornește cu masca deja pusă. Bara de progres
+  pornește de la 0 și crește cu poziția listei (1/3 la itemul 1). Itemul 1 pornește jos (în locul lui 02) și urcă pe
+  scroll; titlurile se mută LEGAT DE SCROLL (easeInOut pe pas, odată cu ștergerea pozei); abia când un titlu a ajuns
+  (`arrivedAt`) se aprinde (0.3 → 1, expo.out 1 s) și îi urcă rândurile (ca mai jos). La plecare: se stinge în 0.4 s,
+  textul dispare în 0.2 s. Hover pe butoane: verde, literele ca în navbar, blocul cu săgeata se mută 6 px la dreapta.
+  SCROLL: săgeata iese jos și revine de sus, în buclă (2 s).
 
 - Referință de comportament: Valmont (Resn) = valmont.com (2023), Wayback 2024-03-19; codul lor (`ValmontLib`,
   `HomeVideoSlider`) + video-ul din studiul de caz (v01, 4–13 s). Ce am luat (2026-10-19): poza nu se mișcă și nu

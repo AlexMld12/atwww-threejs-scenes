@@ -18,8 +18,10 @@ const APPEAR_S = 0.9;
 const TRACE_MS = 1800;
 const MIN_FILL_S = 2.6;
 const HOLD_MS = 250;
-// The glass follows the disc once the scene can draw it; if it was late it catches up no faster than this.
-const GLASS_CATCH_UP_S = 1.4;
+// Under the disc the glass shows with the black lines; it fades in only if the scene was not ready when the disc came.
+const GLASS_IN_S = 0.6;
+// Once the whole logo is lines and glass, the lines go.
+const LINES_OUT_S = 0.7;
 
 export function Preloader() {
   const svg = useRef<SVGSVGElement>(null);
@@ -31,6 +33,7 @@ export function Preloader() {
     let last = start;
     let shown = 0;
     let glass = 0;
+    let linesOut = 0;
     let fullAt = 0;
     let frame = 0;
 
@@ -51,14 +54,14 @@ export function Preloader() {
         circle.current?.setAttribute('cy', y.toFixed(2));
         circle.current?.setAttribute('r', r.toFixed(2));
 
-        if (isFinished('compile')) glass = Math.min(grown, glass + dt / GLASS_CATCH_UP_S);
-        const eased = glass * glass * (3 - 2 * glass);
-        if (lines.current) lines.current.style.opacity = String(1 - eased);
+        if (isFinished('compile')) glass = Math.min(1, glass + dt / GLASS_IN_S);
         const ctm = svg.current?.getScreenCTM();
         if (ctm) Object.assign(loaderMask, { x: ctm.a * x + ctm.e, y: ctm.d * y + ctm.f, radius: ctm.a * r });
-        loaderMask.glass = eased;
+        loaderMask.glass = glass * glass * (3 - 2 * glass);
 
-        if (shown >= 1 && glass >= 1) fullAt ||= now;
+        if (shown >= 1 && glass >= 1) linesOut = Math.min(1, linesOut + dt / LINES_OUT_S);
+        if (lines.current) lines.current.style.opacity = String(1 - linesOut * linesOut * (3 - 2 * linesOut));
+        if (linesOut >= 1) fullAt ||= now;
         if (fullAt && now - fullAt > HOLD_MS) {
           markLoaded();
           return;
