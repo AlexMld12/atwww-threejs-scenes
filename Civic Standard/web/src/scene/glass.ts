@@ -30,6 +30,7 @@ const glassFragment = /* glsl */ `
   uniform float ior;
   uniform vec3 tint;
   uniform float opacity;
+  uniform vec3 mask;
   varying vec3 vWorldPosition;
   varying vec3 vWorldNormal;
 
@@ -105,7 +106,9 @@ const glassFragment = /* glsl */ `
     float reflectance = fresnel( dot( normal, toCamera ) );
     vec3 color = reflectance * textureCube( reflections, reflect( -toCamera, normal ) ).rgb;
     color += ( 1.0 - reflectance ) * traceThrough( vWorldPosition, refract( -toCamera, normal, 1.0 / ior ) );
-    gl_FragColor = vec4( color, opacity );
+    // The preloader's disc, in drawing-buffer px (x, y, radius), with a pixel of antialiasing.
+    float inMask = clamp( mask.z - distance( gl_FragCoord.xy, mask.xy ) + 0.5, 0.0, 1.0 );
+    gl_FragColor = vec4( color, opacity * inMask );
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }`;
@@ -141,6 +144,7 @@ export function createGlass(
       // Two refractions per path; matched to the Cycles render, each gets ⁴√ of Blender's colour.
       tint: { value: new THREE.Vector3(...GLASS.color.map((c) => c ** 0.25)) },
       opacity: { value: 1 },
+      mask: { value: new THREE.Vector3(0, 0, 1e6) },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorldPosition;
@@ -161,6 +165,20 @@ export function createGlass(
     material,
     setOpacity(value: number) {
       material.uniforms.opacity.value = value;
+    },
+    /** Clips the glass to a disc given in client px; `null` shows all of it. */
+    setMask(disc: { x: number; y: number; radius: number } | null, canvas: HTMLCanvasElement) {
+      if (!disc) {
+        material.uniforms.mask.value.set(0, 0, 1e6);
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const scale = renderer.getPixelRatio();
+      material.uniforms.mask.value.set(
+        (disc.x - rect.left) * scale,
+        (rect.bottom - disc.y) * scale,
+        disc.radius * scale,
+      );
     },
     /** The backdrop plane is scaled to cover the screen; the texture the rays read is scaled with it. */
     setBackdropScale(scale: number) {

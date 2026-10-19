@@ -1,7 +1,12 @@
-import { Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import { Martian_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 
-// The Figma file embeds its fonts without names; these are the closest free ones (measured, see docs/SITE_FLOW.md).
-const sans = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-sans' });
-const mono = Geist_Mono({ subsets: ['latin'], weight: ['400'], variable: '--font-mono' });
+// Only the Regular cut was supplied; the navbar's heavier wordmark is thickened in nav.css.
+const sans = localFont({
+  src: '../fonts/aeonik-pro-regular.woff2',
+  weight: '400',
+  variable: '--font-sans',
+});
+const mono = Martian_Mono({ subsets: ['latin'], weight: ['400'], variable: '--font-mono' });
 
 export const fontVariables = `${sans.variable} ${mono.variable}`;

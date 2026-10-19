@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
-import { handOver, onLoaded } from '@/lib/intro';
+import { handOver, loaderMask, onLoaded, sceneIn } from '@/lib/intro';
 import { fetchWithProgress, finishTask, reportProgress } from '@/lib/preload';
 import { scrollPosition } from '@/lib/scroll';
 import { createBackdrop } from './backdrop';
@@ -119,7 +119,6 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     camera.fov = fovFor(width, height);
     camera.updateProjectionMatrix();
     glass.setBackdropScale(fitBackdrop(camera));
-    logo.resize(width, height);
     onHeroHeight(takeover.layout(height));
   };
   resize();
@@ -157,7 +156,13 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
       row.rotation.y = angle * TUBE.familySpeeds[i % TUBE.familySpeeds.length] + INTRO.riseTwist * rest;
     });
     logo.turn.rotation.y = LOGO.facing - angle * LOGO.turnRatio;
-    logo.setForm(intro.glass, intro.lines, intro.tilt);
+    // Until the handover the glass comes in under the preloader's mask, as the page loads.
+    const underMask = loadedAt < 0 && loaderMask.glass < 1;
+    logo.setForm(loadedAt < 0 ? loaderMask.glass : 1, intro.tilt);
+    glass.setMask(underMask ? loaderMask : null, canvas);
+    // The navbar comes in as the first row rises into the frame (the tube's front edge), not when the rise starts.
+    const frontEdge = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.position.z - TUBE.radius);
+    if (loadedAt >= 0 && rows.some((row) => row.position.y + TUBE.panelHeight / 2 > -frontEdge)) sceneIn();
     takeover.grow(scroll, canvas.clientWidth, stageHeight, dt);
 
     elapsed += dt;
@@ -165,12 +170,11 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     backdropUniforms.backdropReveal.value = intro.backdrop;
   };
 
-  // Compile with the outline and the takeover card on as well, so neither stalls the frame it first appears in.
-  logo.setForm(0, 1, 0);
+  // Compile with the takeover card on as well, so it does not stall the frame it first appears in.
   takeover.card.visible = true;
   await renderer.compileAsync(scene, camera);
   update(0, performance.now());
-  glass.render(scene, camera, logo.mesh, [logo.model, logo.outline, takeover.card]);
+  glass.render(scene, camera, logo.mesh, [logo.model, takeover.card]);
   canvas.classList.add('is-drawn');
   finishTask('compile');
 
@@ -183,8 +187,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     if (loaded && loadedAt < 0) loadedAt = now;
     update(Math.min((now - last) / 1000, 0.1), now);
     last = now;
-    glass.render(scene, camera, logo.mesh, [logo.model, logo.outline, takeover.card]);
-    // Same task as the first frame with the 3D outline, so the browser swaps the SVG for it in one paint.
+    glass.render(scene, camera, logo.mesh, [logo.model, takeover.card]);
     if (loaded) handOver();
   });
 

@@ -11,6 +11,11 @@
   prima variantă (disc mic în interior, crescând) a fost respinsă: „ca un mucegai”;
 - progresul = octeții descărcați (logo, picturi, HDR, fundal, curba) + codul scenei + compilarea shaderelor
   (`lib/preload.ts`); masca are nevoie de cel puțin 2.6 s ca să nu „sară”;
+- (2026-10-19, a doua zi de lucru) **sticla intră sub mască**, nu după predare: discul SVG decupează și sticla 3D
+  (uniform `mask` în `glass.ts`, discul trimis în px prin `loaderMask`, `lib/intro.ts`); în disc sticla crește
+  (adâncime + opacitate) cu progresul, iar liniile (trasarea 3 % + negrul) se sting cu ea. Sticla pornește doar când
+  scena e compilată și prinde discul din urmă în cel mult 1.4 s. La 100 %: numai sticlă, fără linii → predarea, apoi
+  `INTRO` (înclinare, rotire, rânduri, frunze). Conturul 3D (LineSegments2) a fost scos — nu mai e nevoie de el;
 - **fără tranziție între preloader și hero** (cererea userului): canvas-ul e sub preloader de la primul cadru, cu
   fundalul exact #F3F0EA (curba inversă, `backdrop.ts`); la 100 % scena preia conturul în ACELAȘI cadru (contur 3D
   LineSegments2 pe fața logo-ului, `logo.ts`; diferența la schimb = doar antialias), apoi `INTRO` din config:
@@ -56,22 +61,35 @@ Deschise:
 
 - Figma 0–90: logo-ul galben #E3B23C (37 × 40) + linie 1 px (#0E1F14 la 10 %) + „Civic Standard” 20 px, pastile albe
   40 px (colțuri 6, padding 21, distanță 3; căutarea 56 px, la 32 px de Sustainability), etichete mono 12 #241F21.
-- `position: fixed`; apare la predarea preloader-ului și urcă (animat pe `top`) cât BUILT OUTSIDE e fixat, revine
+- Fonturi (date de user, 2026-10-19): „Civic Standard” = Aeonik Pro (`src/fonts`, doar Regular primit; Figma e mai
+  gros — tulpina 2.19 px față de 1.63 → un stroke de 0.28 px o egalează; de cerut Medium); butoanele = Martian Mono
+  400 (userul a zis Light, dar tulpina măsurată în PDF = 400: 1.37 px, Light ar fi 1.19), wdth 100, −0.02 em
+  (literele ±0.1 px, avansul 8.13 px la 12 px).
+- Hover: eticheta (și lupa) se rostogolește în sus, o copie vine de jos (0.6 s, animat pe `top`).
+- `position: fixed`; intră odată cu primul rând de poze care urcă în cadru (`sceneIn`), nu la predare; urcă (animat pe `top`) cât BUILT OUTSIDE e fixat, revine
   cu 0.5 ecrane înainte de final. Linkurile nu duc nicăieri; logo-ul reîncarcă pagina (doar homepage există).
 
 ## 01 · BUILT OUTSIDE — în lucru (2026-10-19)
 
-- Referință de comportament: Valmont (Resn), offline — tranziția e reconstruită din cadrele Figma + descrierea userului.
+- Referință de comportament: Valmont (Resn) = valmont.com (2023), Wayback 2024-03-19; codul lor (`ValmontLib`,
+  `HomeVideoSlider`) + video-ul din studiul de caz (v01, 4–13 s). Ce am luat (2026-10-19): poza nu se mișcă și nu
+  se scalează, o descoperă o margine dreaptă care urcă legat de scroll, fără easing; înainte de schimbare, poza
+  următoare urcă 10 % de jos (pe 0.5 ecrane, din repaus — la repaus cadrul e exact Figma); textul se schimbă la
+  jumătatea ștergerii și rulează pe ceas: titlurile alunecă în locurile Figma (expo.out 1.4 s), rândurile
+  paragrafului + butoanele urcă 40 px cu fade (expo.out 1.6 s, întârziere 0.1, pas 0.1), vechiul text dispare în
+  0.2 s. Rândurile paragrafului = cele din Figma (`content.ts`). Nu am luat: deriva de parallax (−10 %; ar cere poza
+  mărită, deci altă încadrare decât Figma).
+- Fonturi: Aeonik Pro Regular (titluri, text; tulpini egale cu PDF-ul) + Martian Mono 400 (etichete, SCROLL).
 - Secțiunea începe cu un ecran mai devreme (margin-top −1 ecran) și își fixează stage-ul exact când poza din hero
   e plină; aceeași poză (`/built/1.webp`, folosită și de hero), aceeași încadrare (object-position y 43 %, ca Figma;
   hero-ul decupează la fel, `TAKEOVER.alignY`) → predarea canvas → DOM diferă cu ~1/255.
 - Cronologie (ecrane de la fixare, `timeline.ts`): masca #06120A 0 → 60 % pe 0–0.5; conținutul apare pe 0.35–0.95
   (opacitate + coborâre 24 px, animat pe `top`/`margin`, nu transform); schimbarea 1→2 pe 1.5–2.3, 2→3 pe 3.1–3.9;
-  fixat 4.6 ecrane. La schimbare: poza următoare urcă de jos (clip-path) cu un zoom 1.12 → 1; titlurile își schimbă
+  fixat 4.6 ecrane. (Prima variantă, înlocuită: poza următoare urca de jos cu zoom 1.12 → 1.) Titlurile își schimbă
   locul (trecute sus din 113 în 113, activul la 212 sub ultimul, următorul jos la 733 — măsurat în cele 3 cadre);
   textul + butoanele vechi dispar în prima treime, noile apar în ultima; inactivele au 30 % (măsurat pe pixeli).
 - Bara de progres (y 73): galbenul pornește de la 70 px (Figma) și crește până la toată lățimea la ultimul item.
   ⚠️ Figma arată 70 px în toate 3 cadrele — de confirmat cu userul.
 - Poziții verificate pe pixeli la 1440 × 850: cadrele 1 și 3 la ≤ 1 px.
-- Fonturi: Figma le are încorporate fără nume (Type3). Alese prin comparație de lățime + formă: Plus Jakarta Sans
-  (titluri, text; −0.02 em) și Geist Mono (etichete; +0.0836 em). De confirmat fonturile reale cu userul.
+- Fonturile din PDF sunt Type3 fără nume: weight-ul se măsoară din grosimea tulpinilor (scratchpad, pymupdf + PIL).
+  Inter (al treilea font dat de user) nu apare în nav / BUILT OUTSIDE; de verificat la secțiunile următoare.

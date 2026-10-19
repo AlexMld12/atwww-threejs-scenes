@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { handOver, onLoaded } from '@/lib/intro';
+import { handOver, onLoaded, sceneIn } from '@/lib/intro';
 import { finishAll } from '@/lib/preload';
 import { HERO } from '@/scene/config';
 
@@ -28,7 +28,10 @@ export function Hero() {
       .catch((error) => {
         console.error(error);
         finishAll();
-        onLoaded(handOver);
+        onLoaded(() => {
+          handOver();
+          sceneIn();
+        });
       });
     return () => {
       cancelled = true;

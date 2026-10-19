@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { markLoaded } from '@/lib/intro';
+import { loaderMask, markLoaded } from '@/lib/intro';
 import { LOGO_PARTS, LOGO_VIEWBOX } from '@/lib/logo-outline';
-import { preloadProgress } from '@/lib/preload';
+import { isFinished, preloadProgress } from '@/lib/preload';
 
 // Mask in viewBox units, like a loading spinner: a disc half the logo's size runs around its edges at a steady pace and,
 // as the page loads, grows to the whole logo while its path closes in on the centre.
@@ -18,14 +18,19 @@ const APPEAR_S = 0.9;
 const TRACE_MS = 1800;
 const MIN_FILL_S = 2.6;
 const HOLD_MS = 250;
+// The glass follows the disc once the scene can draw it; if it was late it catches up no faster than this.
+const GLASS_CATCH_UP_S = 1.4;
 
 export function Preloader() {
+  const svg = useRef<SVGSVGElement>(null);
   const circle = useRef<SVGCircleElement>(null);
+  const lines = useRef<SVGGElement>(null);
 
   useEffect(() => {
     const start = performance.now();
     let last = start;
     let shown = 0;
+    let glass = 0;
     let fullAt = 0;
     let frame = 0;
 
@@ -39,13 +44,21 @@ export function Preloader() {
         const appear = 1 - (1 - Math.min(spinning / APPEAR_S, 1)) ** 3;
         const grown = shown * shown * (3 - 2 * shown);
         const orbit = ORBIT_START * (1 - grown);
-        const el = circle.current;
-        if (el) {
-          el.setAttribute('cx', (CENTER.x + Math.cos(angle) * orbit).toFixed(2));
-          el.setAttribute('cy', (CENTER.y + Math.sin(angle) * orbit).toFixed(2));
-          el.setAttribute('r', (appear * RADIUS_START + grown * (RADIUS_FULL - RADIUS_START)).toFixed(2));
-        }
-        if (shown >= 1) fullAt ||= now;
+        const x = CENTER.x + Math.cos(angle) * orbit;
+        const y = CENTER.y + Math.sin(angle) * orbit;
+        const r = appear * RADIUS_START + grown * (RADIUS_FULL - RADIUS_START);
+        circle.current?.setAttribute('cx', x.toFixed(2));
+        circle.current?.setAttribute('cy', y.toFixed(2));
+        circle.current?.setAttribute('r', r.toFixed(2));
+
+        if (isFinished('compile')) glass = Math.min(grown, glass + dt / GLASS_CATCH_UP_S);
+        const eased = glass * glass * (3 - 2 * glass);
+        if (lines.current) lines.current.style.opacity = String(1 - eased);
+        const ctm = svg.current?.getScreenCTM();
+        if (ctm) Object.assign(loaderMask, { x: ctm.a * x + ctm.e, y: ctm.d * y + ctm.f, radius: ctm.a * r });
+        loaderMask.glass = eased;
+
+        if (shown >= 1 && glass >= 1) fullAt ||= now;
         if (fullAt && now - fullAt > HOLD_MS) {
           markLoaded();
           return;
@@ -59,21 +72,23 @@ export function Preloader() {
 
   return (
     <div className="preloader" aria-hidden="true">
-      <svg className="preloader__logo" viewBox={`0 0 ${LOGO_VIEWBOX.width} ${LOGO_VIEWBOX.height}`}>
+      <svg ref={svg} className="preloader__logo" viewBox={`0 0 ${LOGO_VIEWBOX.width} ${LOGO_VIEWBOX.height}`}>
         <defs>
           <clipPath id="preloader-mask">
             <circle ref={circle} cx={CENTER.x} cy={CENTER.y} r={0} />
           </clipPath>
         </defs>
-        <g className="preloader__trace">
-          {LOGO_PARTS.map((d, i) => (
-            <path key={i} d={d} pathLength={1} style={{ animationDelay: `${i * 120}ms` }} />
-          ))}
-        </g>
-        <g className="preloader__fill" clipPath="url(#preloader-mask)">
-          {LOGO_PARTS.map((d, i) => (
-            <path key={i} d={d} />
-          ))}
+        <g ref={lines}>
+          <g className="preloader__trace">
+            {LOGO_PARTS.map((d, i) => (
+              <path key={i} d={d} pathLength={1} style={{ animationDelay: `${i * 120}ms` }} />
+            ))}
+          </g>
+          <g className="preloader__fill" clipPath="url(#preloader-mask)">
+            {LOGO_PARTS.map((d, i) => (
+              <path key={i} d={d} />
+            ))}
+          </g>
         </g>
       </svg>
     </div>

@@ -42,8 +42,14 @@ export function BuiltOutside() {
                 {title[1]}
               </h2>
               <div className="built__body">
-                <p className="built__text">{text}</p>
-                <div className="built__actions">
+                <p className="built__text">
+                  {text.map((line) => (
+                    <span key={line} className="built__line" data-line>
+                      {line}
+                    </span>
+                  ))}
+                </p>
+                <div className="built__actions" data-line>
                   <button type="button" className="pill built__browse">
                     Browse the range
                   </button>

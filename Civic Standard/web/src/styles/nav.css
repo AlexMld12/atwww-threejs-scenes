@@ -1,4 +1,4 @@
-/* fixed over the page; hidden until the scene takes over from the preloader, and while BUILT OUTSIDE is pinned */
+/* fixed over the page; hidden until the tube's rows come up after the preloader, and while BUILT OUTSIDE is pinned */
 .nav {
   position: fixed;
   top: calc(-1 * var(--nav-top) - var(--nav-h));
@@ -12,7 +12,7 @@
   transition: top 0.7s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-.is-handed-over:not(.is-nav-hidden) .nav {
+.is-scene-in:not(.is-nav-hidden) .nav {
   top: var(--nav-top);
 }
 
@@ -44,8 +44,10 @@
   position: absolute;
   top: 0;
   left: var(--nav-word-x);
-  font: 500 var(--nav-word-size) / var(--nav-h) var(--font-sans);
-  letter-spacing: -0.02em;
+  font: 400 var(--nav-word-size) / var(--nav-h) var(--font-sans);
+  letter-spacing: 0.01em;
+  /* Figma's wordmark is a heavier cut than the Regular we have: a hairline stroke matches its stems (measured) */
+  -webkit-text-stroke: clamp(0.28px, 0.28 / 1720 * 100vw, 0.28 / 1720 * 100vw) currentColor;
   white-space: nowrap;
 }
 
@@ -60,6 +62,7 @@
 }
 
 .nav__search svg {
+  display: block;
   width: var(--icon);
   height: var(--icon);
   fill: none;
@@ -79,11 +82,47 @@
   background: #fff;
   color: var(--button-ink);
   font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
-  letter-spacing: 0.0836em;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
   cursor: pointer;
 }
 
 .pill--icon {
   padding: 0;
+}
+
+/* hover: the label rolls up and out, a copy rolls in from below (on top, not transform, so it stays sharp) */
+.roll {
+  position: relative;
+  display: block;
+  height: var(--mono-lh);
+  overflow: hidden;
+}
+
+/* the percentages below need a set height */
+.nav__search .roll {
+  height: var(--icon);
+}
+
+.roll__face {
+  position: relative;
+  top: 0;
+  display: block;
+  transition: top 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.roll__face--next {
+  position: absolute;
+  top: 100%;
+  left: 0;
+}
+
+.pill:hover .roll__face,
+.pill:focus-visible .roll__face {
+  top: -100%;
+}
+
+.pill:hover .roll__face--next,
+.pill:focus-visible .roll__face--next {
+  top: 0;
 }

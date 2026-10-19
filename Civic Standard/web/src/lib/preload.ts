@@ -26,6 +26,8 @@ export function reportProgress(task: PreloadTask, fraction: number) {
   done.set(task, Math.max(done.get(task) ?? 0, Math.min(1, fraction)));
 }
 
+export const isFinished = (task: PreloadTask) => done.get(task) === 1;
+
 /** Marks a task finished, also when it failed: the page must not wait forever. */
 export function finishTask(task: PreloadTask) {
   reportProgress(task, 1);

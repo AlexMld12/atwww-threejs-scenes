@@ -51,7 +51,7 @@
 .built__number,
 .built__scroll {
   font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
-  letter-spacing: 0.0836em;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
@@ -99,7 +99,7 @@
   margin: 0 0 0 var(--bo-left);
   padding-top: var(--bo-title-dy);
   font: 400 var(--bo-title-size) / var(--bo-title-lh) var(--font-sans);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .built__body {
@@ -112,10 +112,18 @@
 .built__text {
   margin: 0;
   font: 400 var(--bo-para-size) / var(--bo-para-lh) var(--font-sans);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
+}
+
+/* Figma's line breaks: each line comes in on its own (animated on top, not transform, so it stays sharp) */
+.built__line {
+  position: relative;
+  display: block;
+  white-space: nowrap;
 }
 
 .built__actions {
+  position: relative;
   display: flex;
   gap: var(--bo-btn-gap);
   margin-top: calc(var(--bo-actions-dy) - 2 * var(--bo-para-lh));

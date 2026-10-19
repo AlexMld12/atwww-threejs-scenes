@@ -35,9 +35,6 @@ export const LOGO = {
   facing: 0.28,
   // Counter-rotation against the tube: 1 = the logo turns exactly as fast as the tube angle.
   turnRatio: 1,
-  depth: 0.44,
-  // The SVG outline in the mesh's units: viewBox width → mesh width, centred on the viewBox.
-  outlineScale: 2.4398 / 224.315,
 };
 
 export const GLASS = {
@@ -73,8 +70,6 @@ export const BACKDROP = {
 
 // Seconds after the handover. Ranges are [start, end].
 export const INTRO = {
-  glass: [0.25, 1.6],
-  lines: [0.7, 1.5],
   tilt: [0.25, 1.9],
   spin: [0.6, 2.4],
   backdrop: [0, 2.6],
@@ -84,8 +79,6 @@ export const INTRO = {
   riseDuration: 1.9,
   riseDistance: 18,
   riseTwist: -0.9,
-  // Same stroke as the preloader, in viewBox units.
-  lineWidth: 2.48,
 };
 
 // Scroll response, as in the reference demo: page pixels move the rows and add spin that dies down.
