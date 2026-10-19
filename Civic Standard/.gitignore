@@ -1,0 +1,19 @@
+# ---- generat, se reface din npm ----
+web/node_modules/
+web/.next/
+web/next-env.d.ts
+web/*.tsbuildinfo
+
+# ---- macheta Figma + scena Blender: rămân doar pe disc (repo-ul e PUBLIC) ----
+docs/reference/
+*.blend
+*.blend1
+
+# ---- gunoi de sistem ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- doar local: log-ul de sesiune și comenzile agentului ----
+.claude/
+__pycache__/

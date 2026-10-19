@@ -1,0 +1,26 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* No native scrollbar: it would appear at the handover and narrow the page (and 100vw would include it). */
+html {
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
+html:not(.is-handed-over) {
+  overflow: hidden;
+}
+
+body {
+  overflow-x: clip;
+}

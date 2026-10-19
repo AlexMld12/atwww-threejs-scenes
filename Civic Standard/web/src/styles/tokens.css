@@ -1,0 +1,67 @@
+/* Every size follows clamp(Npx, N / 1720 * 100vw, N / 1720 * 100vw): N px from the Figma frame up to 1720 px wide,
+   then it grows with the screen. The 3D scene (scene/framing.ts) and the scroll layouts (lib/design.ts) use the same. */
+:root {
+  --paper:            #f3f0ea;
+  --ink:              #000;
+  --forest:           #0e1f14;
+  --button-ink:       #241f21;
+  --gold:             #e3b23c;
+  --mint:             #66ff99;
+  --night:            #06120a;
+
+  /* the large viewport: it does not change when a phone's toolbars slide, so the scene never resizes on scroll */
+  --stage-h:          100vh;
+
+  /* preloader lines = the flat glass logo at the origin: 1.1711 scene units wide, 0.08 right of centre */
+  --loader-logo-w:    clamp(177.89px, 177.89 / 1720 * 100vw, 177.89 / 1720 * 100vw);
+  --loader-logo-x:    clamp(12.152px, 12.152 / 1720 * 100vw, 12.152 / 1720 * 100vw);
+
+  /* navbar (Figma 0–90) */
+  --nav-x:            clamp(30px, 30 / 1720 * 100vw, 30 / 1720 * 100vw);
+  --nav-top:          clamp(25px, 25 / 1720 * 100vw, 25 / 1720 * 100vw);
+  --nav-h:            clamp(40px, 40 / 1720 * 100vw, 40 / 1720 * 100vw);
+  --nav-mark-w:       clamp(37.3px, 37.3 / 1720 * 100vw, 37.3 / 1720 * 100vw);
+  --nav-rule-x:       clamp(49px, 49 / 1720 * 100vw, 49 / 1720 * 100vw);
+  --nav-word-x:       clamp(62px, 62 / 1720 * 100vw, 62 / 1720 * 100vw);
+  --nav-word-size:    clamp(20px, 20 / 1720 * 100vw, 20 / 1720 * 100vw);
+  --pill-pad:         clamp(21px, 21 / 1720 * 100vw, 21 / 1720 * 100vw);
+  --pill-gap:         clamp(3px, 3 / 1720 * 100vw, 3 / 1720 * 100vw);
+  --pill-radius:      clamp(6px, 6 / 1720 * 100vw, 6 / 1720 * 100vw);
+  --pill-search-w:    clamp(56.3px, 56.3 / 1720 * 100vw, 56.3 / 1720 * 100vw);
+  --pill-search-gap:  clamp(32px, 32 / 1720 * 100vw, 32 / 1720 * 100vw);
+  --icon:             clamp(14.4px, 14.4 / 1720 * 100vw, 14.4 / 1720 * 100vw);
+  --mono-size:        clamp(12px, 12 / 1720 * 100vw, 12 / 1720 * 100vw);
+  --mono-lh:          clamp(16.3px, 16.3 / 1720 * 100vw, 16.3 / 1720 * 100vw);
+
+  /* BUILT OUTSIDE (Figma 3400–5890) */
+  --bo-left:          clamp(100px, 100 / 1720 * 100vw, 100 / 1720 * 100vw);
+  --bo-num-left:      clamp(30px, 30 / 1720 * 100vw, 30 / 1720 * 100vw);
+  --bo-dot:           clamp(8px, 8 / 1720 * 100vw, 8 / 1720 * 100vw);
+  --bo-dot-top:       clamp(33px, 33 / 1720 * 100vw, 33 / 1720 * 100vw);
+  --bo-label-top:     clamp(30.3px, 30.3 / 1720 * 100vw, 30.3 / 1720 * 100vw);
+  --bo-line-top:      clamp(73px, 73 / 1720 * 100vw, 73 / 1720 * 100vw);
+  --bo-bar-w:         clamp(70px, 70 / 1720 * 100vw, 70 / 1720 * 100vw);
+  --bo-num-dy:        clamp(34.6px, 34.6 / 1720 * 100vw, 34.6 / 1720 * 100vw);
+  --bo-body-dy:       clamp(83.3px, 83.3 / 1720 * 100vw, 83.3 / 1720 * 100vw);
+  --bo-actions-dy:    clamp(72px, 72 / 1720 * 100vw, 72 / 1720 * 100vw);
+  --bo-title-dy:      clamp(8.5px, 8.5 / 1720 * 100vw, 8.5 / 1720 * 100vw);
+  --bo-title-size:    clamp(31px, 31 / 1720 * 100vw, 31 / 1720 * 100vw);
+  --bo-title-lh:      clamp(31px, 31 / 1720 * 100vw, 31 / 1720 * 100vw);
+  --bo-para-size:     clamp(14px, 14 / 1720 * 100vw, 14 / 1720 * 100vw);
+  --bo-para-lh:       clamp(18px, 18 / 1720 * 100vw, 18 / 1720 * 100vw);
+  --bo-para-w:        clamp(422px, 422 / 1720 * 100vw, 422 / 1720 * 100vw);
+  --bo-btn-h:         clamp(40px, 40 / 1720 * 100vw, 40 / 1720 * 100vw);
+  --bo-btn-pad:       clamp(21px, 21 / 1720 * 100vw, 21 / 1720 * 100vw);
+  --bo-btn-gap:       clamp(3px, 3 / 1720 * 100vw, 3 / 1720 * 100vw);
+  --bo-arrow:         clamp(12px, 12 / 1720 * 100vw, 12 / 1720 * 100vw);
+  --bo-scroll-right:  clamp(29.7px, 29.7 / 1720 * 100vw, 29.7 / 1720 * 100vw);
+  --bo-scroll-bottom: clamp(48.4px, 48.4 / 1720 * 100vw, 48.4 / 1720 * 100vw);
+  --bo-scroll-gap:    clamp(10.5px, 10.5 / 1720 * 100vw, 10.5 / 1720 * 100vw);
+  --bo-scroll-arrow:  clamp(6.6px, 6.6 / 1720 * 100vw, 6.6 / 1720 * 100vw);
+}
+
+@supports (height: 100lvh) {
+  :root {
+    --stage-h:        100lvh;
+  }
+}

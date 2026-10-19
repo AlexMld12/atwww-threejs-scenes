@@ -1,0 +1,18 @@
+/* .hero's height (screens of scroll) comes from scene/config.ts HERO */
+.hero__stage {
+  position: sticky;
+  top: 0;
+  height: var(--stage-h);
+}
+
+.hero__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  visibility: hidden;
+}
+
+/* its first frame is the flat paper colour, so it can appear under the preloader without a visible change */
+.hero__canvas.is-drawn {
+  visibility: visible;
+}

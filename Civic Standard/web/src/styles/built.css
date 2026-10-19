@@ -1,0 +1,156 @@
+/* starts one screen early, on the hero's last screen, so its stage pins exactly as the hero's photo fills it */
+.built {
+  position: relative;
+  z-index: 10;
+  margin-top: calc(-1 * var(--stage-h));
+}
+
+.built__stage {
+  position: sticky;
+  top: 0;
+  height: var(--stage-h);
+  overflow: hidden;
+  color: #fff;
+  visibility: hidden;
+}
+
+.built__photo,
+.built__photo img,
+.built__mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.built__photo img {
+  display: block;
+  object-fit: cover;
+}
+
+.built__mask {
+  background: var(--night);
+  opacity: 0;
+}
+
+.built__chrome {
+  position: absolute;
+  inset: 0 0 auto;
+}
+
+.built__dot {
+  position: absolute;
+  top: var(--bo-dot-top);
+  left: var(--bo-num-left);
+  width: var(--bo-dot);
+  height: var(--bo-dot);
+  background: #fff;
+}
+
+.built__label,
+.built__number,
+.built__scroll {
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: 0.0836em;
+  text-transform: uppercase;
+}
+
+.built__label {
+  position: absolute;
+  top: var(--bo-label-top);
+  left: var(--bo-left);
+}
+
+.built__track {
+  position: absolute;
+  top: var(--bo-line-top);
+  left: 0;
+  width: 100%;
+  height: clamp(1px, 1 / 1720 * 100vw, 1 / 1720 * 100vw);
+  background: rgb(255 255 255 / 0.1);
+}
+
+.built__bar {
+  display: block;
+  width: var(--bo-bar-w);
+  height: 100%;
+  background: var(--gold);
+}
+
+.built__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.built__item {
+  position: absolute;
+  left: 0;
+  width: 100%;
+}
+
+.built__number {
+  position: absolute;
+  top: var(--bo-num-dy);
+  left: var(--bo-num-left);
+}
+
+.built__title {
+  margin: 0 0 0 var(--bo-left);
+  padding-top: var(--bo-title-dy);
+  font: 400 var(--bo-title-size) / var(--bo-title-lh) var(--font-sans);
+  letter-spacing: -0.02em;
+}
+
+.built__body {
+  position: absolute;
+  top: var(--bo-body-dy);
+  left: var(--bo-left);
+  width: var(--bo-para-w);
+}
+
+.built__text {
+  margin: 0;
+  font: 400 var(--bo-para-size) / var(--bo-para-lh) var(--font-sans);
+  letter-spacing: -0.02em;
+}
+
+.built__actions {
+  display: flex;
+  gap: var(--bo-btn-gap);
+  margin-top: calc(var(--bo-actions-dy) - 2 * var(--bo-para-lh));
+}
+
+.built__browse {
+  height: var(--bo-btn-h);
+  padding: 0 var(--bo-btn-pad);
+}
+
+.built__arrow {
+  width: var(--bo-btn-h);
+  height: var(--bo-btn-h);
+}
+
+.built__arrow svg {
+  width: var(--bo-arrow);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+.built__scroll {
+  position: absolute;
+  right: var(--bo-scroll-right);
+  bottom: var(--bo-scroll-bottom);
+  display: flex;
+  align-items: center;
+  gap: var(--bo-scroll-gap);
+  color: var(--mint);
+}
+
+.built__scroll svg {
+  width: var(--bo-scroll-arrow);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+}

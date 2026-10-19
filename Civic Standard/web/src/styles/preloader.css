@@ -1,0 +1,47 @@
+/* lines only: the scene behind already shows the same paper colour, and takes the lines over at the handover */
+.preloader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--stage-h);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.is-handed-over .preloader {
+  display: none;
+}
+
+/* same place and size as the 3D outline the scene takes over */
+.preloader__logo {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + var(--loader-logo-x));
+  width: var(--loader-logo-w);
+  overflow: visible;
+  transform: translate(-50%, -50%);
+}
+
+.preloader__logo path {
+  fill: none;
+  stroke-width: 2.48;
+  stroke-linejoin: round;
+}
+
+.preloader__trace path {
+  stroke: rgb(0 0 0 / 0.03);
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: preloader-trace 1.5s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.preloader__fill path {
+  stroke: var(--ink);
+}
+
+@keyframes preloader-trace {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
