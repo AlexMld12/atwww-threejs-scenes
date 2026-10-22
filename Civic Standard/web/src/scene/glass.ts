@@ -125,8 +125,8 @@ const glassFragment = /* glsl */ `
     #include <colorspace_fragment>
   }`;
 
-// a phone's glass, drawn this many times a second (the rest of the scene at the screen's rate)
-const SNAPSHOT_HZ = 3;
+// a phone's glass, traced at this share of the screen's pixels each way (its edges stay the screen's)
+const GLASS_SCALE = 0.6;
 
 export function createGlass(
   renderer: THREE.WebGLRenderer,
@@ -179,34 +179,27 @@ export function createGlass(
   const full = new THREE.Vector2();
   const handheld = isHandheld();
 
-  // A phone: the glass is drawn into its own picture SNAPSHOT_HZ times a second (with what it sees behind it), and
-  // every frame shows that picture over the scene; the tube and the wall keep the screen's rate. Before the logo has
-  // settled (the preloader's disc, the intro's tilt) it is drawn every frame.
-  const snapshot = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
-  const overlayMaterial = new THREE.ShaderMaterial({
+  // A phone: the ray-traced glass, the costly part, is drawn every frame into its own picture at GLASS_SCALE of the
+  // screen's pixels; the logo itself is then drawn in the scene (sharp edges, in its depth among the paintings)
+  // with a cheap material that shows that picture where it lies on the screen.
+  const picture = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+  const pictureMaterial = new THREE.ShaderMaterial({
     transparent: true,
-    depthTest: false,
-    depthWrite: false,
-    uniforms: { glassPicture: { value: snapshot.texture } },
-    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4( position.xy, 0.0, 1.0 ); }',
+    uniforms: { glassPicture: { value: picture.texture }, screen: { value: new THREE.Vector2(1, 1) } },
+    vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }',
     // the picture holds the glass premultiplied, in scene light: back to straight colour, then the view curve
     fragmentShader: /* glsl */ `
       uniform sampler2D glassPicture;
-      varying vec2 vUv;
+      uniform vec2 screen;
       void main() {
-        vec4 glass = texture2D( glassPicture, vUv );
+        vec4 glass = texture2D( glassPicture, gl_FragCoord.xy / screen );
         gl_FragColor = vec4( glass.rgb / max( glass.a, 1e-4 ), glass.a );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
   });
-  bindViewCurve(overlayMaterial);
-  const overlay = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), overlayMaterial);
-  overlay.frustumCulled = false;
-  const overlayScene = new THREE.Scene();
-  overlayScene.add(overlay);
-  const overlayCamera = new THREE.Camera();
-  let snapshotAt = -Infinity;
+  bindViewCurve(pictureMaterial);
+  let frame = 0;
 
   return {
     material,
@@ -224,7 +217,8 @@ export function createGlass(
         return;
       }
       const rect = canvas.getBoundingClientRect();
-      const scale = renderer.getPixelRatio();
+      // in the glass's own px: a phone traces it into a smaller picture
+      const scale = renderer.getPixelRatio() * (handheld ? GLASS_SCALE : 1);
       material.uniforms.mask.value.set(
         (disc.x - rect.left) * scale,
         (rect.bottom - disc.y) * scale,
@@ -236,7 +230,7 @@ export function createGlass(
       material.uniforms.backdropSize.value.set(WALL_WIDTH * scale, WALL_HEIGHT * scale);
     },
     /** Draws the scene without the logo (what the rays leaving the glass see), then the whole frame. */
-    /** `live`: the glass drawn this frame on a phone too (the logo not settled yet). */
+    /** `live`: on a phone, what the glass sees is drawn this frame too (the logo not settled yet). */
     render(
       scene: THREE.Scene,
       camera: THREE.PerspectiveCamera,
@@ -251,12 +245,9 @@ export function createGlass(
       const resized = behind.width !== size.x || behind.height !== size.y;
       if (resized) behind.setSize(size.x, size.y);
 
-      const now = performance.now();
-      const redraw = !handheld || live || resized || now - snapshotAt >= 1000 / SNAPSHOT_HZ;
-      if (redraw) {
-        snapshotAt = now;
+      // what the glass sees behind it: every frame on a desktop, every other one on a phone (live: every frame)
+      if (!handheld || live || resized || frame++ % 2 === 0) {
         logo.updateWorldMatrix(true, false);
-        material.uniforms.worldToLogo.value.copy(logo.matrixWorld).invert();
         const shown = hidden.map((object) => object.visible);
         hidden.forEach((object) => (object.visible = false));
         renderer.setRenderTarget(behind);
@@ -264,6 +255,8 @@ export function createGlass(
         renderer.render(scene, camera);
         hidden.forEach((object, i) => (object.visible = shown[i]));
       }
+      logo.updateWorldMatrix(true, false);
+      material.uniforms.worldToLogo.value.copy(logo.matrixWorld).invert();
 
       if (!handheld) {
         renderer.setRenderTarget(null);
@@ -272,38 +265,36 @@ export function createGlass(
       }
 
       // the glass alone into its picture: every other part of the scene hidden for that pass
-      if (redraw) {
-        if (snapshot.width !== full.x || snapshot.height !== full.y) snapshot.setSize(full.x, full.y);
-        const others = scene.children.map((child) => child.visible);
-        scene.children.forEach((child) => (child.visible = child.getObjectById(logo.id) !== undefined));
-        const background = scene.background;
-        scene.background = null;
-        const clearColor = renderer.getClearColor(new THREE.Color());
-        const clearAlpha = renderer.getClearAlpha();
-        renderer.setRenderTarget(snapshot);
-        renderer.setClearColor(0x000000, 0);
-        renderer.clear();
-        renderer.render(scene, camera);
-        renderer.setClearColor(clearColor, clearAlpha);
-        scene.background = background;
-        scene.children.forEach((child, i) => (child.visible = others[i]));
-      }
-      // the frame: the scene without the glass, then its picture over it
-      const logoShown = logo.visible;
-      logo.visible = false;
+      const pictureWidth = Math.round(full.x * GLASS_SCALE);
+      const pictureHeight = Math.round(full.y * GLASS_SCALE);
+      if (picture.width !== pictureWidth || picture.height !== pictureHeight)
+        picture.setSize(pictureWidth, pictureHeight);
+      const others = scene.children.map((child) => child.visible);
+      scene.children.forEach((child) => (child.visible = child.getObjectById(logo.id) !== undefined));
+      const background = scene.background;
+      scene.background = null;
+      const clearColor = renderer.getClearColor(new THREE.Color());
+      const clearAlpha = renderer.getClearAlpha();
+      renderer.setRenderTarget(picture);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear();
+      renderer.render(scene, camera);
+      renderer.setClearColor(clearColor, clearAlpha);
+      scene.background = background;
+      scene.children.forEach((child, i) => (child.visible = others[i]));
+
+      // the frame, the logo showing its picture
+      pictureMaterial.uniforms.screen.value.copy(full);
+      const glassMaterial = logo.material;
+      logo.material = pictureMaterial;
       renderer.setRenderTarget(null);
       renderer.render(scene, camera);
-      logo.visible = logoShown;
-      const autoClear = renderer.autoClear;
-      renderer.autoClear = false;
-      renderer.render(overlayScene, overlayCamera);
-      renderer.autoClear = autoClear;
+      logo.material = glassMaterial;
     },
     dispose() {
       behind.dispose();
-      snapshot.dispose();
-      overlayMaterial.dispose();
-      overlay.geometry.dispose();
+      picture.dispose();
+      pictureMaterial.dispose();
       bvh.dispose();
       normals.dispose();
       material.dispose();
