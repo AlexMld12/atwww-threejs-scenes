@@ -78,7 +78,10 @@ async function loadAssets() {
   };
 }
 
-const SLOW = { frames: 45, frameS: 1 / 45, step: 0.8, floor: 0.5 };
+// a phone's resolution steps down while its frames stay slow, never below 1.25 device px a px (blurred below that)
+const SLOW = { frames: 45, frameS: 1 / 50, step: 0.85, floor: 1.25 };
+// a 90 or 120 Hz phone: the scene at 60 a second, steady, not at whatever its GPU reaches between
+const FRAME_MS = 1000 / 60 - 2;
 
 /** `onHeroHeight` gets the hero's scroll length in px: it ends where a bench row comes level with the centre. */
 export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: string, onHeroHeight: (px: number) => void) {
@@ -86,7 +89,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
   // no multisampling on a phone: its pixel ratio already smooths the edges, and it doubles the cost of every pass
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !handheld, powerPreference: 'high-performance' });
   // the glass is ray-traced per pixel: the heaviest of the site's scenes on a phone
-  renderer.setPixelRatio(pixelRatio(2, 1));
+  renderer.setPixelRatio(pixelRatio(2, 1.75));
   renderer.toneMapping = THREE.CustomToneMapping;
   finishTask('scene-code');
 
@@ -218,6 +221,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
 
   let last = performance.now();
   renderer.setAnimationLoop((now) => {
+    if (now - last < FRAME_MS) return;
     if (!onScreen && loadedAt >= 0) {
       last = now;
       lastScroll = shownScroll = scrollPosition();

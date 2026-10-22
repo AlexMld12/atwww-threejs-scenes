@@ -46,7 +46,8 @@ export const GLASS = {
   reflectionSize: 512,
   // Surfaces a ray may meet through the logo (Cycles: 8 transmission bounces).
   traceBounces: 8,
-  // a phone's GPU: the light that comes through after 3 surfaces is most of it
+  // a phone's GPU: 3 surfaces, the rest of the light let out where the ray points (glass.ts, FEW_BOUNCES); its
+  // cost is per glass pixel and per surface: fewer surfaces, not fewer pixels, keeps the phone's glass sharp
   handheldBounces: 3,
 };
 

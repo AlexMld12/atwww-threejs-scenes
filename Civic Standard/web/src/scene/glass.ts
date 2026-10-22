@@ -36,6 +36,7 @@ const glassFragment = /* glsl */ `
   varying vec3 vWorldPosition;
   varying vec3 vWorldNormal;
 
+  ${isHandheld() ? '#define FEW_BOUNCES' : ''}
   const int BOUNCES = ${isHandheld() ? GLASS.handheldBounces : GLASS.traceBounces};
   // Start each ray a little off the surface it leaves, or it finds that same surface again.
   const float SURFACE_OFFSET = 2e-3;
@@ -102,7 +103,13 @@ const glassFragment = /* glsl */ `
       direction = reflect( direction, -normal );
       origin = point;
     }
+    #ifdef FEW_BOUNCES
+    // the light still inside after the last surface traced (a phone's few) leaves where the ray points, not lost:
+    // without it those paths are black
+    return color + weight * sceneAlong( origin, direction );
+    #else
     return color;
+    #endif
   }
 
   void main() {
