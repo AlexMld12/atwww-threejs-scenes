@@ -69,7 +69,15 @@ function ProductCard({ card }: { card: Card }) {
         className="pp__render"
         src={`/products/${card.id}.webp`}
         alt=""
-        style={{ left: `${left}%`, top: `${top}%`, width: `${size}%`, '--size': size } as CSSProperties}
+        style={
+          {
+            left: `${left}%`,
+            top: `${top}%`,
+            width: `${size}%`,
+            '--size': size,
+            '--cx': left + size / 2,
+          } as CSSProperties
+        }
       />
       <h3 className="pp__name" style={{ top: textTop('sans', 35, 16, 20) }}>
         {card.name}

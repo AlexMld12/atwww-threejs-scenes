@@ -740,11 +740,12 @@
     display: none;
   }
 
-  /* each render at Figma's size for its card (a share of its width, --size), centred under the name, as floema's;
-     a wide card is twice as wide here as on the desktop's grid share, so its render at the share of a single one */
+  /* each render at Figma's size for its card (a share of its width, --size) and across where Figma has its middle
+     (--cx: a catalogue render's product is not in its middle), down to the card's middle under the name; a wide card
+     is twice as wide here as on the desktop's grid share, so its render at the share of a single one */
   .pp__render {
     top: 56% !important;
-    left: 50% !important;
+    left: calc(var(--cx) * 1%) !important;
     width: calc(var(--size) * 1%) !important;
     translate: -50% -50%;
   }
