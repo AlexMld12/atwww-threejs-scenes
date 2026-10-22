@@ -14,7 +14,11 @@ const LINE_RISE = 40;
 const LINE_S = 1.6;
 const LINE_DELAY_S = 0.1;
 const LINE_STAGGER_S = 0.1;
-const FADE_OUT_S = 0.5;
+const FADE_OUT_S = 0.3;
+// The buttons come in with the text, not after it: they are not a line of it, and rising from 40 px under its last
+// line they seemed to run into it. A short rise, quick, from the first line's start.
+const ACTIONS_RISE = 12;
+const ACTIONS_S = 0.7;
 
 const expoOut = (t: number) => (t >= 1 ? 1 : 1 - 2 ** (-10 * t));
 
@@ -99,9 +103,12 @@ export function useBuiltOutside(root: RefObject<HTMLElement | null>) {
           body.style.visibility = 'visible';
           body.style.opacity = '1';
           lines.forEach((line, j) => {
-            const p = expoOut(clamp01((t - LINE_DELAY_S - j * LINE_STAGGER_S) / LINE_S));
+            const actions = line.dataset.line === 'actions';
+            const p = actions
+              ? expoOut(clamp01((t - LINE_DELAY_S) / ACTIONS_S))
+              : expoOut(clamp01((t - LINE_DELAY_S - j * LINE_STAGGER_S) / LINE_S));
             line.style.opacity = String(p);
-            line.style.top = `${designPx(LINE_RISE) * (1 - p)}px`;
+            line.style.top = `${designPx(actions ? ACTIONS_RISE : LINE_RISE) * (1 - p)}px`;
           });
         } else {
           // Only the item that just left fades; the others are already hidden.

@@ -191,7 +191,8 @@
 }
 
 /* 02 · SOLID / CIVIC / CALM (fluid.glass/about's beliefs on a phone): the words one under another in a zig-zag, each
-   pill under its word, the lines left out; the same rise with the scroll */
+   pill under its word, the same rise with the scroll; the lines kept behind them (the user's), at the section's
+   height, as narrow as their drawing makes them */
 @media (max-width: 1023px) {
   :root {
     --pl-word-size:     90px;
@@ -207,11 +208,28 @@
     padding: 70px var(--m-edge);
   }
 
+  .pillars {
+    position: relative;
+  }
+
   .pillars__lines {
-    display: none;
+    top: 0;
+    height: 100%;
+  }
+
+  .pillars__lines--left {
+    width: auto;
+    aspect-ratio: 193 / 1120;
+  }
+
+  .pillars__lines--right {
+    width: auto;
+    aspect-ratio: 456 / 1120;
   }
 
   .pillars__row {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: flex-end;

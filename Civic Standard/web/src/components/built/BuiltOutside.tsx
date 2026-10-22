@@ -51,7 +51,7 @@ export function BuiltOutside() {
                     </span>
                   ))}
                 </p>
-                <div className="built__actions" data-line>
+                <div className="built__actions" data-line="actions">
                   <button
                     type="button"
                     className="pill built__browse"
