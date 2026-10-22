@@ -82,6 +82,8 @@ async function loadAssets() {
 const SLOW = { frames: 45, frameS: 1 / 50, step: 0.85, floor: 1.25 };
 // a 90 or 120 Hz phone: the scene at 60 a second, steady, not at whatever its GPU reaches between
 const FRAME_MS = 1000 / 60 - 2;
+// the intro's longest part (its spin, INTRO.spin) is over by then
+const LIVE_MS = 2600;
 
 /** `onHeroHeight` gets the hero's scroll length in px: it ends where a bench row comes level with the centre. */
 export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: string, onHeroHeight: (px: number) => void) {
@@ -231,7 +233,8 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     update(Math.min((now - last) / 1000, 0.1), now);
     adapt((now - last) / 1000);
     last = now;
-    glass.render(scene, camera, logo.mesh, [logo.model, takeover.card]);
+    // the glass drawn live until the intro has settled it (preloader's disc, tilt, spin), then as a phone's snapshots
+    glass.render(scene, camera, logo.mesh, [logo.model, takeover.card], loadedAt < 0 || now - loadedAt < LIVE_MS);
     if (loaded) handOver();
   });
 
