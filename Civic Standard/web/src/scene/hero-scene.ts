@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { pixelRatio } from '@/lib/device';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { handOver, loaderMask, onLoaded, sceneIn } from '@/lib/intro';
@@ -80,7 +81,8 @@ async function loadAssets() {
 /** `onHeroHeight` gets the hero's scroll length in px: it ends where a bench row comes level with the centre. */
 export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: string, onHeroHeight: (px: number) => void) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // the glass is ray-traced per pixel: the heaviest of the site's scenes on a phone
+  renderer.setPixelRatio(pixelRatio(2, 1.25));
   renderer.toneMapping = THREE.CustomToneMapping;
   finishTask('scene-code');
 

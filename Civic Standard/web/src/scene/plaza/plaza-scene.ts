@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { pixelRatio } from '@/lib/device';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -204,7 +205,7 @@ export async function createPlazaScene(
 ) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // photographic plates: 1.5 device px a px is as sharp as they are, and a third of 2's pixels to draw
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(pixelRatio(1.5, 1.25));
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // the view LUT already gives display values
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.shadowMap.enabled = true;

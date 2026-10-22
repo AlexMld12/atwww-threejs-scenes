@@ -1,5 +1,6 @@
 import CameraControls from 'camera-controls';
 import * as THREE from 'three';
+import { pixelRatio } from '@/lib/device';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { designPx } from '@/lib/design';
 import { createProductLoader, fromBlender, type Loaded } from './product';
@@ -52,7 +53,7 @@ export async function createConfiguratorScene(
     alpha: true,
     powerPreference: 'high-performance',
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(pixelRatio());
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // the view LUT already gives display values
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.setClearColor(0x000000, 0);

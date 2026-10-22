@@ -1,16 +1,14 @@
 import Lenis from 'lenis';
 import { onHandover } from './intro';
 
-// Every input (wheel, touchpad, finger, its fling, keys) adds to one wanted position; each frame Lenis is sent only as
-// far as the shown scroll + MAX_AHEAD screens, so the page has a top speed (≈ MAX_AHEAD × lerp × 60 screens/s) and
-// can't outrun what the hero draws. What is wanted beyond QUEUE screens ahead is dropped, not queued.
+// Every wheel, touchpad and key input adds to one wanted position; each frame Lenis is sent only as far as the shown
+// scroll + MAX_AHEAD screens, so the page has a top speed (≈ MAX_AHEAD × lerp × 60 screens/s) and can't outrun what
+// the hero draws. What is wanted beyond QUEUE screens ahead is dropped, not queued.
+// A finger scrolls natively (its own momentum, the browser's): driven through here, its touchstart was cancelled and a
+// tap never became a click, and the phone did the work of a second smoothing every frame.
 const MAX_AHEAD = 0.45;
 const QUEUE = 1.2;
 const WHEEL_LERP = 0.1;
-const TOUCH_LERP = 1;
-const FLING_LERP = 0.075;
-// As Lenis: a fling travels |velocity in px per frame| ^ this.
-const FLING_EXPONENT = 1.7;
 const LINE_PX = 48;
 const PAGE = 0.9;
 
@@ -27,9 +25,9 @@ let wanted = 0;
 let lerp = WHEEL_LERP;
 // Only input moves the page from here; a native scroll (find in page, a link) is left alone.
 let pending = false;
-let touchVelocity = 0;
-let touchTime = 0;
 let touching = false;
+// the last input was a finger: its native scroll (and fling) counts as input for the stops' settling
+let byTouch = false;
 let stops: () => number[] = () => [];
 // When the settling under way ends at the latest, should Lenis not report it (a resize).
 let settleUntil = 0;
@@ -108,26 +106,27 @@ function drive() {
 
 function onVirtualScroll({ deltaY, event }: { deltaY: number; event: WheelEvent | TouchEvent }) {
   if (!lenis || lenis.isStopped || event.ctrlKey) return true;
-  if (event.cancelable) event.preventDefault();
-  const now = performance.now();
-  touching = event.type !== 'touchend' && event.type.startsWith('touch');
-  if (event.type === 'touchstart') {
-    touchVelocity = 0;
-    touchTime = now;
-    // A tap stops a fling where it is.
-    if (!isSettling()) wanted = lenis.animatedScroll;
-  } else if (event.type === 'touchmove') {
-    // px per 60 Hz frame, as Lenis measures a fling.
-    touchVelocity = (deltaY / Math.max(now - touchTime, 1)) * (1000 / 60);
-    touchTime = now;
-    want(deltaY, TOUCH_LERP);
-  } else if (event.type === 'touchend') {
-    // A finger that stopped before lifting does not fling.
-    if (now - touchTime < 100) want(Math.sign(touchVelocity) * Math.abs(touchVelocity) ** FLING_EXPONENT, FLING_LERP);
-  } else {
-    want(deltaY, WHEEL_LERP);
+  if (event.type.startsWith('touch')) {
+    // native: nothing cancelled, the browser scrolls and taps
+    touching = event.type !== 'touchend';
+    byTouch = true;
+    lastInput = performance.now();
+    if (event.type === 'touchstart') {
+      // a finger takes over from a settling or a wheel's glide
+      settleUntil = 0;
+      pending = false;
+    }
+    return true;
   }
+  if (event.cancelable) event.preventDefault();
+  byTouch = false;
+  want(deltaY, WHEEL_LERP);
   return false;
+}
+
+// A finger's fling goes on after it lifts: the page settles once that has stopped too.
+function onNativeScroll() {
+  if (byTouch && !isSettling()) lastInput = performance.now();
 }
 
 // Keys scroll natively, past Lenis: they go through the same path instead.
@@ -153,9 +152,10 @@ export function startScroll() {
   if (lenis) return lenis;
   history.scrollRestoration = 'manual';
   window.scrollTo(0, 0);
-  lenis = new Lenis({ autoRaf: true, syncTouch: true, virtualScroll: onVirtualScroll });
+  lenis = new Lenis({ autoRaf: true, virtualScroll: onVirtualScroll });
   lenis.stop();
   window.addEventListener('keydown', onKey);
+  window.addEventListener('scroll', onNativeScroll, { passive: true });
   requestAnimationFrame(drive);
   onHandover(() => lenis?.start());
   return lenis;

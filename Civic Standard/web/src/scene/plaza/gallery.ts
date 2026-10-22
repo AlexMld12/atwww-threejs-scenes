@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { pixelRatio } from '@/lib/device';
 import { loadViewLut, VIEW_TRANSFORM, viewLut } from '../configurator/finishes';
 import { createSunCookie, fromBlender, LIGHT, SUN_COOKIE } from './sun';
 
@@ -182,7 +183,7 @@ export function createGalleryImage(
       const picture: Picture = { canvas, context: canvas.getContext('2d')!, scene, onScreen: false };
 
       const resize = () => {
-        const ratio = Math.min(window.devicePixelRatio, 2);
+        const ratio = pixelRatio();
         canvas.width = Math.round(canvas.clientWidth * ratio);
         canvas.height = Math.round(canvas.clientHeight * ratio);
       };

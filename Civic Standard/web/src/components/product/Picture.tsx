@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { isHandheld } from '@/lib/device';
 import type { GalleryView } from '@/scene/plaza/gallery';
 import type { View } from './content';
 import { heroSettled } from './settle';
@@ -58,6 +59,8 @@ export function Picture({
   useEffect(() => {
     let dispose: (() => void) | undefined;
     let cancelled = false;
+    // a phone or a tablet keeps the still: the live leaves cost a whole WebGL context and a copy every frame
+    if (isHandheld()) return;
     heroSettled()
       .then(() => Promise.all([loadGallery(), import('@/scene/plaza/gallery')]))
       .then(([all, { createGalleryImage }]) => {
