@@ -1,0 +1,212 @@
+/* THE DETAILS · OUR VALUES: text on a two-column grid, everything placed as Figma does (baselines, see place.ts) */
+.dv {
+  position: relative;
+  color: var(--forest);
+}
+
+.dv--details {
+  height: var(--dv-details-h);
+}
+
+.dv--values {
+  height: var(--dv-values-h);
+}
+
+.dv > *,
+.dv__row > *,
+.dv__service > *,
+.dv__card {
+  position: absolute;
+  margin: 0;
+}
+
+/* a row is only a group: its parts are placed on the section, as the others */
+.dv__row,
+.dv__service {
+  inset: 0;
+}
+
+.dv__rule,
+.dv__row-rule,
+.dv__service-rule {
+  display: block;
+  background: rgb(47 74 58 / 0.15);
+  transform-origin: left;
+}
+
+.dv__rule {
+  top: 0;
+  left: var(--dv-edge);
+  right: var(--dv-edge);
+  height: var(--dv-rule);
+}
+
+.dv__row-rule {
+  width: var(--dv-row-w);
+  height: var(--dv-rule);
+}
+
+.dv__service-rule {
+  width: var(--dv-service-w);
+  height: var(--dv-hair);
+}
+
+.dv__label {
+  --lh: var(--mono-lh);
+  color: #212325;
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+/* Reveal (use-reveal.ts), as the reference's statements: every line in its own mask rises from 2 lines down,
+   1.5 s power3.out, 0.1 s after the line above; played once. The mask is padded (and pulled back by as much) so
+   descenders and accents are not cut; a flex column keeps those negative margins from collapsing. */
+.lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.line {
+  position: relative;
+  display: block;
+  margin: -0.3em 0;
+  padding: 0.3em 0;
+  overflow: clip;
+  white-space: nowrap;
+}
+
+.line__inner {
+  position: relative;
+  top: calc(2 * var(--lh) + 0.3em);
+  display: block;
+  transition: top 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) calc(var(--i) * 0.1s);
+}
+
+.is-in .line__inner {
+  top: 0;
+}
+
+/* rules draw from the left; images and the drawing are uncovered from the bottom up */
+[data-reveal='rule'] {
+  transform: scaleX(0);
+  transition: transform 1.4s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+[data-reveal='rule'].is-in {
+  transform: none;
+}
+
+[data-reveal='image'] {
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path 1.4s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+[data-reveal='image'].is-in {
+  clip-path: inset(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line__inner,
+  [data-reveal] {
+    transition: none;
+  }
+}
+
+.dv__text {
+  --lh: var(--dv-text-lh);
+  color: #212325;
+  font: 400 var(--dv-text-size) / var(--dv-text-lh) var(--font-sans);
+}
+
+.dv__card {
+  top: 0;
+  width: var(--dv-card-w);
+  height: 100%;
+}
+
+.dv__card figcaption > * {
+  position: absolute;
+  left: 0;
+  margin: 0;
+}
+
+.dv__image {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: var(--dv-card-h);
+  background: var(--card);
+}
+
+.dv__image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dv__card-title {
+  --lh: var(--dv-card-title-lh);
+  font: 400 var(--dv-card-title) / var(--dv-card-title-lh) var(--font-sans);
+}
+
+.dv__card-caption {
+  --lh: var(--dv-caption-lh);
+  color: rgb(33 35 37 / 0.3);
+  font: 400 var(--dv-caption) / var(--dv-caption-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.dv__statement {
+  --lh: var(--dv-statement);
+  font: 400 var(--dv-statement) / var(--dv-statement) var(--font-sans);
+  letter-spacing: -0.03em;
+}
+
+.dv__row-label {
+  --lh: var(--dv-row-label-lh);
+  font: 700 var(--dv-row-label) / var(--dv-row-label-lh) var(--font-inter);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.dv__row-text {
+  --lh: var(--dv-row-text-lh);
+  font: 400 var(--dv-text-size) / var(--dv-row-text-lh) var(--font-sans);
+}
+
+.dv__service-title {
+  --lh: var(--dv-service-title-lh);
+  font: 400 var(--dv-service-title) / var(--dv-service-title-lh) var(--font-sans);
+}
+
+.dv__service-text {
+  --lh: var(--dv-service-text-lh);
+  color: #a9b7a0;
+  font: 400 var(--dv-service-text) / var(--dv-service-text-lh) var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+.dv__benches {
+  top: var(--dv-benches-y);
+  left: var(--dv-benches-x);
+  width: var(--dv-benches-w);
+  height: var(--dv-benches-h);
+}
+
+/* uncovered from the bottom as the images, but never cut at the sides: the drawing drifts past its box (use-drift.ts) */
+.dv__benches[data-reveal='image'] {
+  clip-path: inset(100% -100vw 0 -100vw);
+}
+
+.dv__benches[data-reveal='image'].is-in {
+  clip-path: inset(0 -100vw);
+}
+
+.dv__benches img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

@@ -3,7 +3,7 @@ import { onHandover } from './intro';
 
 // Every input (wheel, touchpad, finger, its fling, keys) adds to one wanted position; each frame Lenis is sent only as
 // far as the shown scroll + MAX_AHEAD screens, so the page has a top speed (≈ MAX_AHEAD × lerp × 60 screens/s) and
-// can't skip what the hero is still drawing. What is wanted beyond QUEUE screens ahead is dropped, not queued.
+// can't outrun what the hero draws. What is wanted beyond QUEUE screens ahead is dropped, not queued.
 const MAX_AHEAD = 0.45;
 const QUEUE = 1.2;
 const WHEEL_LERP = 0.1;
@@ -14,14 +14,12 @@ const FLING_EXPONENT = 1.7;
 const LINE_PX = 48;
 const PAGE = 0.9;
 
-// Stops a section wants the page to rest at (BUILT OUTSIDE's items). Between the first and the last, one gesture is one
-// step: it takes the page to the next stop in STEP_S and the rest of that gesture (a touchpad's inertia, a long wheel
-// spin, the finger's drag) is dropped. A gesture is new after a pause, a turn, or a clear surge over the last delta.
-const STEP_S = 0.8;
-const GESTURE_GAP_MS = 160;
-const GESTURE_SURGE = 1.6;
-const TOUCH_STEP_PX = 30;
-const SNAP_IDLE_MS = 180;
+// Stops a section wants the page to rest at (BUILT OUTSIDE's items). The scroll runs freely through them (a fast pass
+// is never held); once the input has paused SETTLE_MS between two stops, the page settles on one in SETTLE_S: the next
+// in the direction it went if it got past SETTLE_PAST of the way there, else back to the last.
+const SETTLE_MS = 220;
+const SETTLE_S = 0.7;
+const SETTLE_PAST = 0.3;
 const AT_PX = 3;
 
 let lenis: Lenis | null = null;
@@ -31,28 +29,28 @@ let lerp = WHEEL_LERP;
 let pending = false;
 let touchVelocity = 0;
 let touchTime = 0;
-let touchDrag = 0;
 let touching = false;
-// The furthest the page may go for now (the hero holds it while the bench turns to the front).
-let gate: () => number = () => Infinity;
 let stops: () => number[] = () => [];
-// When the step under way ends at the latest, should Lenis not report it (a resize, a stop).
-let stepUntil = 0;
-let consumed = false;
-let lastWheelAt = 0;
-let lastWheelSize = 0;
-let lastWheelSign = 0;
+// When the settling under way ends at the latest, should Lenis not report it (a resize).
+let settleUntil = 0;
 let direction = 1;
 let lastInput = 0;
 
 const screen = () => window.innerHeight;
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
-const isStepping = () => performance.now() < stepUntil;
+const isSettling = () => performance.now() < settleUntil;
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /** Adds to the wanted position, from where the page is if it had come to rest. */
 function want(delta: number, nextLerp: number) {
-  if (!lenis) return;
+  if (!lenis || !delta) return;
+  lastInput = performance.now();
+  direction = Math.sign(delta);
+  // new input takes over from a settling
+  if (isSettling()) {
+    settleUntil = 0;
+    wanted = lenis.animatedScroll;
+  }
   const shown = lenis.animatedScroll;
   if (!lenis.isScrolling) wanted = shown;
   wanted = clamp(
@@ -64,87 +62,45 @@ function want(delta: number, nextLerp: number) {
   pending = true;
 }
 
-/** Inside the stops, the next stop in `dir` from the shown scroll; null outside them, undefined past the last one. */
-function nextStop(dir: number) {
-  const list = stops();
-  if (!lenis || !list.length) return null;
-  const shown = lenis.animatedScroll;
-  if (shown < list[0] - AT_PX || shown > list[list.length - 1] + AT_PX) return null;
-  return dir > 0 ? list.find((stop) => stop > shown + AT_PX) : list.findLast((stop) => stop < shown - AT_PX);
-}
-
-function step(to: number) {
+function settle(to: number) {
   if (!lenis) return;
-  stepUntil = performance.now() + STEP_S * 1000 + 150;
-  consumed = true;
+  settleUntil = performance.now() + SETTLE_S * 1000 + 150;
   pending = false;
   wanted = to;
   lenis.scrollTo(to, {
-    duration: STEP_S,
+    duration: SETTLE_S,
     easing: easeInOut,
     programmatic: false,
-    onComplete: () => (stepUntil = 0),
+    onComplete: () => (settleUntil = 0),
   });
 }
 
-/** One input: a step between the stops (only for a new gesture), free scrolling elsewhere. */
-function input(delta: number, isNew: boolean, nextLerp: number) {
-  if (!delta) return;
-  lastInput = performance.now();
-  direction = Math.sign(delta);
-  const next = nextStop(direction);
-  if (next === null && !isStepping()) {
-    want(delta, nextLerp);
-    // A gesture that scrolls freely is used up once it reaches the stops: its inertia can't step on from there.
-    if (stops().length) consumed = true;
-    return;
-  }
-  if (isStepping() || (consumed && !isNew)) return;
-  consumed = false;
-  // Past the first or the last stop: a new gesture leaves the stops and scrolls freely.
-  if (next === undefined || next === null) want(delta, nextLerp);
-  else step(next);
-}
-
-function isNewWheelGesture(delta: number, now: number) {
-  const size = Math.abs(delta);
-  const sign = Math.sign(delta);
-  const isNew =
-    now - lastWheelAt > GESTURE_GAP_MS || sign !== lastWheelSign || size > lastWheelSize * GESTURE_SURGE + 4;
-  lastWheelAt = now;
-  lastWheelSize = size;
-  lastWheelSign = sign;
-  return isNew;
+/** Between two stops: the one the page settles on, by how far it got in the direction it went. */
+function settleTarget(shown: number, list: number[]) {
+  const next = list.findIndex((stop) => stop > shown);
+  const below = list[next - 1];
+  const above = list[next];
+  const share = (shown - below) / (above - below);
+  return direction > 0 ? (share > SETTLE_PAST ? above : below) : share < 1 - SETTLE_PAST ? below : above;
 }
 
 function drive() {
   requestAnimationFrame(drive);
-  if (!lenis || lenis.isStopped || isStepping()) return;
+  if (!lenis || lenis.isStopped || isSettling()) return;
   const shown = lenis.animatedScroll;
-  const now = performance.now();
   const list = stops();
 
-  if (list.length) {
-    const first = list[0];
-    const last = list[list.length - 1];
-    // Coming in from outside, the page stops at the first stop it meets.
-    if (shown < first - AT_PX && direction > 0) wanted = Math.min(wanted, first);
-    if (shown > last + AT_PX && direction < 0) wanted = Math.max(wanted, last);
-    // Left between two stops (a resize, a native scroll): on to the next one as soon as the input pauses.
+  if (list.length && !touching && performance.now() - lastInput > SETTLE_MS) {
+    const between = shown > list[0] + AT_PX && shown < list[list.length - 1] - AT_PX;
     const at = list.some((stop) => Math.abs(stop - shown) < AT_PX);
-    const between = shown > first + AT_PX && shown < last - AT_PX;
-    if (between && !at && !touching && now - lastInput > SNAP_IDLE_MS) {
-      const next = nextStop(direction);
-      if (next !== null && next !== undefined) step(next);
+    if (between && !at && Math.abs(wanted - shown) < screen() * 0.02) {
+      settle(settleTarget(shown, list));
       return;
     }
   }
 
   if (!pending) return;
   const ahead = MAX_AHEAD * screen();
-  // Only ahead of the gate: a page already past it (a jump, a restored scroll) is never held there.
-  const limit = gate();
-  if (shown <= limit + AT_PX) wanted = Math.min(wanted, limit);
   const to = clamp(wanted, shown - ahead, shown + ahead);
   if (Math.abs(wanted - shown) < 0.5) pending = false;
   else if (Math.abs(to - lenis.targetScroll) > 0.5) lenis.scrollTo(to, { lerp, programmatic: false });
@@ -158,26 +114,18 @@ function onVirtualScroll({ deltaY, event }: { deltaY: number; event: WheelEvent 
   if (event.type === 'touchstart') {
     touchVelocity = 0;
     touchTime = now;
-    touchDrag = 0;
-    consumed = false;
-    // A tap stops a fling where it is (not a step: that one ends on its own).
-    if (!isStepping()) wanted = lenis.animatedScroll;
+    // A tap stops a fling where it is.
+    if (!isSettling()) wanted = lenis.animatedScroll;
   } else if (event.type === 'touchmove') {
     // px per 60 Hz frame, as Lenis measures a fling.
     touchVelocity = (deltaY / Math.max(now - touchTime, 1)) * (1000 / 60);
     touchTime = now;
-    touchDrag += deltaY;
-    // Between the stops a drag is one step once it is long enough; elsewhere the page follows the finger.
-    const next = nextStop(Math.sign(touchDrag));
-    if (next === null || next === undefined) input(deltaY, !consumed, TOUCH_LERP);
-    else if (Math.abs(touchDrag) > TOUCH_STEP_PX) input(touchDrag, !consumed, TOUCH_LERP);
+    want(deltaY, TOUCH_LERP);
   } else if (event.type === 'touchend') {
-    // A finger that stopped before lifting does not fling; nor does one that has just made a step.
-    if (now - touchTime < 100 && !consumed && !isStepping()) {
-      input(Math.sign(touchVelocity) * Math.abs(touchVelocity) ** FLING_EXPONENT, false, FLING_LERP);
-    }
+    // A finger that stopped before lifting does not fling.
+    if (now - touchTime < 100) want(Math.sign(touchVelocity) * Math.abs(touchVelocity) ** FLING_EXPONENT, FLING_LERP);
   } else {
-    input(deltaY, isNewWheelGesture(deltaY, now), WHEEL_LERP);
+    want(deltaY, WHEEL_LERP);
   }
   return false;
 }
@@ -197,10 +145,10 @@ function onKey(event: KeyboardEvent) {
   const delta = steps[event.key];
   if (delta === undefined) return;
   event.preventDefault();
-  input(delta, true, WHEEL_LERP);
+  want(delta, WHEEL_LERP);
 }
 
-/** One Lenis for the page, locked until the preloader is gone. */
+/** One Lenis for the page, locked until the preloader is gone (or `setScrollLocked` frees it, on another page). */
 export function startScroll() {
   if (lenis) return lenis;
   history.scrollRestoration = 'manual';
@@ -213,12 +161,11 @@ export function startScroll() {
   return lenis;
 }
 
-/** The hero says how far the page may scroll for now; the returned function lifts that gate (if still its own). */
-export function setScrollGate(next: () => number) {
-  gate = next;
-  return () => {
-    if (gate === next) gate = () => Infinity;
-  };
+/** Holds the page still (the preloader on the home's first visit) or lets it go. */
+export function setScrollLocked(locked: boolean) {
+  if (locked) lenis?.stop();
+  else lenis?.start();
+  document.documentElement.classList.toggle('is-scroll-free', !locked);
 }
 
 /** A section's resting points (page px); the returned function removes them (if still its own). */
@@ -231,4 +178,14 @@ export function setScrollStops(next: () => number[]) {
 
 export function scrollPosition() {
   return lenis?.scroll ?? window.scrollY;
+}
+
+/** Puts the page at `y` at once (another page shown in the same document): no smoothing, nothing queued. */
+export function jumpTo(y: number) {
+  if (!lenis) return window.scrollTo(0, y);
+  lenis.resize();
+  pending = false;
+  settleUntil = 0;
+  wanted = y;
+  lenis.scrollTo(y, { immediate: true, force: true });
 }

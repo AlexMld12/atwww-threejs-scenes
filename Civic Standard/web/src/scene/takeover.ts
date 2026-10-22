@@ -22,8 +22,8 @@ const MIDDLE_ROW = (TUBE.rows - 1) / 2;
 
 /**
  * The end of the hero. Nothing pulls the tube: the section is just long enough for a bench row to come level with
- * the centre on its own (`layout`). Near there the tube keeps turning in its direction until the bench panel is in
- * front, eases to a stop (`turn`), and only then the photo grows to the full screen (`grow`, Figma frames 3 → 5).
+ * the centre on its own (`layout`). Before there the scroll turns the bench panel to the front (`turn`), and from
+ * there the photo grows to the full screen (`grow`, Figma frames 3 → 5).
  */
 export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) {
   const map = bench.clone();
@@ -53,8 +53,13 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
     .map((panel) => ({ panel, offset: ((((panel.row - MIDDLE_ROW) * TUBE.rowSpacing) % LOOP) + LOOP) % LOOP }));
 
   let landingScroll = Infinity;
+  // where the tube starts braking towards the landing (seekScreens before it)
+  let seekStart = Infinity;
   let landed: BenchPanel = landings[0].panel;
   let locked = false;
+  // the tube's own angle while the seek eases in, and the front angle it eases to
+  let free = 0;
+  let seekTo: number | null = null;
   let shownGrowth = 0;
 
   return {
@@ -71,54 +76,52 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
           landed = panel;
         }
       }
-      landingScroll = best / SCROLL.travelPerPx;
+      // Braking at a constant rate over the seek covers half the distance full speed would: the landing is that
+      // much further down the page, so the rows still come to rest with a bench row level with the centre.
+      const zone = HERO.seekScreens * stageHeight;
+      landingScroll = best / SCROLL.travelPerPx + zone / 2;
+      seekStart = landingScroll - zone;
       return landingScroll + (HERO.growScreens + 1) * stageHeight;
     },
 
-    /** How far the page may scroll: not past the landing until the bench faces the camera and the photo can grow. */
-    gate() {
-      return locked ? Infinity : landingScroll;
-    },
-
-    /** Row travel the tube may reach: it stops where the bench row is level with the centre. */
+    /**
+     * Row travel for a scroll: the usual rate, then over the seek it brakes evenly to a standstill at the landing
+     * (its speed falls to 0 with no step), where the bench row is level with the centre.
+     */
     travelFor(scroll: number) {
-      return Math.min(scroll, landingScroll) * SCROLL.travelPerPx;
+      if (scroll <= seekStart) return scroll * SCROLL.travelPerPx;
+      const zone = landingScroll - seekStart;
+      const p = clamp01((scroll - seekStart) / zone);
+      return (seekStart + zone * (p - (p * p) / 2)) * SCROLL.travelPerPx;
     },
 
     /**
-     * Turns the tube on from `angle`. Away from the landing it is the usual motion; near it the tube keeps turning
-     * the same way until the bench panel faces the camera, slows into it and stays there.
+     * Turns the tube on from `angle`. Away from the landing it is the usual motion. Over the last seekScreens the
+     * scroll itself brings the bench panel to the front: the tube's own motion fades out as the angle eases (in and
+     * out, with the rows' braking) to the nearest front angle, reached exactly at the landing. So the page never
+     * waits for it, and the turn is never more than half a turn of the bench's row.
      */
-    turn(angle: number, motion: number, direction: number, scroll: number, stageHeight: number, dt: number) {
-      if (scroll < landingScroll - HERO.seekScreens * stageHeight) {
+    turn(angle: number, motion: number, scroll: number, dt: number) {
+      const p = clamp01((scroll - seekStart) / (landingScroll - seekStart));
+      if (p <= 0) {
+        seekTo = null;
         locked = false;
-        return angle + motion * dt;
+        free = angle + motion * dt;
+        return free;
       }
-      if (locked) return angleFront(angle, 0);
-      const target = angleFront(angle, direction);
-      const remaining = (target - angle) * direction;
-      // The page waits at the landing for the bench (`gate`): there the tube turns faster, and never slower than
-      // seekMinSpeed, or the last fraction of a turn would take seconds.
-      const held = scroll >= landingScroll - 1;
-      const speed = Math.max(
-        HERO.seekMinSpeed,
-        Math.min(
-          held ? HERO.seekHeldSpeed : HERO.seekSpeed,
-          remaining * HERO.seekEase * (held ? 2 : 1) + Math.abs(motion) * 0.25,
-        ),
-      );
-      const next = angle + direction * speed * dt;
-      if ((target - next) * direction <= 1e-4) {
-        locked = true;
-        return target;
+      if (seekTo === null) {
+        free = angle;
+        seekTo = angleFront(angle, 0);
       }
-      return next;
+      const e = smooth(p);
+      free += motion * dt * (1 - e);
+      locked = p >= 1;
+      return free + (seekTo - free) * e;
     },
 
     /** After the landing, once the panel is in front: the photo grows from it to the full screen. */
     grow(scroll: number, width: number, height: number) {
-      // Straight from the (smoothed) scroll: the page cannot pass the landing before the lock (`gate`), so the photo
-      // is full exactly when BUILT OUTSIDE takes over.
+      // From the scroll the tube shows: locked at the landing exactly, so the photo grows on from the same motion.
       shownGrowth = locked ? clamp01((scroll - landingScroll) / (HERO.growScreens * height)) : 0;
       if (shownGrowth < 1e-3) {
         landed.mesh.visible = true;
@@ -141,9 +144,16 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
       const scale = Math.max(1, width / FRAMING.designWidth);
       // Screen px ↔ scene units at the front of the tube; 2 px of bleed so the full-screen photo has no edge.
       const toScene = (CAMERA.distance - TUBE.radius) / (pxPerUnit(width) * CAMERA.distance);
+      // Figma's middle frame (1035 × 612) is wider than a phone: under 1024 px the middle is half way, each side
+      const start = [TUBE.panelWidth / toScene, TUBE.panelHeight / toScene];
+      const end = [width + 2, height + 2];
+      const middle =
+        width < 1024
+          ? [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2]
+          : [TAKEOVER.grown[0] * scale, TAKEOVER.grown[1] * scale];
       card.scale.set(
-        through(TUBE.panelWidth / toScene, TAKEOVER.grown[0] * scale, width + 2, u) * toScene,
-        through(TUBE.panelHeight / toScene, TAKEOVER.grown[1] * scale, height + 2, u) * toScene,
+        through(start[0], middle[0], end[0], u) * toScene,
+        through(start[1], middle[1], end[1], u) * toScene,
         1,
       );
       coverCrop(map, TAKEOVER.imageAspect, card.scale.x / card.scale.y, TAKEOVER.alignY);

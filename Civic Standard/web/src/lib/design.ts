@@ -12,3 +12,12 @@ export function designCss(n: number) {
   const size = `clamp(${Math.abs(n)}px, ${Math.abs(n)} / 1720 * 100vw, ${Math.abs(n)} / 1720 * 100vw)`;
   return n < 0 ? `calc(-1 * ${size})` : size;
 }
+
+// Vertical metrics (em) of the three fonts, as the browser lays them out (typo metrics: USE_TYPO_METRICS is set).
+const METRICS = { sans: [0.75, 0.25], inter: [0.96875, 0.2412], mono: [1, 0.2] } as const;
+
+/** Top (Figma px) of a line box whose baseline sits at `baseline`, for a font size and line height. */
+export function topForBaseline(font: keyof typeof METRICS, baseline: number, size: number, lineHeight: number) {
+  const [ascent, descent] = METRICS[font];
+  return baseline - ((lineHeight - (ascent + descent) * size) / 2 + ascent * size);
+}

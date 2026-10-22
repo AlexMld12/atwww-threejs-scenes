@@ -1,0 +1,79 @@
+/* FOOTER, as telhaclarke.com.au's: a curtain. The band is sticky at the screen's foot behind the prefooter (z 0 under
+   z 1), so the prefooter scrolls up off it and uncovers it from the top; meanwhile its content rises from 40 % of
+   its height and comes out of the band's colour (use-footer.ts). Their page shrink is left out (the user's call).
+   The prefooter casts Figma's shadow on the band, fading out as the band is uncovered; at the end the whole band
+   shows (the user: the wordmark is not cut, as on the reference). */
+.ft {
+  position: relative;
+}
+
+.ft .pf {
+  z-index: 1;
+  height: var(--pf-h-over);
+  /* Figma's drop shadow under the prefooter's foot (y 10, blur 12, 25 %) reads lighter in a browser than in Figma:
+     stronger here to look as it does there (the user's call), × what is still to uncover */
+  box-shadow: 0 var(--ft-shadow-y) var(--ft-shadow-blur) rgb(0 0 0 / calc(0.45 * var(--ft-shade, 1)));
+}
+
+.ft__band {
+  position: sticky;
+  bottom: 0;
+  z-index: 0;
+  /* the page's edge, the wordmark (1440 × 140 in Figma, the page's width) and the row under it */
+  height: calc(var(--ft-edge) + 100vw * 140 / 1440 + var(--ft-row));
+  overflow: hidden;
+  background: var(--gold);
+  color: var(--forest);
+}
+
+/* one block, as theirs (.footer-bottom-inner): moved by its top, it keeps its height, so the bottom row comes up
+   from under the band's foot with the wordmark instead of staying put under it */
+.ft__inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ft__inner > * {
+  position: absolute;
+  margin: 0;
+}
+
+/* the band's colour over its content, faded out as it is uncovered (their black overlay on a black band) */
+.ft__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--gold);
+  pointer-events: none;
+}
+
+.ft__wordmark {
+  top: var(--ft-edge);
+  left: 0;
+  width: 100%;
+  height: auto;
+}
+
+.ft__copyright {
+  bottom: var(--ft-copy-bottom);
+  left: var(--ft-edge);
+  color: rgb(14 31 20 / 0.4);
+  font: 400 var(--pf-sub) / var(--pf-sub-lh) var(--font-sans);
+  white-space: nowrap;
+}
+
+.ft__policy {
+  bottom: var(--ft-policy-bottom);
+  color: inherit;
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.ft__policy--last {
+  left: auto;
+  right: var(--ft-edge);
+}

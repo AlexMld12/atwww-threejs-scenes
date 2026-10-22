@@ -5,6 +5,7 @@ import { Roll } from '@/components/ui/Roll';
 import { BUILT_ITEMS } from './content';
 import { TIMELINE } from './timeline';
 import { useBuiltOutside } from './use-built-outside';
+import { navigate } from '@/lib/routes';
 
 export function BuiltOutside() {
   const root = useRef<HTMLElement>(null);
@@ -51,10 +52,20 @@ export function BuiltOutside() {
                   ))}
                 </p>
                 <div className="built__actions" data-line>
-                  <button type="button" className="pill built__browse" aria-label="Browse the range">
+                  <button
+                    type="button"
+                    className="pill built__browse"
+                    aria-label="Browse the range"
+                    onClick={() => navigate('products')}
+                  >
                     <Roll text="Browse the range" />
                   </button>
-                  <button type="button" className="pill pill--icon built__arrow" aria-label="Browse the range">
+                  <button
+                    type="button"
+                    className="pill pill--icon built__arrow"
+                    aria-label="Browse the range"
+                    onClick={() => navigate('products')}
+                  >
                     <svg viewBox="0 0 12 11.2" aria-hidden="true">
                       <path d="M0 5.6h11M6.2 0.8l4.8 4.8-4.8 4.8" />
                     </svg>

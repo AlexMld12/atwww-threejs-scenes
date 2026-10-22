@@ -15,8 +15,8 @@ const PILL = 0.1;
 const WORD_FROM = 1.5;
 
 // The lines draw one after another as theirs do (the right one up from below, then the middle one, then the left
-// one). Then a black line, as the preloader's, traces over the same contour; it retracts, then the faint one does,
-// and again after a short pause, for as long as the section is on screen. Each phase follows the one before.
+// one). Then a black line, as the preloader's, traces over the same contour; it retracts from where it started, then
+// the faint one does the same, and again after a short pause, for as long as the section is on screen. Each phase follows the one before.
 // The loop starts as the section comes into the screen (its top at 60 %).
 const LOOP_FROM = 0.6;
 const FAINT_DRAW_S = 3;
@@ -34,12 +34,12 @@ const INK_FROM = FAINT_DRAW_S;
 const INK_BACK = INK_FROM + INK_DRAW_S + INK_HOLD_S;
 const FAINT_BACK = INK_BACK + INK_RETRACT_S;
 
-/** A layer drawn over [from, from + draw] and retracted over [back, back + retract]: its shown share, 0…1. */
+/** A layer drawn over [from, from + draw] and retracted over [back, back + retract]: the shown stretch of its
+ *  contour, as shares 0…1. It retracts from where it started, so the tail follows the head in the drawing order. */
 function shareAt(u: number, from: number, draw: number, back: number, retract: number) {
-  if (u < from) return 0;
-  if (u < from + draw) return sineInOut((u - from) / draw);
-  if (u < back) return 1;
-  return 1 - sineInOut(clamp01((u - back) / retract));
+  if (u < from) return { tail: 0, head: 0 };
+  if (u < back) return { tail: 0, head: sineInOut(clamp01((u - from) / draw)) };
+  return { tail: sineInOut(clamp01((u - back) / retract)), head: 1 };
 }
 
 /** How much of each layer is shown `t` seconds into the loop. */
@@ -61,10 +61,7 @@ export function usePillars(root: RefObject<HTMLElement | null>) {
       const paths = [...section.querySelectorAll<SVGPathElement>(`[data-layer="${name}"]`)]
         .sort((a, b) => Number(a.dataset.draw) - Number(b.dataset.draw))
         .map((path) => ({ path, length: path.getTotalLength() }));
-      paths.forEach(({ path, length }) => {
-        path.style.strokeDasharray = `${length} ${length}`;
-        path.style.strokeDashoffset = String(length);
-      });
+      paths.forEach(({ path, length }) => (path.style.strokeDasharray = `0 ${length}`));
       return { paths, total: paths.reduce((sum, { length }) => sum + length, 0) };
     };
     const layers = { faint: layer('faint'), ink: layer('ink') };
@@ -74,7 +71,8 @@ export function usePillars(root: RefObject<HTMLElement | null>) {
     let last = performance.now();
     let loopStart = -1;
     let frame = 0;
-    const observer = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting));
+    // one call can carry several entries for the element (a jump in and out): the last one is its state now
+    const observer = new IntersectionObserver((entries) => (visible = entries.at(-1)!.isIntersecting));
     observer.observe(section);
 
     const update = (now: number) => {
@@ -101,14 +99,18 @@ export function usePillars(root: RefObject<HTMLElement | null>) {
 
       // The loop starts once the section has come into the screen, so its first drawing is seen from the start.
       if (loopStart < 0 && top < LOOP_FROM * height) loopStart = now;
-      const drawn = loopStart < 0 ? { faint: 0, ink: 0 } : drawnAt((now - loopStart) / 1000);
+      const hidden = { tail: 0, head: 0 };
+      const drawn = loopStart < 0 ? { faint: hidden, ink: hidden } : drawnAt((now - loopStart) / 1000);
       (['faint', 'ink'] as const).forEach((name) => {
         const { paths, total } = layers[name];
-        let shown = drawn[name] * total;
+        let before = 0;
         paths.forEach(({ path, length }) => {
-          const part = Math.min(length, Math.max(0, shown));
-          shown -= length;
-          path.style.strokeDashoffset = String(length - part);
+          const from = Math.min(length, Math.max(0, drawn[name].tail * total - before));
+          const to = Math.min(length, Math.max(0, drawn[name].head * total - before));
+          before += length;
+          // a gap up to the tail, the dash up to the head, then a gap past the end
+          path.style.strokeDasharray = `0 ${from} ${to - from} ${length}`;
+          path.style.strokeDashoffset = '0';
         });
       });
     };

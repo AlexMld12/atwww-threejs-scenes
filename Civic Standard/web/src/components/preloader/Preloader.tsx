@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { loaderMask, markLoaded } from '@/lib/intro';
+import { loaderMask, markLoaded, onHandover } from '@/lib/intro';
 import { LOGO_PARTS, LOGO_VIEWBOX } from '@/lib/logo-outline';
 import { isFinished, preloadProgress } from '@/lib/preload';
 
@@ -18,8 +18,9 @@ const APPEAR_S = 0.9;
 const TRACE_MS = 1800;
 const MIN_FILL_S = 2.6;
 const HOLD_MS = 250;
-// Under the disc the glass shows with the black lines; it fades in only if the scene was not ready when the disc came.
-const GLASS_IN_S = 0.6;
+// Under the disc the glass grows with it (depth and opacity) and is whole exactly when the disc has uncovered all the
+// lines; if the scene compiles late it catches up at most this fast, so it never pops in.
+const GLASS_CATCH_UP_S = 0.4;
 // Once the whole logo is lines and glass, the lines go.
 const LINES_OUT_S = 0.7;
 
@@ -29,6 +30,9 @@ export function Preloader() {
   const lines = useRef<SVGGElement>(null);
 
   useEffect(() => {
+    // the navbar waits for the scene, also when it was already in (the home opened after another page)
+    document.documentElement.classList.add('is-preloading');
+    const stopHandover = onHandover(() => document.documentElement.classList.remove('is-preloading'));
     const start = performance.now();
     let last = start;
     let shown = 0;
@@ -54,10 +58,11 @@ export function Preloader() {
         circle.current?.setAttribute('cy', y.toFixed(2));
         circle.current?.setAttribute('r', r.toFixed(2));
 
-        if (isFinished('compile')) glass = Math.min(1, glass + dt / GLASS_IN_S);
+        const glassTarget = isFinished('compile') ? grown : 0;
+        glass = glassTarget > glass ? Math.min(glassTarget, glass + dt / GLASS_CATCH_UP_S) : glassTarget;
         const ctm = svg.current?.getScreenCTM();
         if (ctm) Object.assign(loaderMask, { x: ctm.a * x + ctm.e, y: ctm.d * y + ctm.f, radius: ctm.a * r });
-        loaderMask.glass = glass * glass * (3 - 2 * glass);
+        loaderMask.glass = glass;
 
         if (shown >= 1 && glass >= 1) linesOut = Math.min(1, linesOut + dt / LINES_OUT_S);
         if (lines.current) lines.current.style.opacity = String(1 - linesOut * linesOut * (3 - 2 * linesOut));
@@ -70,7 +75,10 @@ export function Preloader() {
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      stopHandover();
+    };
   }, []);
 
   return (

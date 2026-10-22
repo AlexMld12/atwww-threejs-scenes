@@ -1,0 +1,331 @@
+/* CONFIGURATOR: the product in 3D on the section's own tone (scene/configurator), Figma's text and controls over it */
+/* the screen's height, whatever the device (the small viewport: it fits with a phone's toolbars shown); the top part
+   keeps Figma's distances from the top, the bottom part from the bottom (850 − y) */
+.cf {
+  position: relative;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--card);
+  color: var(--forest);
+}
+
+.cf > * {
+  position: absolute;
+  margin: 0;
+}
+
+/* the canvas takes the drags (camera-controls); the texts over it let them through, the controls do not */
+.cf__canvas {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cf__tabs,
+.cf__name,
+.cf__finish,
+.cf__dot {
+  pointer-events: none;
+}
+
+.cf__tabs {
+  top: var(--cf-tabs-top);
+  left: var(--dv-edge);
+  display: flex;
+  gap: var(--cf-tab-gap);
+}
+
+.cf__tab {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgb(14 31 20 / 0.15);
+  font: 400 var(--cf-tab) / var(--cf-tab) var(--font-sans);
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.3s ease;
+}
+
+.cf__tab[aria-selected='true'] {
+  color: var(--forest);
+  cursor: default;
+}
+
+.cf__rule {
+  left: var(--dv-edge);
+  right: var(--dv-edge);
+  height: var(--dv-rule);
+  background: rgb(47 74 58 / 0.15);
+}
+
+.cf__rule--top {
+  top: var(--cf-rule-top);
+}
+
+.cf__rule--bottom {
+  bottom: var(--cf-rule2-bottom);
+}
+
+.cf__name,
+.cf__label {
+  color: #212325;
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cf__name {
+  top: var(--cf-name-top);
+  left: var(--dv-edge);
+}
+
+/* the two dots beside the product: placed by the scene (translate = the circle's centre), hidden while dragging */
+.cf__dot {
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cf-dot-label);
+  transform: translate(-50%, calc(var(--cf-dot) / -2));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cf.is-ready .cf__dot {
+  opacity: 1;
+}
+
+.cf.is-dragging .cf__dot {
+  visibility: hidden;
+  opacity: 0;
+  transition: none;
+}
+
+.cf__circle {
+  display: grid;
+  place-items: center;
+  width: var(--cf-dot);
+  height: var(--cf-dot);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--forest);
+  color: #fff;
+}
+
+.cf__circle svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+/* LAYOUT: a button, as the reference's dots (scale 1.1, 0.3 s); its hover in Figma's gold */
+.cf__dot--button .cf__circle {
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    background-color 0.3s ease,
+    transform 0.3s ease;
+}
+
+.cf__dot--button .cf__circle:is(:hover, :focus-visible) {
+  background: var(--gold);
+  transform: scale(1.1);
+}
+
+.cf__finish {
+  bottom: var(--cf-finish-bottom);
+  left: var(--dv-edge);
+  font: 400 var(--cf-finish) / var(--cf-finish-lh) var(--font-sans);
+  white-space: nowrap;
+}
+
+.cf__finish span {
+  color: rgb(14 31 20 / 0.4);
+}
+
+.cf__swatches {
+  bottom: var(--cf-bottom);
+  left: var(--dv-edge);
+  display: flex;
+  gap: var(--cf-swatch-gap);
+}
+
+/* the chosen colour stretches into a pill, as Figma's */
+.cf__swatch {
+  width: var(--cf-swatch);
+  height: var(--cf-swatch);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--cf-swatch) / 2);
+  background: var(--swatch);
+  cursor: pointer;
+  transition: width 0.3s ease;
+}
+
+.cf__swatch[aria-checked='true'] {
+  width: var(--cf-swatch-on);
+  cursor: default;
+}
+
+.cf__actions {
+  bottom: var(--cf-bottom);
+  right: var(--dv-edge);
+  display: flex;
+  gap: var(--bo-btn-gap);
+}
+
+.cf__configure,
+.cf__arrow {
+  background: var(--green);
+  color: #fff;
+}
+
+.cf__configure {
+  height: var(--bo-btn-h);
+  padding: 0 var(--bo-btn-pad);
+}
+
+.cf__arrow {
+  position: relative;
+  left: 0;
+  width: var(--bo-btn-h);
+  height: var(--bo-btn-h);
+  transition: left 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.cf__actions:hover .cf__arrow {
+  left: var(--bo-arrow-shift);
+}
+
+.cf__arrow svg {
+  width: var(--bo-arrow);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+/* THE CONFIGURATOR'S PAGE: the section's parts (above) 20 px higher, as the page has no navbar's logo above them;
+   the plan at the bottom left, the bar of sizes and finishes, the steps and the pick to the quote. The page takes
+   the chosen colour, as the product page's showcase: at 60 % over the paper */
+.cfp {
+  background: color-mix(in srgb, var(--swatch) 60%, var(--paper));
+  transition: background-color 0.3s ease-out;
+}
+
+.cfp .cf__tabs {
+  top: var(--cfp-tabs-top);
+}
+
+.cfp .cf__rule--top {
+  top: var(--cfp-rule-top);
+}
+
+.cfp .cf__name {
+  top: var(--cfp-name-top);
+}
+
+.cfp__rule--bottom {
+  bottom: var(--cfp-rule2-bottom);
+}
+
+.cfp__plan {
+  pointer-events: none;
+}
+
+.cfp__view {
+  position: absolute;
+  display: block;
+  opacity: 0.5;
+}
+
+.cfp__bar {
+  bottom: var(--cfp-bottom);
+  left: var(--dv-edge);
+  display: flex;
+  gap: var(--cfp-bar-gap);
+}
+
+.cfp__label {
+  margin: 0 0 var(--cfp-sizes-dy);
+  color: rgb(14 31 20 / 0.4);
+  font: 400 var(--cfp-label) / var(--cfp-label-lh) var(--font-sans);
+  white-space: nowrap;
+}
+
+.cfp__label--finish {
+  margin-bottom: var(--cfp-swatches-dy);
+  color: var(--forest);
+}
+
+.cfp__label--finish span {
+  color: rgb(14 31 20 / 0.4);
+}
+
+.cfp__swatches {
+  margin-bottom: var(--cfp-swatches-foot);
+}
+
+.cfp__steps {
+  right: var(--cfp-steps-right);
+  bottom: var(--cfp-bottom);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cfp-step-gap);
+}
+
+.cfp__step {
+  display: grid;
+  place-items: center;
+  width: var(--cfp-step-w);
+  height: var(--cfp-step-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--cfp-radius);
+  background: rgb(47 74 58 / 0.15);
+  color: var(--button-ink);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.cfp__step:is(:hover, :focus-visible) {
+  background: rgb(47 74 58 / 0.28);
+}
+
+.cfp__step svg {
+  width: var(--cfp-icon-w);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+.cfp__select {
+  right: var(--dv-edge);
+  bottom: var(--cfp-bottom);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: var(--cfp-select-w);
+  height: var(--cfp-select-h);
+  padding: var(--cfp-select-top) var(--cfp-select-pad);
+  border: 0;
+  border-radius: var(--cfp-radius);
+  background: var(--green);
+  color: #fff;
+  font: 400 var(--cfp-select-text) / var(--cfp-select-lh) var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.cfp__select:is(:hover, :focus-visible) {
+  background: var(--forest);
+}
+
+.cfp__select-note {
+  color: rgb(255 255 255 / 0.4);
+}

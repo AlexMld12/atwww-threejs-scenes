@@ -1,0 +1,519 @@
+[
+  {
+    "id": "G1_std",
+    "slug": "frame-litter-bin",
+    "name": "Frame Litter Bin",
+    "category": "Litter and Recycling Bins",
+    "dimensions": [500, 276, 1000],
+    "finish": "Anthracite",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "Documented capacity: 45 L",
+    "sizes": [
+      {
+        "id": "G1_std",
+        "dimensions": [500, 276, 1000],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "G2_std",
+    "slug": "frame-park-bench",
+    "name": "Frame Park Bench",
+    "category": "Benches",
+    "dimensions": [1900, 576, 818],
+    "finish": "Sage",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "G2_std",
+        "dimensions": [1900, 576, 818],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "G3_std",
+    "slug": "frame-bench-with-bike-stand",
+    "name": "Frame Bench with Bike Stand",
+    "category": "Benches",
+    "dimensions": [1910, 510, 460],
+    "finish": "Anthracite",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "4 bicycle spaces",
+    "sizes": [
+      {
+        "id": "G3_std",
+        "dimensions": [1910, 510, 460],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "G4_std",
+    "slug": "plaza-sun-lounger",
+    "name": "Plaza Sun Lounger",
+    "category": "Sun Loungers",
+    "dimensions": [2000, 1547, 956],
+    "finish": "Warm White",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Plaza",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "G4_std",
+        "dimensions": [2000, 1547, 956],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "G5_std",
+    "slug": "plaza-picnic-table",
+    "name": "Plaza Picnic Table",
+    "category": "Picnic Tables",
+    "dimensions": [1900, 1462, 755],
+    "finish": "Petrol",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Plaza",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "G5_std",
+        "dimensions": [1900, 1462, 755],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "G6_std",
+    "slug": "reuse-bench-with-backrest",
+    "name": "Reuse Bench with Backrest",
+    "category": "Benches",
+    "dimensions": [1986, 532, 844],
+    "finish": "Warm White",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Reuse",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "G6_std",
+        "dimensions": [1986, 532, 844],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "G7_std",
+    "slug": "plaza-backless-bench",
+    "name": "Plaza Backless Bench",
+    "category": "Benches",
+    "dimensions": [2000, 554, 465],
+    "finish": "Sage",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Plaza",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "G7_std",
+        "dimensions": [2000, 554, 465],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "G8_std",
+    "slug": "reuse-wide-bench",
+    "name": "Reuse Wide Bench",
+    "category": "Benches",
+    "dimensions": [1986, 571, 460],
+    "finish": "Petrol",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Reuse",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "G8_std",
+        "dimensions": [1986, 571, 460],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "K1_Q700",
+    "slug": "frame-square-planter-q700",
+    "name": "Frame Square Planter",
+    "category": "Planters",
+    "dimensions": [725, 725, 710],
+    "finish": "Anthracite",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "Documented capacity: 262 L",
+    "sizes": [
+      {
+        "id": "K1_Q700",
+        "dimensions": [725, 725, 710],
+        "label": "Q700"
+      },
+      {
+        "id": "K1_Q950",
+        "dimensions": [970, 970, 610],
+        "label": "Q950"
+      },
+      {
+        "id": "K1_R1500",
+        "dimensions": [1509, 431, 410],
+        "label": "R1500"
+      }
+    ]
+  },
+  {
+    "id": "K1_Q950",
+    "slug": "frame-square-planter-q950",
+    "name": "Frame Square Planter",
+    "category": "Planters",
+    "dimensions": [970, 970, 610],
+    "finish": "Anthracite",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "Documented capacity: 423 L",
+    "sizes": [
+      {
+        "id": "K1_Q700",
+        "dimensions": [725, 725, 710],
+        "label": "Q700"
+      },
+      {
+        "id": "K1_Q950",
+        "dimensions": [970, 970, 610],
+        "label": "Q950"
+      },
+      {
+        "id": "K1_R1500",
+        "dimensions": [1509, 431, 410],
+        "label": "R1500"
+      }
+    ]
+  },
+  {
+    "id": "K1_R1500",
+    "slug": "frame-long-planter",
+    "name": "Frame Long Planter",
+    "category": "Planters",
+    "dimensions": [1509, 431, 410],
+    "finish": "Anthracite",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "Documented capacity: 170 L",
+    "sizes": [
+      {
+        "id": "K1_Q700",
+        "dimensions": [725, 725, 710],
+        "label": "Q700"
+      },
+      {
+        "id": "K1_Q950",
+        "dimensions": [970, 970, 610],
+        "label": "Q950"
+      },
+      {
+        "id": "K1_R1500",
+        "dimensions": [1509, 431, 410],
+        "label": "R1500"
+      }
+    ]
+  },
+  {
+    "id": "K2_single",
+    "slug": "frame-recycling-bin",
+    "name": "Frame Recycling Bin",
+    "category": "Litter and Recycling Bins",
+    "dimensions": [345, 345, 1000],
+    "finish": "Warm White",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "1 × 35 L · 35 L total",
+    "sizes": [
+      {
+        "id": "K2_single",
+        "dimensions": [345, 345, 1000],
+        "label": "Single size"
+      }
+    ]
+  },
+  {
+    "id": "K3_Q600",
+    "slug": "frame-recycling-station-q600",
+    "name": "Frame Recycling Station",
+    "category": "Litter and Recycling Bins",
+    "dimensions": [610, 590, 1000],
+    "finish": "Anthracite",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "4 × 35 L · 140 L total",
+    "sizes": [
+      {
+        "id": "K3_R900",
+        "dimensions": [900, 345, 1000],
+        "label": "R900"
+      },
+      {
+        "id": "K3_Q600",
+        "dimensions": [610, 590, 1000],
+        "label": "Q600"
+      }
+    ]
+  },
+  {
+    "id": "K3_R900",
+    "slug": "frame-recycling-station-r900",
+    "name": "Frame Recycling Station",
+    "category": "Litter and Recycling Bins",
+    "dimensions": [900, 345, 1000],
+    "finish": "Anthracite",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "3 × 35 L · 105 L total",
+    "sizes": [
+      {
+        "id": "K3_R900",
+        "dimensions": [900, 345, 1000],
+        "label": "R900"
+      },
+      {
+        "id": "K3_Q600",
+        "dimensions": [610, 590, 1000],
+        "label": "Q600"
+      }
+    ]
+  },
+  {
+    "id": "K4_1400",
+    "slug": "frame-backless-bench-1400",
+    "name": "Frame Backless Bench",
+    "category": "Benches",
+    "dimensions": [1400, 460, 460],
+    "finish": "Petrol",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K4_1400",
+        "dimensions": [1400, 460, 460],
+        "label": "1400 mm · nominal"
+      },
+      {
+        "id": "K4_1900",
+        "dimensions": [1894, 510, 460],
+        "label": "1900 mm · nominal"
+      }
+    ]
+  },
+  {
+    "id": "K4_1900",
+    "slug": "frame-backless-bench-1900",
+    "name": "Frame Backless Bench",
+    "category": "Benches",
+    "dimensions": [1894, 510, 460],
+    "finish": "Petrol",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K4_1400",
+        "dimensions": [1400, 460, 460],
+        "label": "1400 mm · nominal"
+      },
+      {
+        "id": "K4_1900",
+        "dimensions": [1894, 510, 460],
+        "label": "1900 mm · nominal"
+      }
+    ]
+  },
+  {
+    "id": "K5_1400",
+    "slug": "frame-bench-with-backrest-1400",
+    "name": "Frame Bench with Backrest",
+    "category": "Benches",
+    "dimensions": [1400, 526, 818],
+    "finish": "Petrol",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K5_1400",
+        "dimensions": [1400, 526, 818],
+        "label": "1400 mm · nominal"
+      },
+      {
+        "id": "K5_1900",
+        "dimensions": [1894, 576, 818],
+        "label": "1900 mm · nominal"
+      }
+    ]
+  },
+  {
+    "id": "K5_1900",
+    "slug": "frame-bench-with-backrest-1900",
+    "name": "Frame Bench with Backrest",
+    "category": "Benches",
+    "dimensions": [1894, 576, 818],
+    "finish": "Petrol",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K5_1400",
+        "dimensions": [1400, 526, 818],
+        "label": "1400 mm · nominal"
+      },
+      {
+        "id": "K5_1900",
+        "dimensions": [1894, 576, 818],
+        "label": "1900 mm · nominal"
+      }
+    ]
+  },
+  {
+    "id": "K6_1400",
+    "slug": "frame-bench-with-armrests-1400",
+    "name": "Frame Bench with Armrests",
+    "category": "Benches",
+    "dimensions": [1400, 526, 818],
+    "finish": "Sage",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K6_1400",
+        "dimensions": [1400, 526, 818],
+        "label": "1400 mm · nominal"
+      },
+      {
+        "id": "K6_1900",
+        "dimensions": [1900, 576, 818],
+        "label": "1900 mm · nominal"
+      }
+    ]
+  },
+  {
+    "id": "K6_1900",
+    "slug": "frame-bench-with-armrests-1900",
+    "name": "Frame Bench with Armrests",
+    "category": "Benches",
+    "dimensions": [1900, 576, 818],
+    "finish": "Sage",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Frame",
+    "paintedPart": "Metal frame / body",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K6_1400",
+        "dimensions": [1400, 526, 818],
+        "label": "1400 mm · nominal"
+      },
+      {
+        "id": "K6_1900",
+        "dimensions": [1900, 576, 818],
+        "label": "1900 mm · nominal"
+      }
+    ]
+  },
+  {
+    "id": "K7_armrests",
+    "slug": "plaza-bench-with-armrests",
+    "name": "Plaza Bench with Armrests",
+    "category": "Benches",
+    "dimensions": [2000, 582, 755],
+    "finish": "Natural Galvanised Steel",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Plaza",
+    "paintedPart": "None",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K7_armrests",
+        "dimensions": [2000, 582, 755],
+        "label": "With armrests"
+      },
+      {
+        "id": "K7_noArmrests",
+        "dimensions": [2000, 582, 755],
+        "label": "Without armrests"
+      }
+    ]
+  },
+  {
+    "id": "K7_noArmrests",
+    "slug": "plaza-bench-with-backrest",
+    "name": "Plaza Bench with Backrest",
+    "category": "Benches",
+    "dimensions": [2000, 582, 755],
+    "finish": "Natural Galvanised Steel",
+    "components": "Brown recycled plastic slats / panels",
+    "collection": "Plaza",
+    "paintedPart": "None",
+    "feature": "",
+    "sizes": [
+      {
+        "id": "K7_armrests",
+        "dimensions": [2000, 582, 755],
+        "label": "With armrests"
+      },
+      {
+        "id": "K7_noArmrests",
+        "dimensions": [2000, 582, 755],
+        "label": "Without armrests"
+      }
+    ]
+  },
+  {
+    "id": "K8_module",
+    "slug": "plaza-bike-rack",
+    "name": "Plaza Bike Rack",
+    "category": "Bike Racks",
+    "dimensions": [2070, 585, 450],
+    "finish": "Accent Orange",
+    "components": "Galvanised steel tubes",
+    "collection": "Plaza",
+    "paintedPart": "Side supports",
+    "feature": "4 bicycle spaces / module",
+    "sizes": [
+      {
+        "id": "K8_module",
+        "dimensions": [2070, 585, 450],
+        "label": "1 module"
+      }
+    ]
+  }
+]

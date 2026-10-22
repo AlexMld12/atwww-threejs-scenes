@@ -2,8 +2,6 @@
 .pillars {
   position: relative;
   height: var(--pl-h);
-  /* the right lines run on into the next section in Figma; cut here until it is built */
-  overflow: clip;
   color: var(--forest);
 }
 

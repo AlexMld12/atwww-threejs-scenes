@@ -1,0 +1,1085 @@
+/* MOBILE, TABLET, LANDSCAPE (under 1024 px; Figma has no frame for them): the desktop's sizes follow the clamp rule
+   from 1440, which keeps them at Figma's px on a phone; here they are fixed px, chosen per section after the reference
+   sites' own phone layouts (docs/SITE_FLOW.md), with 15 px at the sides. 744–1023 (a tablet, a phone on its side)
+   takes the same layout, with two columns where the references use them. Loaded last: it overrides the sections. */
+@media (max-width: 1023px) {
+  :root {
+    --m-edge:           15px;
+    --nav-x:            15px;
+    --nav-top:          15px;
+    --nav-h:            38px;
+    --nav-mark-w:       35px;
+    --nav-rule-x:       46px;
+    --nav-word-x:       58px;
+    --nav-word-size:    18px;
+    --pill-pad:         16px;
+    --pill-gap:         3px;
+    --pill-radius:      6px;
+    --mono-size:        11px;
+    --mono-lh:          15px;
+    --nav-back-icon:    11px;
+    --dv-edge:          15px;
+  }
+
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+/* NAVBAR: the mark and the word, then QUOTE (or BACK on a product's page) and the menu's button; the links move
+   into the menu (floema.com's phone menu: over the whole screen, the main links large, the others at the foot) */
+@media (max-width: 1023px) {
+  .nav__links > .pill:not(.nav__quote, .nav__back, .nav__burger, .nav__list) {
+    display: none;
+  }
+
+  .nav__burger {
+    position: relative;
+    display: inline-flex;
+    width: var(--nav-h);
+  }
+
+  .nav__burger span {
+    position: absolute;
+    left: 11px;
+    width: 16px;
+    height: 1.4px;
+    background: currentColor;
+    transition:
+      top 0.4s var(--roll-ease),
+      rotate 0.4s var(--roll-ease);
+  }
+
+  .nav__burger span:first-child {
+    top: 15px;
+  }
+
+  .nav__burger span:last-child {
+    top: 21.6px;
+  }
+
+  .nav__burger.is-open span {
+    top: 18.3px;
+  }
+
+  .nav__burger.is-open span:first-child {
+    rotate: 45deg;
+  }
+
+  .nav__burger.is-open span:last-child {
+    rotate: -45deg;
+  }
+
+  /* the menu over everything but the navbar; the navbar shows while it is open, wherever the page is */
+  .is-menu.nav {
+    top: var(--nav-top) !important;
+  }
+
+  .mm {
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 110px var(--m-edge) 30px;
+    background: var(--paper);
+    color: var(--forest);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 0.4s ease,
+      visibility 0s linear 0.4s;
+  }
+
+  .mm.is-open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.4s ease;
+  }
+
+  .mm__main {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mm__link {
+    display: block;
+    padding: 0;
+    overflow: clip;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: 400 34px / 38px var(--font-sans);
+    letter-spacing: -0.03em;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /* each link rises in its mask, one after another (0.05 s apart), on top: the text stays sharp */
+  .mm__link-inner {
+    position: relative;
+    top: 40px;
+    display: block;
+    transition: top 0.8s cubic-bezier(0.19, 1, 0.22, 1) calc(0.1s + var(--i) * 0.05s);
+  }
+
+  .mm.is-open .mm__link-inner {
+    top: 0;
+  }
+
+  .mm__sub {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    opacity: 0;
+    transition: opacity 0.6s ease 0.3s;
+  }
+
+  .mm.is-open .mm__sub {
+    opacity: 1;
+  }
+
+  .mm__column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mm__small {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: 400 14px / 19px var(--font-sans);
+    text-align: left;
+  }
+}
+
+/* a phone: the products' list and the back arrow leave the bar (the menu and the system's back gesture have them),
+   so a product's page has the same bar as the others: the mark and the word, QUOTE, the menu */
+@media (max-width: 743px) {
+  .nav__list,
+  .nav__back {
+    display: none !important;
+  }
+}
+
+/* 01 · BUILT OUTSIDE (valmont.com's phone: one column, the number hanging at the edge): the column 55 px in, the
+   text wrapping to the screen (Figma's line breaks are for its width), the scroll hint at the foot */
+@media (max-width: 1023px) {
+  :root {
+    --bo-left:          55px;
+    --bo-num-left:      15px;
+    --bo-title-size:    28px;
+    --bo-title-lh:      29px;
+    --bo-para-w:        min(422px, calc(100vw - 55px - var(--m-edge)));
+    --bo-bar-w:         40px;
+    --bo-scroll-right:  15px;
+    --bo-scroll-bottom: 30px;
+    --bo-btn-pad:       18px;
+  }
+
+  .built__line {
+    white-space: normal;
+  }
+}
+
+/* 02 · SOLID / CIVIC / CALM (fluid.glass/about's beliefs on a phone): the words one under another in a zig-zag, each
+   pill under its word, the lines left out; the same rise with the scroll */
+@media (max-width: 1023px) {
+  :root {
+    --pl-word-size:     90px;
+    --pl-pill-h:        30px;
+    --pl-pill-pad:      14px;
+  }
+
+  .pillars {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+    height: auto;
+    padding: 70px var(--m-edge);
+  }
+
+  .pillars__lines {
+    display: none;
+  }
+
+  .pillars__row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  .pillars__row:nth-child(4) {
+    align-items: flex-start;
+    padding-left: 30px;
+  }
+
+  .pillars__row:nth-child(5) {
+    padding-right: 40px;
+  }
+
+  .pillars__word,
+  .pillars__pill {
+    position: relative;
+    top: auto !important;
+    left: auto !important;
+  }
+}
+
+@media (min-width: 744px) and (max-width: 1023px) {
+  :root {
+    --pl-word-size:     150px;
+  }
+
+  .pillars {
+    padding: 100px 40px;
+  }
+}
+
+/* 03 · THE DETAILS + 04 · OUR VALUES (fluid.glass/about on a phone: one column, statements ~33 px, text 16 px):
+   everything in the flow, Figma's line breaks let go (the text wraps to the screen), the two detail cards side by
+   side, the values' rows and services one under another */
+@media (max-width: 1023px) {
+  :root {
+    --dv-statement:     30px;
+    --dv-card-title:    16px;
+    --dv-card-title-lh: 20px;
+  }
+
+  .dv--details,
+  .dv--values {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    padding: 24px var(--m-edge) 70px;
+  }
+
+  .dv > *:not(.dv__rule),
+  .dv__row > *,
+  .dv__service > *,
+  .dv__card,
+  .dv__card figcaption > *,
+  .dv__image {
+    position: relative !important;
+    inset: auto !important;
+  }
+
+  .dv .line {
+    white-space: normal;
+  }
+
+  .dv__label {
+    margin-bottom: 40px !important;
+  }
+
+  .dv__text {
+    max-width: 520px;
+    margin-bottom: 40px !important;
+  }
+
+  .dv--details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 10px;
+  }
+
+  .dv--details > .dv__label,
+  .dv--details > .dv__text {
+    grid-column: span 2;
+  }
+
+  .dv__card {
+    width: auto;
+    height: auto;
+  }
+
+  .dv__image {
+    height: auto;
+    aspect-ratio: 380 / 459;
+  }
+
+  .dv__card figcaption {
+    padding-top: 10px;
+  }
+
+  .dv__statement {
+    margin-bottom: 50px !important;
+  }
+
+  .dv__row,
+  .dv__service {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .dv__row {
+    margin-bottom: 30px;
+  }
+
+  .dv__row-rule,
+  .dv__service-rule {
+    width: 100%;
+  }
+
+  .dv__service {
+    gap: 4px;
+    margin-bottom: 14px;
+  }
+
+  .dv__service-rule {
+    margin-top: 10px;
+  }
+
+  .dv__benches {
+    width: 220px;
+    height: 122px;
+    margin-top: 40px !important;
+  }
+}
+
+/* a tablet: the values' statement beside its rows, as on the desktop but narrower */
+@media (min-width: 744px) and (max-width: 1023px) {
+  :root {
+    --dv-statement:     40px;
+  }
+
+  .dv--details,
+  .dv--values {
+    padding: 30px 30px 90px;
+  }
+}
+
+/* Figma's line breaks are for its width: on a phone the lines run on as one text (each still rises in, faded, as
+   the mask cannot clip an inline line) */
+@media (max-width: 1023px) {
+  .dv .lines,
+  .built__text {
+    display: block;
+  }
+
+  .dv .line,
+  .built__line {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    white-space: normal;
+  }
+
+  .dv .line::after,
+  .built__line::after {
+    content: ' ';
+  }
+
+  .dv .line__inner {
+    display: inline;
+    top: 0.6em;
+    opacity: 0;
+    transition:
+      top 1.2s cubic-bezier(0.215, 0.61, 0.355, 1) calc(var(--i) * 0.06s),
+      opacity 0.8s ease calc(var(--i) * 0.06s);
+  }
+
+  .dv .is-in .line__inner,
+  .dv .is-in.lines .line__inner {
+    top: 0;
+    opacity: 1;
+  }
+}
+
+/* 05 · FROM THE RANGE (fluid.glass/about's team slider on a phone: ~1.2 cards, the next peeking, heights
+   alternating): the label and the arrows on one row, the slider under them across the screen */
+@media (max-width: 1023px) {
+  :root {
+    --rg-card-w:        280px;
+    --rg-gap:           12px;
+    --rg-tall:          350px;
+    --rg-short:         262px;
+    --rg-title:         16px;
+    --rg-title-lh:      20px;
+    --rg-title-dy:      10px;
+    --rg-caption-dy:    32px;
+  }
+
+  .dv.range {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    height: auto;
+    padding: 24px 0 60px;
+  }
+
+  .range > .dv__label {
+    margin: 0 0 0 var(--m-edge) !important;
+  }
+
+  .range__arrows {
+    margin-right: var(--m-edge);
+  }
+
+  .range__viewport {
+    grid-column: span 2;
+    margin-top: 30px;
+  }
+}
+
+@media (min-width: 744px) and (max-width: 1023px) {
+  :root {
+    --rg-card-w:        330px;
+    --rg-tall:          412px;
+    --rg-short:         310px;
+  }
+}
+
+/* 07 · BUILT TO STAY: the screen's height (at least 560), the line wrapping at the foot, the buttons under it */
+@media (max-width: 1023px) {
+  :root {
+    --st-h:             max(560px, 100svh);
+    --st-title:         36px;
+  }
+
+  .st__title {
+    top: auto !important;
+    left: var(--m-edge) !important;
+    right: var(--m-edge);
+    bottom: 100px;
+    flex-wrap: wrap;
+    row-gap: 0;
+    white-space: normal;
+  }
+
+  .st__actions {
+    top: auto;
+    left: var(--m-edge);
+    right: auto;
+    bottom: 36px;
+  }
+}
+
+/* 08 · PREFOOTER (floema.com's footer on a phone: one column, 16 / 14 px, the drawings sitting on the rules): the
+   benches' drawing on top, the offices one under another, the links (main, then the others in two columns), the
+   legal lines running on; a rule over each row. A tablet: the offices in two columns. */
+@media (max-width: 1023px) {
+  :root {
+    --pf-title:         16px;
+    --pf-title-lh:      21px;
+    --pf-title-gap:     8px;
+    --pf-body:          14px;
+    --pf-body-lh:       19px;
+    --pf-main:          18px;
+    --pf-main-lh:       24px;
+    --pf-sub:           14px;
+    --pf-sub-lh:        24px;
+  }
+
+  .pf {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    padding: 40px var(--m-edge) 30px;
+  }
+
+  .pf > *,
+  .pf__row > *,
+  .pf__office,
+  .pf__sub,
+  .pf__main {
+    position: relative !important;
+    inset: auto !important;
+  }
+
+  .pf__rule,
+  .pf__drawing--bin,
+  .pf__drawing--chair {
+    display: none;
+  }
+
+  .pf__drawing--benches {
+    width: 200px !important;
+    height: 112px !important;
+  }
+
+  .pf__row {
+    display: grid;
+    gap: 24px 15px;
+    height: auto !important;
+    margin-bottom: 36px;
+    padding-top: 24px;
+    border-top: 2px solid rgb(47 74 58 / 0.15);
+  }
+
+  .pf__row:last-of-type {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pf__main {
+    grid-column: span 2;
+  }
+
+  .pf__address,
+  .pf__title {
+    white-space: normal;
+  }
+
+  .pf__legal {
+    width: auto;
+    margin-bottom: 10px !important;
+  }
+
+  .pf .lines {
+    display: block;
+  }
+
+  .pf .line {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    white-space: normal;
+  }
+
+  .pf .line::after {
+    content: ' ';
+  }
+
+  .pf .line__inner {
+    display: inline;
+  }
+}
+
+@media (min-width: 744px) and (max-width: 1023px) {
+  .pf {
+    padding: 50px 30px 40px;
+  }
+
+  .pf__row:first-of-type {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 09 · FOOTER (telhaclarke.com.au keeps its curtain on a phone): the band as on the desktop, its bottom row on two
+   lines, the copyright over the three policies spread across */
+@media (max-width: 1023px) {
+  :root {
+    --ft-edge:          var(--m-edge);
+    --ft-row:           58px;
+    --ft-copy-bottom:   30px;
+    --ft-policy-bottom: 10px;
+  }
+
+  .ft .pf {
+    height: auto;
+  }
+
+  .ft__wordmark {
+    left: var(--m-edge);
+    width: calc(100% - 2 * var(--m-edge));
+  }
+
+  .ft__band {
+    height: calc(var(--ft-edge) + (100vw - 2 * var(--m-edge)) * 140 / 1440 + var(--ft-row));
+  }
+
+  .ft__copyright {
+    font-size: 13px;
+  }
+
+  .ft__policy {
+    left: var(--m-edge) !important;
+  }
+
+  .ft__policy:nth-of-type(2) {
+    left: 50% !important;
+    translate: -50% 0;
+  }
+
+  .ft__policy--last {
+    left: auto !important;
+    right: var(--m-edge);
+  }
+}
+
+/* 06 · CONFIGURATOR (the home's section): the tabs smaller (MOTO Stack's on a phone: 26 px), everything else as on
+   the desktop, at the screen's height */
+@media (max-width: 1023px) {
+  :root {
+    --cf-tab:           26px;
+    --cf-tab-gap:       10px;
+    --cf-tabs-top:      24px;
+    --cf-rule-top:      70px;
+    --cf-name-top:      84px;
+    --cf-rule2-bottom:  84px;
+    --cf-finish-bottom: 54px;
+  }
+
+  .cf__tabs {
+    right: var(--m-edge);
+  }
+}
+
+/* PRODUCTS (floema.com/en/products on a phone: the title ~28 px, 2 columns everywhere under 1024, square cards 266
+   tall, the wide ones the whole row; on a touch screen only the name shows, no finish or measures): the header in
+   the flow, the categories one row that scrolls sideways, then the grid */
+@media (max-width: 1023px) {
+  :root {
+    --pp-title:         32px;
+    --pp-value-x:       100px;
+    --pp-cat-w:         112px;
+    --pp-cat-h:         140px;
+    --pp-cat-image:     106px;
+    --pp-cat-label:     114px;
+    --pp-gap:           10px;
+    --pp-pad:           12px;
+    --pp-name:          14px;
+    --pp-name-lh:       18px;
+    --pp-cat-title:     24px;
+    --pp-intro-rise:    80px;
+    --pp-reveal-rise:   40px;
+  }
+
+  .pp {
+    padding: 90px var(--m-edge) 60px;
+  }
+
+  .pp > :not(.pp__grid) {
+    position: relative !important;
+    inset: auto !important;
+  }
+
+  .pp__rule {
+    display: block;
+  }
+
+  .pp__rule--full {
+    display: none;
+  }
+
+  /* Figma's two lines are for its width: here one text, wrapping where the screen ends it */
+  .pp > .pp__title {
+    margin-bottom: 48px;
+  }
+
+  .pp__title-line {
+    position: relative !important;
+    top: auto !important;
+    display: inline;
+    white-space: normal;
+  }
+
+  .pp__title-line::after {
+    content: ' ';
+  }
+
+  .pp__title-line .pp__drop-inner {
+    display: inline;
+  }
+
+  .pp > .pp__label {
+    display: block;
+    margin-bottom: 18px;
+  }
+
+  .pp > .pp__rule {
+    margin-bottom: 18px;
+  }
+
+  .pp > .pp__categories {
+    display: flex;
+    gap: 6px;
+    height: auto;
+    margin: 0 calc(-1 * var(--m-edge)) 36px;
+    padding: 0 var(--m-edge);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pp__category {
+    position: relative;
+    left: auto !important;
+    flex: none;
+  }
+
+  .pp__category-image img {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .pp__grid {
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: auto;
+    margin-top: 10px;
+  }
+
+  .pp__card {
+    grid-column: auto !important;
+    grid-row: auto !important;
+    height: 266px;
+  }
+
+  .pp__card[data-w='2'] {
+    grid-column: span 2 !important;
+    height: 380px;
+  }
+
+  .pp__card[data-h='2'] {
+    grid-row: span 2 !important;
+    height: calc(2 * 266px + var(--pp-gap));
+  }
+
+  .pp__card[data-empty] {
+    display: none;
+  }
+
+  /* each render at Figma's size for its card (a share of its width, --size), centred under the name, as floema's;
+     a wide card is twice as wide here as on the desktop's grid share, so its render at the share of a single one */
+  .pp__render {
+    top: 56% !important;
+    left: 50% !important;
+    width: calc(var(--size) * 1%) !important;
+    translate: -50% -50%;
+  }
+
+  .pp__card[data-w='2'] .pp__render {
+    width: calc(var(--size) * 1.6%) !important;
+  }
+
+  .pp__name {
+    width: calc(100% - 2 * var(--pp-pad));
+    white-space: normal;
+  }
+
+  .pp__tag,
+  .pp__finish,
+  .pp__swatches,
+  .pp__measure {
+    display: none;
+  }
+
+  .pp__card--catalogue .pp__tag {
+    display: flex;
+  }
+
+  .pp__download-title {
+    width: calc(100% - 2 * var(--pp-pad) - 50px);
+    white-space: normal;
+  }
+}
+
+@media (min-width: 744px) and (max-width: 1023px) {
+  :root {
+    --pp-title:         44px;
+  }
+
+  .pp {
+    padding: 110px 30px 80px;
+  }
+
+  .pp__card {
+    height: 340px;
+  }
+
+  .pp__card[data-w='2'] {
+    height: 460px;
+  }
+
+  .pp__card[data-h='2'] {
+    height: calc(2 * 340px + var(--pp-gap));
+  }
+}
+
+/* PRODUCT PAGE (pedestal.com on a phone: one column, text 16 px from the edge, the gallery 60svh, the options under
+   it, the configure / add cards full width, the gallery's pictures one under another, the showcase's colours a
+   horizontal pill at the stage's foot, the specification rows label | value) */
+@media (max-width: 1023px) {
+  :root {
+    --ph-title:         28px;
+    --ph-title-lh:      32px;
+    --ph-label:         14px;
+    --ph-label-lh:      18px;
+    --ph-card-h:        58px;
+    --ps-statement-size:26px;
+    --ps-statement-lh:  29px;
+    --ps-statement-w:   100%;
+    --ps-pictures-top:  36px;
+    --ps-pictures-edge: 4px;
+    --ps-pictures-gap:  4px;
+    --sc-edge:          4px;
+    --sc-h:             280svh;
+    --sc-statement-top: 40px;
+    --sp-statement-top: 50px;
+    --sp-statement-size:26px;
+    --sp-statement-w:   100%;
+    --sp-drawing-dy:    40px;
+    --sp-table-dy:      30px;
+    --sp-value-x:       113px;
+    --sp-value-w:       1fr;
+    --sp-note-w:        100%;
+    --sp-notes-dy:      30px;
+    --sp-sheet-w:       100%;
+    --sp-picture-dy:    30px;
+    --pn-title:         26px;
+    --pn-title-lh:      30px;
+    --pn-text-w:        calc(100% - 2 * var(--pn-inset));
+    --pn-inset:         15px;
+  }
+
+  /* hero: the plaza, then the title and the options in the flow */
+  .ph {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    padding-bottom: 36px;
+  }
+
+  .ph > *,
+  .ph__group > * {
+    position: relative !important;
+    inset: auto !important;
+  }
+
+  .ph__stage {
+    height: max(360px, 62svh);
+  }
+
+  .ph__next {
+    position: absolute !important;
+    top: calc(max(360px, 62svh) - 64px) !important;
+    right: var(--m-edge) !important;
+    left: auto !important;
+  }
+
+  .ph__title {
+    margin: 24px var(--m-edge) 0 !important;
+  }
+
+  .ph__group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 22px var(--m-edge) 0;
+  }
+
+  .ph__sizes,
+  .ph__swatches {
+    flex-wrap: wrap;
+  }
+
+  .ph__cards {
+    flex-direction: column;
+    margin: 26px var(--m-edge) 0;
+  }
+
+  .ph__card {
+    width: 100% !important;
+  }
+
+  .ph__rule {
+    display: none;
+  }
+
+  /* THE BENCH */
+  .ps {
+    padding: 40px 0 4px;
+  }
+
+  .ps__label {
+    position: relative !important;
+    top: auto !important;
+    left: var(--m-edge);
+    margin-bottom: 18px;
+  }
+
+  .ps__statement,
+  .sc__statement,
+  .spec__statement {
+    width: auto;
+    margin: 0 var(--m-edge);
+  }
+
+  .ps__pictures {
+    grid-template-columns: 1fr;
+  }
+
+  .ps__picture--wide {
+    grid-column: auto;
+  }
+
+  .ps__picture--end,
+  .ps__picture--detail {
+    aspect-ratio: 4 / 5;
+  }
+
+  /* SHOWCASE: the colours a pill along the stage's foot */
+  .sc__swatches {
+    top: auto;
+    bottom: 24px;
+    left: 50%;
+    flex-direction: row;
+    translate: -50% 0;
+  }
+
+  /* SPECIFICATIONS */
+  .spec__label {
+    position: relative;
+    top: auto !important;
+    left: auto;
+    margin: 0 var(--m-edge) 16px;
+  }
+
+  .spec__drawing {
+    margin: 0 var(--m-edge);
+  }
+
+  .spec__table,
+  .spec__notes {
+    width: auto;
+    margin-left: var(--m-edge);
+    margin-right: var(--m-edge);
+  }
+
+  .spec__title {
+    white-space: normal;
+  }
+
+  .spec__notes {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .spec__row--sheet {
+    margin-left: var(--m-edge);
+    margin-right: var(--m-edge);
+  }
+
+  .spec__sheet {
+    margin-left: 0;
+  }
+
+  .spec__picture {
+    margin-left: 4px;
+    margin-right: 4px;
+  }
+
+  /* the two cards, one under another */
+  .pn {
+    grid-template-columns: 1fr;
+    padding: 4px 4px 0;
+  }
+
+  .pn__card {
+    aspect-ratio: 4 / 5;
+  }
+}
+
+@media (min-width: 744px) and (max-width: 1023px) {
+  :root {
+    --ph-title:         36px;
+    --ps-statement-size:34px;
+    --ps-statement-lh:  37px;
+    --sp-statement-size:34px;
+  }
+
+  .ps__pictures,
+  .pn {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ps__picture--wide {
+    grid-column: span 2;
+  }
+}
+
+/* THE CONFIGURATOR'S PAGE (MOTO Stack on a phone: the tabs at the top, the controls a panel along the foot): the
+   sizes, the finish and its swatches, then the steps and SELECT on one row; the plan left out on a phone */
+@media (max-width: 1023px) {
+  .cfp .cf__tabs {
+    top: 64px;
+  }
+
+  .cfp .cf__rule--top {
+    top: 104px;
+  }
+
+  .cfp .cf__name {
+    top: 116px;
+  }
+
+  .cfp__plan {
+    display: none;
+  }
+
+  .cfp__rule--bottom {
+    bottom: 236px;
+  }
+
+  .cfp__bar {
+    right: var(--m-edge);
+    bottom: 90px;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .cfp__bar .ph__sizes {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .cfp__steps {
+    right: auto;
+    left: var(--m-edge);
+    bottom: 20px;
+    flex-direction: row;
+  }
+
+  .cfp__step {
+    width: 48px;
+    height: 56px;
+  }
+
+  .cfp__select {
+    right: var(--m-edge);
+    bottom: 20px;
+    width: calc(100% - 2 * var(--m-edge) - 2 * 48px - 2 * 4px);
+    height: 56px;
+    padding-top: 9px;
+  }
+}
+
+/* a tablet: the plan back at the left, over the bar */
+@media (min-width: 744px) and (max-width: 1023px) {
+  .cfp__plan {
+    display: block;
+    bottom: 250px !important;
+  }
+}
+
+/* THE QUOTE LIST (pedestal.com's cart on a phone: the drawer 4 px from every edge) */
+@media (max-width: 743px) {
+  .qd__panel {
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: auto;
+  }
+
+  .qd__spec {
+    white-space: normal;
+  }
+
+  .qd__actions {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}

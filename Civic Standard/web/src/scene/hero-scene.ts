@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { handOver, loaderMask, onLoaded, sceneIn } from '@/lib/intro';
 import { fetchWithProgress, finishTask, reportProgress } from '@/lib/preload';
-import { scrollPosition, setScrollGate } from '@/lib/scroll';
+import { scrollPosition } from '@/lib/scroll';
 import { createBackdrop } from './backdrop';
 import { createReflections } from './environment';
 import { createGlass } from './glass';
@@ -106,7 +106,6 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     renderer.capabilities.getMaxAnisotropy(),
   );
   const takeover = createTakeover(assets.benchMap, benchPanels);
-  const liftGate = setScrollGate(() => takeover.gate());
   const logoMesh = assets.gltf.scene.getObjectByProperty('isMesh', true) as THREE.Mesh;
   const glass = createGlass(renderer, logoMesh.geometry, reflections.texture, assets.backdropMap, assets.leavesMap);
   const logo = createLogo(assets.gltf.scene, glass);
@@ -129,8 +128,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
   let angle = TUBE.phase;
   let spin = 0;
   let direction = 1;
-  let travel = 0;
   let lastScroll = scrollPosition();
+  // The scroll as the tube shows it (eased once more than the page): the rows, the turn to the bench and the photo's
+  // growth all follow this one value, so the motion keeps one feel from the tube into the takeover.
+  let shownScroll = lastScroll;
   let loaded = false;
   let loadedAt = -1;
   let elapsed = 0;
@@ -147,12 +148,12 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     const stageHeight = Math.max(canvas.clientHeight, 1);
     // Until the handover the logo faces the camera, exactly where the preloader drew it.
     const motion = direction * TUBE.idleSpin * intro.spin + spin;
-    angle = takeover.turn(angle, motion, direction, scroll, stageHeight, dt);
-    travel += (takeover.travelFor(scroll) - travel) * (1 - Math.pow(1 - SCROLL.follow, dt * 60));
+    shownScroll += (scroll - shownScroll) * (1 - Math.pow(1 - SCROLL.follow, dt * 60));
+    angle = takeover.turn(angle, motion, shownScroll, dt);
 
-    const shift = wrapRows(travel);
+    const shift = wrapRows(takeover.travelFor(shownScroll));
     rows.forEach((row, i) => {
-      const rest = 1 - intro.rows[i];
+      const rest = 1 - intro.rise(i - shift / TUBE.rowSpacing);
       row.position.y = (i - (TUBE.rows - 1) / 2) * TUBE.rowSpacing - shift - INTRO.riseDistance * rest;
       row.rotation.y = angle * TUBE.familySpeeds[i % TUBE.familySpeeds.length] + INTRO.riseTwist * rest;
     });
@@ -163,11 +164,12 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     // The navbar comes in as the first row rises into the frame (the tube's front edge), not when the rise starts.
     const frontEdge = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.position.z - TUBE.radius);
     if (loadedAt >= 0 && rows.some((row) => row.position.y + TUBE.panelHeight / 2 > -frontEdge)) sceneIn();
-    takeover.grow(scroll, canvas.clientWidth, stageHeight);
+    takeover.grow(shownScroll, canvas.clientWidth, stageHeight);
 
     elapsed += dt;
     backdropUniforms.backdropTime.value = elapsed;
     backdropUniforms.backdropReveal.value = intro.backdrop;
+    glass.setWallThrough(1 - intro.backdrop);
   };
 
   // Compile with the takeover card on as well, so it does not stall the frame it first appears in.
@@ -182,8 +184,18 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     loaded = true;
   });
 
+  // Past the hero (the page below it) nothing of it is seen: no update, no ray-traced frame for the GPU.
+  let onScreen = true;
+  const visibility = new IntersectionObserver((entries) => (onScreen = entries.at(-1)!.isIntersecting));
+  visibility.observe(canvas.closest('section') ?? canvas);
+
   let last = performance.now();
   renderer.setAnimationLoop((now) => {
+    if (!onScreen && loadedAt >= 0) {
+      last = now;
+      lastScroll = shownScroll = scrollPosition();
+      return;
+    }
     if (loaded && loadedAt < 0) loadedAt = now;
     update(Math.min((now - last) / 1000, 0.1), now);
     last = now;
@@ -192,10 +204,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
   });
 
   return () => {
-    liftGate();
     stopLoaded();
     renderer.setAnimationLoop(null);
     observer.disconnect();
+    visibility.disconnect();
     scene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose();

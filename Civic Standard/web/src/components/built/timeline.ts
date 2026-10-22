@@ -13,7 +13,7 @@ export const TIMELINE = {
   pinned: 4.6,
 };
 
-/** Where each item is in its place: the page rests there (lib/scroll, the stops), so a fast scroll can't skip one. */
+/** Where each item is in its place: when the scroll pauses between two, the page settles on one (lib/scroll). */
 export const STOPS = [TIMELINE.arrive[1], ...TIMELINE.changes.map((start) => start + TIMELINE.changeLength)];
 
 // As in the reference (Valmont, Resn): the next photo shows a tenth of the screen before its edge sweeps up.
@@ -66,8 +66,12 @@ export function titleAt(k: number, position: number, stageHeight: number) {
   return { top: a.top + (b.top - a.top) * u, opacity: a.opacity + (b.opacity - a.opacity) * u };
 }
 
-/** The item that is in its place (its text shows), or −1 while the titles move. */
+// The text stays while the page is this near an item's place (in items), not only exactly on it: free scrolling
+// passes through, and a little scroll while reading must not take the text away.
+const ARRIVED_WITHIN = 0.35;
+
+/** The item near its place (its text shows), or −1 while the titles are between two. */
 export function arrivedAt(position: number) {
   const k = Math.round(position);
-  return k >= 0 && Math.abs(position - k) < 1e-3 ? k : -1;
+  return k >= 0 && Math.abs(position - k) < ARRIVED_WITHIN ? k : -1;
 }

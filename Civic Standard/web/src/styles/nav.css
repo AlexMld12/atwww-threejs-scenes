@@ -12,7 +12,7 @@
   transition: top 0.7s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-.is-scene-in:not(.is-nav-hidden) .nav {
+.is-scene-in:not(.is-nav-hidden, .is-nav-away, .is-preloading) .nav {
   top: var(--nav-top);
 }
 
@@ -29,6 +29,38 @@
   width: var(--nav-mark-w);
   height: var(--nav-h);
   fill: var(--green);
+  transition: fill 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* over a product's plaza the mark is light (Figma), green again once the plaza has passed under it */
+.nav__word,
+.nav__rule {
+  transition:
+    color 0.4s cubic-bezier(0.65, 0, 0.35, 1),
+    background-color 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.is-nav-light .nav__brand {
+  color: var(--paper);
+}
+
+.is-nav-light .nav__mark {
+  fill: var(--paper);
+}
+
+.is-nav-light .nav__rule {
+  background: rgb(243 240 234 / 0.15);
+}
+
+.nav__back svg {
+  display: block;
+  width: var(--nav-back-icon);
+  fill: currentColor;
+  transition: translate 0.5s var(--roll-ease);
+}
+
+.nav__back:is(:hover, :focus-visible) svg {
+  translate: calc(-1 * clamp(3px, 3 / 1720 * 100vw, 3 / 1720 * 100vw)) 0;
 }
 
 .nav__rule {
@@ -91,6 +123,10 @@
   padding: 0;
 }
 
+.nav__back {
+  width: var(--nav-h);
+}
+
 /* hover: the button turns green; its label rolls letter by letter from the last one, and back on hover out
    (each letter moves on top, not transform, so it stays sharp) */
 .pill,
@@ -135,21 +171,42 @@
   transition: scale 0.5s var(--roll-ease);
 }
 
-:is(.pill, .built__actions):is(:hover, :focus-visible) .roll__face {
+:is(.pill, .built__actions, .cf__actions, .st__actions, .pn__buttons):is(:hover, :focus-visible) .roll__face {
   top: -100%;
   transition-delay: calc((var(--n) - 1 - var(--i)) * var(--roll-step));
 }
 
-:is(.pill, .built__actions):is(:hover, :focus-visible) .roll__face--next {
+:is(.pill, .built__actions, .cf__actions, .st__actions, .pn__buttons):is(:hover, :focus-visible) .roll__face--next {
   top: 0;
 }
 
+/* a label and its arrow are one button: hovering either turns both */
 .pill:is(:hover, :focus-visible),
-.built__actions:hover .pill {
+:is(.built__actions, .st__actions, .pn__buttons):hover .pill {
   background: var(--green);
   color: #fff;
 }
 
 .nav__search:is(:hover, :focus-visible) svg {
   scale: 1.18;
+}
+
+/* the configurator's page: its tabs where the logo would be (Configurator.pdf) */
+.nav--bare .nav__brand {
+  visibility: hidden;
+}
+
+/* its bar spans the page's top, over the tabs: only the buttons take the pointer */
+.nav--bare {
+  pointer-events: none;
+}
+
+.nav--bare .nav__links {
+  pointer-events: auto;
+}
+
+/* the menu's button and the menu itself: under 1024 px only (mobile.css) */
+.nav__burger,
+.mm {
+  display: none;
 }

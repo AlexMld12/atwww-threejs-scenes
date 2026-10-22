@@ -17,10 +17,36 @@ html::-webkit-scrollbar {
   display: none;
 }
 
-html:not(.is-handed-over) {
+html:not(.is-handed-over, .is-scroll-free) {
   overflow: hidden;
 }
 
 body {
   overflow-x: clip;
+}
+
+::selection {
+  background: var(--green);
+  color: #fff;
+}
+
+/* a page shown in the same document hides the other (routes.ts) */
+.view[hidden] {
+  display: none;
+}
+
+/* the page-change cover (transition/dither.ts): over everything, taking the clicks only while it runs */
+.transition {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.transition.is-active {
+  pointer-events: auto;
+  visibility: visible;
 }

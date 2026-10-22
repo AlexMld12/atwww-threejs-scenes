@@ -8,6 +8,7 @@ const TASKS = {
   paintings: 0.77,
   bench: 0.44,
   compile: 0.3,
+  configurator: 2.4,
 } as const;
 
 export type PreloadTask = keyof typeof TASKS;

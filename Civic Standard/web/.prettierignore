@@ -4,3 +4,4 @@ public
 next-env.d.ts
 *.css
 *.md
+src/components/products/grid.json

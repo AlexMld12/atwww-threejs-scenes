@@ -1,0 +1,751 @@
+/* PRODUCT: the hero placed as Figma (Product CMS.pdf); motion in ProductHero.tsx's notes. Text moves on `top`. */
+.ph {
+  --expo-out: cubic-bezier(0.19, 1, 0.22, 1);
+  --circ-out: cubic-bezier(0.075, 0.82, 0.165, 1);
+  position: relative;
+  height: var(--ph-h);
+  color: var(--forest);
+}
+
+.ph > *,
+.ph__group > * {
+  position: absolute;
+  margin: 0;
+}
+
+.ph__group {
+  position: static;
+}
+
+.ph__stage {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--ph-stage);
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.ph__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.4s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.is-shown .ph__canvas {
+  opacity: 1;
+}
+
+.ph__next {
+  display: grid;
+  place-items: center;
+  width: var(--ph-next);
+  height: var(--ph-next);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--forest);
+  cursor: pointer;
+  opacity: 0;
+  scale: 0.6;
+  transition:
+    opacity 0.6s ease 1.1s,
+    scale 0.8s var(--expo-out) 1.1s,
+    background-color 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.is-shown .ph__next {
+  opacity: 1;
+  scale: 1;
+}
+
+.ph__next:is(:hover, :focus-visible) {
+  background: var(--green);
+}
+
+.ph__next svg {
+  width: var(--ph-next-icon-w);
+  height: var(--ph-next-icon-h);
+  fill: #fff;
+  transition: translate 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.ph__next:is(:hover, :focus-visible) svg {
+  translate: clamp(3px, 3 / 1720 * 100vw, 3 / 1720 * 100vw) 0;
+}
+
+/* the title rises in its mask */
+.ph__title {
+  left: var(--ph-edge);
+  overflow: hidden;
+  color: #231f20;
+  font: 400 var(--ph-title) / var(--ph-title-lh) var(--font-sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.ph__mask-inner {
+  position: relative;
+  top: var(--ph-title-lh);
+  display: block;
+  transition: top 1.2s var(--expo-out) 0.35s;
+}
+
+.is-shown .ph__mask-inner {
+  top: 0;
+}
+
+/* the bar: each group comes up after the other */
+.ph__group > * {
+  opacity: 0;
+  translate: 0 var(--ph-rise);
+  transition:
+    opacity 0.8s ease calc(0.55s + var(--i) * 0.08s),
+    translate 1s var(--expo-out) calc(0.55s + var(--i) * 0.08s);
+}
+
+.is-entered .ph__group > * {
+  opacity: 1;
+  translate: none;
+}
+
+.ph__label {
+  color: rgb(14 31 20 / 0.4);
+  font: 400 var(--ph-label) / var(--ph-label-lh) var(--font-sans);
+  white-space: nowrap;
+}
+
+.ph__swatches,
+.ph__sizes {
+  display: flex;
+}
+
+.ph__swatches {
+  gap: var(--ph-swatch-gap);
+}
+
+.ph__swatch {
+  width: var(--ph-swatch);
+  height: var(--ph-swatch);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--ph-swatch) / 2);
+  background: var(--swatch);
+  cursor: pointer;
+  transition: width 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.ph__swatch.is-on {
+  width: var(--ph-swatch-on);
+}
+
+.ph__swatch.is-light {
+  box-shadow: 0 0 0 var(--ph-swatch-ring) rgb(0 0 0 / 0.1);
+}
+
+.ph__sizes {
+  gap: var(--ph-size-gap);
+}
+
+.ph__size {
+  height: var(--ph-size-h);
+  padding: 0 var(--ph-size-pad);
+  border: 0;
+  border-radius: var(--ph-size-radius);
+  background: var(--paper);
+  box-shadow: 0 0 0 var(--ph-size-border) rgb(0 0 0 / 0.21);
+  color: var(--button-ink);
+  font: 400 var(--ph-size-text) / 1 var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.4s cubic-bezier(0.65, 0, 0.35, 1),
+    box-shadow 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.ph__size.is-on {
+  background: #fff;
+  box-shadow: 0 0 0 var(--ph-size-border) #000;
+  cursor: default;
+}
+
+.ph__size:not(.is-on):is(:hover, :focus-visible) {
+  background: #fff;
+}
+
+.ph__cards {
+  position: absolute;
+  right: var(--ph-edge);
+  display: flex;
+  gap: var(--ph-card-gap);
+}
+
+.ph__cards > * {
+  position: relative;
+}
+
+.ph__card {
+  position: relative;
+  height: var(--ph-card-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ph-card-radius);
+  font: 400 var(--ph-card-text) / var(--ph-card-lh) var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ph__card--configure {
+  width: var(--ph-configure-w);
+  background: #fafafa;
+  box-shadow: 0 0 0 clamp(1px, 1 / 1720 * 100vw, 1 / 1720 * 100vw) rgb(33 33 33 / 0.2);
+  color: #212121;
+}
+
+.ph__card--quote {
+  width: var(--ph-quote-w);
+  background: var(--green);
+  color: #fff;
+}
+
+.ph__card-title,
+.ph__card-note {
+  position: absolute;
+  left: var(--ph-card-pad);
+  white-space: nowrap;
+}
+
+.ph__card-title {
+  top: var(--ph-card-title-top);
+}
+
+.ph__card-note {
+  top: calc(var(--ph-card-title-top) + var(--ph-card-lh));
+  opacity: 0.65;
+}
+
+.ph__card--quote :is(.ph__card-title, .ph__card-note) {
+  left: var(--ph-quote-pad);
+}
+
+.ph__card--quote .ph__card-title {
+  top: var(--ph-quote-title-top);
+}
+
+.ph__card--quote .ph__card-note {
+  top: calc(var(--ph-quote-title-top) + var(--ph-card-lh) - clamp(1px, 1 / 1720 * 100vw, 1 / 1720 * 100vw));
+  opacity: 0.4;
+}
+
+.ph__card-icon {
+  position: absolute;
+  top: var(--ph-icon-inset);
+  right: var(--ph-icon-inset);
+  display: grid;
+  place-items: center;
+  width: var(--ph-icon-w);
+  height: var(--ph-icon-h);
+  border-radius: var(--ph-icon-radius);
+  background: #212121;
+  transition: scale 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.ph__card-icon svg {
+  width: var(--ph-configure-icon-w);
+  fill: #fff;
+  transition: scale 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.ph__card--quote .ph__card-icon {
+  top: var(--ph-quote-icon-inset);
+  right: var(--ph-quote-icon-inset);
+  background: var(--paper);
+}
+
+.ph__card--quote .ph__card-icon svg {
+  width: var(--ph-cart-icon-w);
+  fill: var(--green);
+}
+
+.ph__card:is(:hover, :focus-visible) .ph__card-icon svg {
+  scale: 1.15;
+}
+
+.ph__rule {
+  left: var(--ph-edge);
+  right: var(--ph-edge);
+  height: var(--ph-rule);
+  background: rgb(47 74 58 / 0.15);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.4s cubic-bezier(0.215, 0.61, 0.355, 1) 0.6s;
+}
+
+.is-entered .ph__rule {
+  transform: none;
+}
+
+/* a product without its 3D model: a green band across the plaza, its label running (on `left`: stays sharp) */
+.ph__soon {
+  left: -5%;
+  width: 110%;
+  height: var(--ph-soon-h);
+  overflow: hidden;
+  background: var(--green);
+  rotate: -3deg;
+  opacity: 0;
+  transition: opacity 0.8s ease 0.9s;
+}
+
+.is-shown .ph__soon {
+  opacity: 1;
+}
+
+.ph__soon-run {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: 200%;
+  height: 100%;
+  animation: ph-soon 40s linear infinite;
+}
+
+.ph__soon-half {
+  display: flex;
+  flex: 1 0 50%;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.ph__soon-run span {
+  padding: 0 var(--ph-soon-gap);
+  color: #fff;
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ph__soon-run span::after {
+  content: '';
+  display: inline-block;
+  width: var(--bo-dot);
+  height: var(--bo-dot);
+  margin-left: calc(2 * var(--ph-soon-gap));
+  border-radius: 50%;
+  background: #fff;
+  vertical-align: middle;
+}
+
+@keyframes ph-soon {
+  to {
+    left: -100%;
+  }
+}
+
+/* THE BENCH: the label and the statement as Figma places them, the pictures below in Figma's proportions (the wide
+   one 1424 × 801, the two tall 708 × 885), as wide as the page */
+.ps {
+  position: relative;
+  padding: var(--ps-statement-top) var(--ps-pictures-edge) var(--ps-bottom);
+}
+
+.ps__label {
+  position: absolute;
+  left: var(--ph-edge);
+  --lh: var(--mono-lh);
+  color: #212325;
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.ps__statement {
+  width: var(--ps-statement-w);
+  margin-left: 50%;
+  color: var(--forest);
+  font: 400 var(--ps-statement-size) / var(--ps-statement-lh) var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+/* the fill (Statement.tsx): a letter goes from 15 % to full over 6 % of the way, at its place in the statement */
+.statement__word {
+  white-space: nowrap;
+}
+
+.statement__letter {
+  opacity: calc(0.15 + 0.85 * clamp(0, (var(--fill, 0) * 1.06 - var(--k)) / 0.06, 1));
+}
+
+.ps__pictures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-pictures-gap);
+  margin-top: var(--ps-pictures-top);
+}
+
+.ps__picture--wide {
+  grid-column: span 2;
+  aspect-ratio: 1424 / 801;
+}
+
+.ps__picture--end,
+.ps__picture--detail {
+  aspect-ratio: 708 / 885;
+}
+
+/* a picture of the gallery (Picture.tsx): the still under the live picture, there at once; both settle from a little
+   nearer as they are uncovered, from the screen's foot up (Picture.tsx) */
+.picture {
+  position: relative;
+  margin: 0;
+}
+
+.picture__mask {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--ps-picture-radius);
+  background: var(--card);
+  /* covered until Picture.tsx uncovers it (inline), from the screen's foot up */
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path 1.4s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picture__mask {
+    transition: none;
+  }
+}
+
+.picture__poster,
+.picture__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  scale: 1.12;
+  transition: scale 2s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.picture__poster {
+  object-fit: cover;
+}
+
+.picture__canvas {
+  opacity: 0;
+  transition:
+    opacity 0.8s ease,
+    scale 2s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.picture__mask.is-ready .picture__canvas {
+  opacity: 1;
+}
+
+.picture.is-in :is(.picture__poster, .picture__canvas) {
+  scale: 1;
+}
+
+/* THE SHOWCASE: a block of the chosen colour at 60 % over the paper, 8 from the edges; the text at the top, then the
+   stage (the screen's height, pinned while the block passes) with the product and the colours */
+.sc {
+  position: relative;
+  display: flow-root; /* the stage's margin stays inside */
+  height: var(--sc-h);
+  margin: 0 var(--sc-edge);
+  padding-top: var(--sc-statement-top);
+  background: color-mix(in srgb, var(--swatch) 60%, var(--paper));
+  transition: background-color 0.3s ease-out;
+}
+
+.sc__statement {
+  width: var(--ps-statement-w);
+  margin-left: 50%;
+  color: var(--forest);
+  font: 400 var(--ps-statement-size) / var(--ps-statement-lh) var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+/* right under the text, as pedestal's (the user: Figma's product sat too far below it) */
+.sc__stage {
+  position: sticky;
+  top: 0;
+  height: var(--stage-h);
+}
+
+.sc__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.sc.is-ready .sc__canvas {
+  opacity: 1;
+}
+
+.sc__swatches {
+  position: absolute;
+  top: calc(50% - var(--sc-swatches-above));
+  left: var(--sc-swatches-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sc-swatches-pad);
+  padding: var(--sc-swatches-pad);
+  border-radius: calc(var(--sc-swatches-w) / 2);
+  background: #fff;
+  translate: 0 -50%;
+}
+
+.sc__swatch {
+  width: var(--sc-swatch);
+  height: var(--sc-swatch);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--sc-swatch) / 2);
+  background: var(--colour);
+  cursor: pointer;
+  transition: height 0.3s ease-out;
+}
+
+.sc__swatch.is-on {
+  height: var(--sc-swatch-on);
+}
+
+/* rises a little into place as it comes into view (use-reveal): top, not a transform, so the text stays sharp */
+[data-reveal='rise'] {
+  position: relative;
+  top: var(--ph-rise);
+  opacity: 0;
+  transition:
+    top 1.2s cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 0.8s ease;
+}
+
+[data-reveal='rise'].is-in {
+  top: 0;
+  opacity: 1;
+}
+
+/* SPECIFICATIONS: the statement, the drawing and the table in the right column (from the centre), the labels at the
+   left edge level with what they name; then the spec sheet's card and the picture as wide as the page */
+.spec {
+  position: relative;
+  padding-top: var(--sp-statement-top);
+  overflow-x: clip; /* the drawing's drift may pass the page's edge */
+}
+
+.spec__rule {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--ph-rule);
+  background: rgb(47 74 58 / 0.15);
+  transform-origin: left;
+}
+
+.spec__rule--top {
+  top: calc(-0.5 * var(--ph-rule));
+  left: var(--ph-edge);
+  right: var(--ph-edge);
+}
+
+.spec__statement {
+  width: var(--sp-statement-w);
+  margin-left: 50%;
+  color: var(--forest);
+  font: 400 var(--sp-statement-size) / var(--sp-statement-size) var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+.spec__row {
+  position: relative;
+}
+
+.spec__label {
+  position: absolute;
+  left: var(--ph-edge);
+  --lh: var(--mono-lh);
+  color: #212325;
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.spec__row--drawing {
+  margin-top: var(--sp-drawing-dy);
+}
+
+.spec__drawing {
+  position: relative;
+  height: var(--sp-drawing-h);
+  margin-left: calc(50% - var(--sp-drawing-left));
+}
+
+.spec__drawing-img {
+  position: absolute;
+  display: block;
+  opacity: 0.2;
+}
+
+.spec__table {
+  width: var(--sp-statement-w);
+  margin: var(--sp-table-dy) 0 0 50%;
+}
+
+.spec__entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sp-value-x) var(--sp-value-w);
+  align-items: start;
+  box-sizing: border-box;
+  min-height: var(--sp-entry-min);
+  padding: var(--sp-entry-top) 0 var(--sp-entry-bottom);
+}
+
+/* MATERIAL, FRAME, DOWNLOAD SPEC SHEET: Figma's heavier cut, as the navbar's wordmark (nav.css) */
+.spec__title {
+  margin: 0;
+  color: var(--forest);
+  font: 400 var(--sp-title) / var(--sp-title-lh) var(--font-sans);
+  -webkit-text-stroke: var(--sp-title-stroke) currentColor;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.spec__text {
+  margin: 0;
+  color: var(--forest);
+  font: 400 var(--sp-text) / var(--sp-text-lh) var(--font-sans);
+}
+
+.spec__notes {
+  display: grid;
+  grid-template-columns: repeat(3, var(--sp-note-w));
+  gap: var(--sp-note-gap);
+  margin: var(--sp-notes-dy) 0 0 50%;
+}
+
+.spec__note .spec__text {
+  margin-top: var(--sp-note-dy);
+}
+
+.spec__row--sheet {
+  margin-top: var(--sp-sheet-dy);
+}
+
+.spec__sheet {
+  display: block;
+  width: var(--sp-sheet-w);
+  height: var(--sp-sheet-h);
+  margin-left: 50%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sp-sheet-radius);
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.spec__sheet .spec__title {
+  position: absolute;
+  top: var(--sp-sheet-title-top);
+  left: var(--sp-sheet-pad);
+}
+
+.spec__file {
+  position: absolute;
+  top: var(--sp-sheet-pad);
+  right: var(--sp-sheet-pad);
+  width: var(--sp-file-w);
+  height: var(--sp-file-h);
+  overflow: visible;
+  fill: none;
+  stroke: #212121;
+  stroke-width: 1.35;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spec__picture {
+  aspect-ratio: 1424 / 801;
+  margin: var(--sp-picture-dy) var(--ps-pictures-edge) 0;
+}
+
+/* the two cards: Figma's crops of the spec sheet's picture, the text at the top, the call to action at the foot */
+.pn {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ps-pictures-gap);
+  padding: var(--ps-pictures-gap) var(--ps-pictures-edge) 0;
+}
+
+.pn__card {
+  aspect-ratio: 708 / 885;
+}
+
+.pn__copy {
+  position: absolute;
+  left: var(--pn-inset);
+  width: var(--pn-text-w);
+  color: #fff;
+}
+
+.pn__title {
+  margin: 0;
+  font: 400 var(--pn-title) / var(--pn-title-lh) var(--font-sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.pn__text {
+  margin-bottom: 0;
+  font: 400 var(--sp-text) / var(--pn-text-lh) var(--font-sans);
+}
+
+.pn__actions {
+  position: absolute;
+  left: var(--pn-inset);
+  bottom: var(--pn-inset);
+}
+
+.pn__buttons {
+  display: flex;
+  gap: var(--bo-btn-gap);
+}
+
+.pn__button {
+  height: var(--bo-btn-h);
+  padding: 0 var(--bo-btn-pad);
+}
+
+.pn__arrow {
+  position: relative;
+  left: 0;
+  width: var(--bo-btn-h);
+  height: var(--bo-btn-h);
+  transition:
+    left 0.5s cubic-bezier(0.65, 0, 0.35, 1),
+    background-color 0.4s cubic-bezier(0.65, 0, 0.35, 1),
+    color 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.pn__buttons:hover .pn__arrow {
+  left: var(--bo-arrow-shift);
+}
+
+.pn__arrow svg {
+  width: var(--bo-arrow);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}

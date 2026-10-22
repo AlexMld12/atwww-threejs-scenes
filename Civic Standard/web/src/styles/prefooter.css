@@ -1,0 +1,205 @@
+/* PREFOOTER: placed as Figma, animated as floema.com's footer (use-prefooter.ts): rules drawn from the left (1 s
+   power2.out, once at 98 %), the blocks of a row faded up one after another (power2.out), the drawings drifting
+   sideways with the scroll, links underlined from the left on hover (0.5 s expo.out). Text moves on `top`, not a
+   transform, so it stays sharp. */
+.pf {
+  --pf-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  height: var(--pf-h);
+  overflow: hidden;
+  background: #fbf9f4;
+  color: var(--forest);
+}
+
+.pf > *,
+.pf__row > *,
+.pf__office,
+.pf__sub,
+.pf__main {
+  position: absolute;
+  margin: 0;
+}
+
+.pf__row {
+  left: 0;
+  right: 0;
+}
+
+.pf__drawing {
+  will-change: transform;
+}
+
+.pf__rule {
+  left: var(--dv-edge);
+  right: var(--dv-edge);
+  height: var(--dv-rule);
+  background: rgb(47 74 58 / 0.15);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1s var(--pf-ease);
+}
+
+.pf__rule--light {
+  background: #dcdfda;
+}
+
+.pf__rule.is-in {
+  transform: none;
+}
+
+/* a block that fades up: from var(--rise) below, `duration` long, `step` after the one before, `delay` into its row */
+.pf__rise {
+  position: relative;
+  top: var(--rise);
+  opacity: 0;
+  transition:
+    top var(--duration) var(--pf-ease) calc(var(--delay, 0s) + var(--i) * var(--step)),
+    opacity var(--duration) var(--pf-ease) calc(var(--delay, 0s) + var(--i) * var(--step));
+}
+
+.is-in .pf__rise {
+  top: 0;
+  opacity: 1;
+}
+
+.pf__rise--office {
+  --rise: var(--pf-rise-office);
+  --duration: 0.6s;
+  --step: 0.08s;
+}
+
+.pf__rise--main {
+  --rise: var(--pf-rise-main);
+  --duration: 0.5s;
+  --step: 0.05s;
+}
+
+.pf__rise--sub {
+  --rise: var(--pf-rise-sub);
+  --duration: 0.45s;
+  --step: 0.04s;
+  --delay: 0.2s;
+}
+
+.pf__rise--social {
+  --rise: var(--pf-rise-social);
+  --duration: 0.45s;
+  --step: 0.06s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf__rule,
+  .pf__rise {
+    transition: none;
+  }
+}
+
+.pf__title {
+  font: 400 var(--pf-title) / var(--pf-title-lh) var(--font-sans);
+  white-space: nowrap;
+}
+
+.pf__address {
+  display: flex;
+  flex-direction: column;
+  margin: var(--pf-title-gap) 0 0;
+  font: 400 var(--pf-body) / var(--pf-body-lh) var(--font-sans);
+  white-space: nowrap;
+}
+
+.pf__socials {
+  display: flex;
+  gap: var(--pf-social-step);
+  margin-top: var(--pf-socials-gap);
+}
+
+.pf__social {
+  display: grid;
+  place-items: center;
+  width: var(--pf-social);
+  height: var(--pf-social);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--pf-social) / 9);
+  background: var(--forest);
+  cursor: pointer;
+}
+
+.pf__social img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition:
+    transform 0.5s cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.pf__social:is(:hover, :focus-visible) img {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.pf__main,
+.pf__sub {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.pf__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pf__link--main {
+  font: 400 var(--pf-main) / var(--pf-main-lh) var(--font-sans);
+}
+
+.pf__link--sub {
+  font: 400 var(--pf-sub) / var(--pf-sub-lh) var(--font-sans);
+}
+
+/* their underline: 1 px of the text's colour drawn from the left, 0.5 s expo.out, back the same way */
+.pf__label {
+  position: relative;
+}
+
+.pf__label::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.pf__link:is(:hover, :focus-visible) .pf__label::after {
+  transform: scaleX(1);
+}
+
+.pf__legal {
+  --lh: var(--pf-sub-lh);
+  width: var(--pf-legal-w);
+  max-width: calc(100% - 2 * var(--dv-edge));
+  color: rgb(14 31 20 / 0.3);
+  font: 400 var(--pf-sub) / var(--pf-sub-lh) var(--font-sans);
+}
+
+/* the long notice wraps where the screen ends it */
+.pf__legal .line {
+  white-space: normal;
+}
+
+/* the bin stands in front of the rules (its panel is filled with the page's colour, as in Figma) */
+.pf__drawing--bin {
+  z-index: 1;
+}

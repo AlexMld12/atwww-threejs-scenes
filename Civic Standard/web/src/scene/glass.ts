@@ -30,6 +30,7 @@ const glassFragment = /* glsl */ `
   uniform float ior;
   uniform vec3 tint;
   uniform float opacity;
+  uniform float wallThrough;
   uniform vec3 mask;
   varying vec3 vWorldPosition;
   varying vec3 vWorldNormal;
@@ -50,13 +51,16 @@ const glassFragment = /* glsl */ `
     if ( direction.z > -1e-4 ) return studio;
     vec3 wall = origin + direction * ( ( backdropZ - origin.z ) / direction.z );
     if ( any( greaterThan( abs( wall.xy ), backdropSize * 0.5 ) ) ) return studio;
+    vec2 wallUv = wall.xy / backdropSize + 0.5;
+    vec3 wallColor = texture2D( backdropMap, wallUv ).rgb * backdropGain * ${leavesShadow('leavesMap', 'wallUv')};
     vec4 clip = projectionMatrix * viewMatrix * vec4( wall, 1.0 );
     vec2 screen = clip.xy / clip.w * 0.5 + 0.5;
     if ( all( greaterThanEqual( screen, vec2( 0.0 ) ) ) && all( lessThanEqual( screen, vec2( 1.0 ) ) ) ) {
-      return texture2D( behind, screen ).rgb;
+      // Before the wall is revealed the screen behind is bare paper; the glass already shows the lit wall through
+      // it (wallThrough), which is what makes it read as glass and not as a drawing.
+      return mix( texture2D( behind, screen ).rgb, wallColor, wallThrough );
     }
-    vec2 wallUv = wall.xy / backdropSize + 0.5;
-    return texture2D( backdropMap, wallUv ).rgb * backdropGain * ${leavesShadow('leavesMap', 'wallUv')};
+    return wallColor;
   }
 
   bool hitLogo( vec3 origin, vec3 direction, out vec3 point, out vec3 normal ) {
@@ -144,6 +148,7 @@ export function createGlass(
       // Two refractions per path; matched to the Cycles render, each gets ⁴√ of Blender's colour.
       tint: { value: new THREE.Vector3(...GLASS.color.map((c) => c ** 0.25)) },
       opacity: { value: 1 },
+      wallThrough: { value: 0 },
       mask: { value: new THREE.Vector3(0, 0, 1e6) },
     },
     vertexShader: /* glsl */ `
@@ -165,6 +170,10 @@ export function createGlass(
     material,
     setOpacity(value: number) {
       material.uniforms.opacity.value = value;
+    },
+    /** How much the rays see the lit wall itself rather than the screen behind (1 until the wall is revealed). */
+    setWallThrough(value: number) {
+      material.uniforms.wallThrough.value = value;
     },
     /** Clips the glass to a disc given in client px; `null` shows all of it. */
     setMask(disc: { x: number; y: number; radius: number } | null, canvas: HTMLCanvasElement) {

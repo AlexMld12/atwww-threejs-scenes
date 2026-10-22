@@ -145,7 +145,324 @@ Deschise:
   grosime, ca în preloader, pe același contur (2.4 s), stă 0.4 s, se retrage negrul (2 s), apoi linia slabă (2.4 s),
   pauză 0.3 s → din nou (10.5 s pe buclă). „Prea lent” la a doua variantă însemna pauzele, nu trasarea. Pornește
   când secțiunea intră la 60 % din ecran, rulează doar cât e pe ecran.
-- Liniile din dreapta sunt tăiate la marginea secțiunii (`overflow: clip`) până facem „The Details”: ieșeau 311 px
-  sub ea și lungeau pagina („secțiunea prea mare”). De scos clip-ul când există secțiunea următoare.
+- Liniile din dreapta continuă în THE DETAILS (până la 7050), pe sub imaginile de acolo, ca în Figma. (Cât timp
+  pagina se termina aici erau tăiate: lungeau pagina cu 311 px — „secțiunea prea mare”.)
 - Poarta hero-ului se aplică doar cât pagina e încă înaintea ei (o pagină aflată deja după ea nu mai e ținută).
 
+## 03 · THE DETAILS + 04 · OUR VALUES — în lucru (2026-10-19)
+
+- Figma 6739–7339 și 7339–8391 (`components/details`). Textele puse după linia de bază din PDF (metricile fontului,
+  `topForBaseline`), rândurile = cele din Figma. Coloana stângă de la marginea stângă, cea dreaptă (630 / 890) de la
+  centru; separatoarele de la 30 la 30. Măsurat: suprapus pe Figma, diferență medie ~2/255.
+- Fonturi (potrivite pe forme / lățimi): paragrafe, titluri de card, afirmația 44 px, servicii = Aeonik (afirmația
+  −0.03 em, ca fluid.glass); etichete și legende = Martian Mono; SOLID / CIVIC / CALM = Inter Bold 14.5 px (cel mai
+  apropiat de PDF: IoU 0.86, înălțime și lățime exacte).
+- Cardurile (gri în Figma): randări de aproape în studioul colegului (`tools/blender_details.py`, scena K7_armrests,
+  camera noastră în perspectivă 70 mm, f/5.6, 760×918, 192 eșantioane, film transparent) — capetele plăcilor în
+  secțiune și cotul zincat al brațului. Fundalul cardului `--card` #E7E5DF (tonul secțiunii Seating din Figma). Ilustrația cu
+  bănci: din PDF, `public/values/benches.svg` (contururi umplute, #2F4A3A la 35 %).
+- Animații: fluid.glass are o singură dezvăluire de text (BaseHeading: SplitText pe rânduri cu mască, yPercent
+  200 → 0, 1.5 s, la 0.1 s, power3.out, o dată, „top bottom”); restul e static la ei. Userul a cerut animații pe tot
+  textul → aceeași dezvăluire pe toate textele, pornită la 85 % din ecran (mai târziu decât la ei, să se vadă), plus
+  (ale noastre, în același spirit) separatoarele trasate de la stânga și imaginile / ilustrația descoperite de jos.
+  CSS (tranziții pe `top`, nu transform, textul rămâne clar) + IntersectionObserver (`use-reveal.ts`).
+- Desenul cu bănci alunecă spre dreapta pe scroll (`use-drift.ts`, ±90 px, la locul lui din Figma la mijlocul
+  ecranului). Cutia lui e dezvăluită (clip-path), imaginea din ea se mișcă: clip-path + transform pe același element
+  țineau IntersectionObserver-ul blocat. Tot de acolo: un observer poate livra mai multe intrări → se ia ultima.
+
+## 05 · FROM THE RANGE — în lucru (2026-10-20)
+
+- Figma 8391–9276 (885 px): regula și eticheta ca la THE DETAILS; săgețile 40 × 40 verzi, colț 6, sus 22, dreapta 30;
+  cardurile de la 152, 465.2 lățime, la 15.8, înalt 585.1 / scund 435.8 alternativ; titlul Aeonik 18 la 27 sub
+  imagine, legenda Martian Mono 12, #0E1F14 la 40 %, la 46.
+- Produsele: pachetul colegului `C:\ATWWW\Civic Standard\DEVELOPER_STUDIO_2026-10-20` (catalog: 23 randări 2400 px
+  transparente, JSON cu nume / dimensiuni / culori; .blend cu 23 de scene de studio, AgX High Contrast, ortografice).
+  Userul a ales: băncile din catalog, primele două ca în Figma (K7 cu brațe, K5); SMART bench nu există în catalog
+  (G2 e explicit „fără SMART”). `tools/prepare_products.py`: alpha − 4 (umbra ajunge lin la 0, altfel tăietura se vedea
+  ca un dreptunghi), decupat, 1200 px WebP.
+- Comportamentul = fluid.glass/about (`Team`, cod descărcat): **Embla Carousel v8** `{ loop: false, align: 'start',
+  dragFree: true, skipSnaps: true }` — „bounce-ul” e arcul de la capete al Embla (o aruncare trece de margine și
+  revine). La noi `align` = marginea de 30 px. Săgețile: un card (scrollPrev / scrollNext); iconița iese în direcția
+  ei și revine din partea cealaltă la hover (0.5 s power3.in + 0.5 s power3.out). Cursorul lor „Drag” e al site-ului
+  lor, nu e în Figma → `cursor: grab`. Testat: aruncare spre stânga la început → 389 px, revine la 30 în ~1 s.
+
+
+## 06 · CONFIGURATOR (Seating / Recycling / Greenery) — în lucru (2026-10-20)
+
+- Figma: `docs/reference/Customize - Section.pdf` și `… - Bins.pdf` (1440 × 850, fond #E7E5DF). Tab-uri Aeonik 42
+  (inactive 15 %), reguli la 102 și 758, numele produsului mono 12, cercuri 48 (#0E1F14; LAYOUT la hover auriu, ca în
+  PDF), etichete mono sub ele, paleta 20 px la 4 (aleasă = pastilă 43), „CONFIGURE YOURS” verde + săgeată (inert).
+  Iconițele: din PDF. „LENGHT” din Figma → „Length” (greșeală de tipar).
+- Cerințe user: LAYOUT trece prin produsele categoriei; cercul din stânga e doar informație (lungime / volum);
+  paleta recolorează vopseaua (cadrul băncilor; la coșuri și jardiniere corpul + capacul); camera: stânga / dreapta /
+  sus, nu în jos; la eliberare revine.
+- Comportament = MOTO Stack (custom.stack-furniture.com, R3F + drei `CameraControls`, cod descărcat): camera-controls,
+  doar rotire (click stânga / un deget), viteză 1, smoothDamp 0.125 s la drag și 0.25 s la `reset(true)` pe
+  `controlend`; azimut liber; la noi maxPolar = poza (nu coboară). Piesele se schimbă instant, doar camera se
+  reîncadrează; culoarea se apropie cu 5/s; cercurile ascunse după 0.5 s de drag. Lentila lor e 35°; la noi 20°
+  (randările Figma sunt ortografice).
+- Încadrarea (măsurată pe ambele PDF-uri): cutia produsului, văzută pe direcția camerei din catalog, intră în
+  666.5 × 498.6 px (banca la fel de lată, coșul la fel de înalt — ambele exact), centrul ei la (−4, −6) de centrul
+  secțiunii; cercurile la 88 px de laturi, stânga +30, dreapta −50.
+- Asset-uri din studioul colegului (`PRODUSE_STUDIO_FARA_BG.blend`, 17 scene):
+  - `tools/blender_configurator.py`: piesele unite, un material pe finisaj (cheia lui), coordonatele metrice ca
+    `_COORD`; AO copt pe un atlas (smart UV) cu podeaua inclusă; umbra văzută de sus (shadow catcher, produsul
+    invizibil pentru cameră); camera și cele 4 lumini în JSON; finisajele plastic și zinc coapte pe 0.5 m (zincul
+    ca nemetal, altfel culoarea difuză iese neagră; rugozitatea și AO-ul Non-Color).
+  - `tools/blender_configurator_env.py`: ce reflectă metalul = studioul fără produs (podeaua gri a shadow
+    catcher-ului e reală pentru razele reflectate). Fără el zincul ieșea negru.
+  - `tools/blender_view_lut.py`: AgX High Contrast ca LUT 3D 48³ (AgX amestecă canalele: curba pe canal a hero-ului
+    nu merge); aplicat în fiecare material (hero-ul ține hook-ul global CustomToneMapping).
+  - `tools/prepare_configurator.py`: gltf-transform meshopt, WebP, products.json.
+- three.js (`scene/configurator`): 4 RectAreaLight (radianța P / (π A)), mediul per produs prin PMREM, AO și pe
+  lumina directă (aoMap-ul three o aplică doar pe cea ambientală), detaliul finisajului pe fața piesei în
+  coordonatele ei (derivatele lui `_coord` dau normala). Randare doar când ceva se mișcă și secțiunea e pe ecran
+  (~7 ms / cadru). Preloader-ul așteaptă primul produs din fiecare categorie; restul se încarcă unul câte unul când
+  secțiunea e la 1.5 ecrane (nu cât hero-ul e pe ecran), meshopt pe workeri, shader-ele compilate la încărcare.
+- Hero-ul nu mai randează (sticla ray-traced) cât secțiunea lui nu e pe ecran.
+- Pe touch rotirea e oprită (secțiunea are 850 px, altfel blochează scroll-ul paginii) — de decis la mobil.
+- K7 (Plaza): „doar zincat” în catalog, dar userul vrea toată paleta → cadrul zincat devine vopsea (un produs fără
+  piesă vopsită își vopsește cadrul zincat).
+- Înălțimea = ecranul (100svh, pe orice dispozitiv): partea de sus după distanțele Figma de sus, cea de jos (regula,
+  culoarea, paleta, butonul) de jos (850 − y). Mai scund decât 850 → produsul scade proporțional (rămâne între
+  reguli); mai înalt → aceeași scară, se vede mai mult în jur. Verificat la 1917×871, 1440×700, 1280×720.
+
+## Retușuri de fluiditate (2026-10-20, cererea userului: „să nu pară făcut cheap”)
+
+- Hero, reveal-ul rândurilor: întârzierea ține de locul rândului în tub, nu de indexul lui (`introState().rise`).
+  Un scroll rapid imediat după preloader reînfășoară rândurile (la fiecare 3 sunt la fel) și rândul sosit pe un loc
+  avea alt stadiu al reveal-ului → sărea.
+- Hero → BUILT OUTSIDE: **poarta a dispărut**. Banca venea în față pe timp și pagina aștepta la capătul tubului
+  („se blochează puțin, apoi mă lasă”). Acum ultimele 1.5 ecrane de scroll aduc banca în față (mișcarea proprie a
+  tubului se stinge, unghiul trece lin spre următorul unghi frontal în sensul rotirii, atins exact la capăt).
+  Rândurile, rotirea spre bancă și creșterea pozei urmează același scroll netezit (`shownScroll`): înainte poza
+  urma scroll-ul Lenis direct, inelul unul netezit încă o dată → altă „netezime” la trecere.
+- Frânarea (cererea userului: imaginile se învârteau repede și se opreau brusc când poza ajungea în centru): pe
+  ultimele 2 ecrane rândurile frânează constant până la 0 (parcurg jumătate din drumul de la viteză plină, așa că
+  aterizarea e cu jumătate de zonă mai jos și rândul cu banca tot la centru ajunge), iar rotirea merge spre cel mai
+  apropiat unghi frontal (cel mult o jumătate de tură), cu ease in-out. Măsurat: deplasarea pe 400 px scade 0.79 →
+  0.63 → 0.45 → 0.26 → 0.07 → 0.
+- Opririle BUILT OUTSIDE: un flux susținut (4 delte la rând care nu scad, ≥ 4) e gest nou, deci pagina pășește mai
+  departe; inerția touchpad-ului (care doar scade) rămâne ignorată. Înainte, un scroll continuu stătea la prima oprire.
+- Desenul cu bănci: vizibilitatea e măsurată pe secțiune (sub clip-path-ul reveal-ului elementul conta ca nevăzut
+  și sărea la capătul animației).
+- Navbar-ul urcă și peste configurator (`is-nav-away`, cât secțiunea trece de marginea lui de jos) și revine la
+  scroll înapoi; clasa e separată de `is-nav-hidden` (BUILT OUTSIDE o scrie la fiecare cadru).
+- Testat cu un flux continuu de `wheel` (CDP): de la predare până în configurator fără nicio oprire lungă.
+
+## 07 · BUILT TO STAY (poza cu jardinierele + „Civic Standard, built to stay.”) — în lucru (2026-10-20)
+
+- Figma 10126–10956 (830 px): poza = `/built/2.webp` (aceeași cu a doua din BUILT OUTSIDE; în PDF 1440 × 1152 de la
+  9991.9 → object-position y 41.7 %), masca #06120A la 50 %, titlul alb (desenat vectorial în PDF; potrivit: Aeonik
+  44, −0.01 em, lățime 522, linia de bază 791.7), butoanele albe la 760: săgeata, apoi „REQUEST A QUOTE” (inerte).
+- Animația (cererea userului: zoom-in la intrare, poza „fixă” dar fără să se miște mult; restul propunerea mea):
+  totul legat de scroll (`use-stay.ts`): poza se deplasează 6 % din înălțime împotriva scroll-ului (pare fixă) și
+  face zoom 1.06 → 1.16 (ease-out) cât secțiunea intră pe ecran; masca se deschide 68 % → 50 %. Titlul și
+  butoanele urcă din mască (ca toate textele) când secțiunea a intrat 60 %: stau la baza ultimei secțiuni, sub
+  pragul de 85 % al celorlalte, deci nu porneau niciodată. Săgeata: la hover iese spre dreapta și revine.
+- Navbar-ul revine aici (configuratorul îl ascunde doar cât îl acoperă).
+- Runda 2 (userul: zoom-ul se întâmpla mai mult cât secțiunea nu era pe ecran): totul pe porțiunea văzută, de la
+  intrarea sus-ului până la secțiunea întreagă pe ecran: zoom 1 → 1.18 ease in-out, poza rămâne în urmă cu 35 % din
+  cât mai are de intrat (aproape fixă, piciorul ei mereu sub marginea ecranului), masca 72 → 50 %. Titlul: fiecare
+  cuvânt urcă în masca lui de la 150 % (ca Solid · Civic · Calm), dar pe timp, o dată (1.2 s power3.inOut, 0.08 s
+  între cuvinte), la jumătatea intrării. Hover: eticheta și săgeata sunt un singur buton → ambele devin verzi
+  (și la BUILT OUTSIDE, unde era deja așa).
+
+## 00 · Preloader — runda 2 (2026-10-20)
+
+- Sticla se formează odată cu discul (grosime + opacitate = creșterea lui) și e întreagă exact când discul a
+  descoperit toate liniile; dacă scena se compilează târziu, ajunge din urmă în ≤ 0.4 s. Apoi liniile se sting.
+- „Arăta desenată”: razele ieșite din sticlă vedeau ecranul din spate, care înainte de intro e hârtie goală.
+  Acum văd peretele luminat (cu umbra frunzelor) direct din textura lui (`wallThrough` în glass.ts) până când
+  peretele e dezvăluit pe ecran în intro (1 − intro.backdrop), deci prin sticlă se văd refracțiile luminii.
+
+## 08 · PREFOOTER (adrese, linkuri, text legal) — în lucru (2026-10-20)
+
+- Figma 10956–11726 (770.7 px, #FBF9F4). Desenele (bănci, coș, scaun) și glifele sociale: `tools/extract_drawings.py`
+  → `public/prefooter/*.svg` (trasee PDF cu culorile lor; panoul coșului e umplut cu #FAF9F6, ca în Figma, ca să
+  oprească regulile). Titluri Aeonik 18, adrese 12/15, linkuri 18/21 și 14/18, legal 14/18 la 30 %; reguli 2 px la
+  230.1 / 408.7 (verde 15 %) și 637.7 (#DCDFDA); pătratele sociale 28 px #0E1F14.
+- Referința: floema.com/en (`Footer.vue`, cod citit + măsurat headless): fără pin / cortină; reguli trasate de la
+  stânga (1 s power2.out, o dată la 98 %); blocurile unui rând apar pe rând cu fade + urcare (birourile 20 px, 0.6 s,
+  la 0.08 s, la 80 %; linkurile mari 14 px / 0.5 s / 0.05 s, cele mici 12 px / 0.45 s / 0.04 s cu 0.2 s întârziere;
+  iconițele sociale 10 px / 0.45 s / 0.06 s, la intrarea lor); desenele alunecă orizontal legat de scroll (băncile
+  −3vw → 0 pe primul rând, coșul 2vw → 0 pe rândul birourilor, scaunul −10 % → 10 % din lățime până intră rândul
+  linkurilor); hover pe linkuri = subliniere de 1 px trasată de la stânga (0.5 s expo.out), iconițele 1.05 / 0.9.
+  Textul se mișcă pe `top` (rămâne clar). Ce nu au ei: textul legal → reveal-ul nostru pe rânduri (la 98 %, e la
+  piciorul paginii). Iconița ↗ a linkurilor externe de la ei nu e în Figma → nu.
+- Banda galbenă „CIVIC STANDARD” (11726–11908) e footer-ul, următoarea secțiune; floema n-are wordmark mare.
+- Coșul stă în fața regulilor (z-index; panoul lui e umplut cu culoarea paginii, ca în Figma).
+
+## 09 · FOOTER (banda galbenă „CIVIC STANDARD”) — în lucru (2026-10-20)
+
+- Figma 11726.7–11907.7 (181 px, #E3B23C): wordmark-ul desenat (`tools/extract_drawings.py` → `public/footer/
+  wordmark.svg`, lățimea paginii), copyright Aeonik 14 la 40 %, politicile mono 12, la 10 px de margini, linia de
+  bază 171. Prefooter-ul acoperă primii 28 px ai benzii (în Figma el se termină la 11754.5) și aruncă umbra: în PDF e
+  o imagine neagră încețoșată pe marginea lui (25 % la margine, ~28 px la jumătate) → box-shadow 0 0 24px negru 50 %.
+- Referința: telhaclarke.com.au (cod `Footer-*.js` + măsurat): o cortină. `<footer>` = prefooter (z 1) + banda
+  `position: sticky; bottom: 0` (z 0) cu margin-top −28: prefooter-ul urcă și o descoperă de sus. Pe drumul
+  descoperit (liniar, legat de scroll) conținutul benzii urcă de la 40 % din înălțimea lui la 0 și un văl în
+  culoarea benzii (la ei negru pe negru) trece 0.85 → 0. Lăsat deoparte, la cererea userului: micșorarea paginii
+  (scale 1 → 1 − 3rem/lățime, origin bottom), contra-scalarea benzii și barele negre laterale. Fără animații
+  one-shot în footer, ca la ei; hover pe politici = sublinierea din prefooter.
+- ⚠️ offsetTop-ul unui element sticky include poziția în care e lipit: suprapunerea se citește din margin-top.
+- Runda 2 (userul, la 1917 px): (1) o fâșie galbenă ieșea sub poza cu jardinierele — marginea negativă a benzii
+  lăsa banda sticky să urce cu 28 px peste începutul footer-ului; acum prefooter-ul are margin-bottom −28 (coboară
+  el peste bandă). (2) Wordmark-ul are lățimea paginii, deci crește cu ecranul; banda creștea după regulă și literele
+  ajungeau peste linkuri. Banda = înălțimea wordmark-ului (100vw · 140/1440) + rândul de jos (41, după regulă),
+  rândul ancorat de jos. (3) FROM THE RANGE: cardurile se dezvăluiau unul câte unul abia când erau trase în ecran
+  (arăta ca o încărcare lentă); acum toate odată, când slider-ul intră la 85 %.
+- Runda 3 (userul): wordmark-ul nu se mai taie — ca la telhaclarke, banda se descoperă întreagă (fără suprapunerea
+  de 28 px din Figma), cu marginea de 10 deasupra; umbra prefooter-ului se stinge cu progresul (gone la final).
+  FROM THE RANGE: înapoi la reveal pe fiecare card, dar declanșat de Embla (`slidesInView`, imediat și în timpul
+  drag-ului), de când slider-ul a intrat la 85 %; IntersectionObserver-ul pe card (pragul de 85 % pe verticală)
+  ținea ascunse titlurile cardurilor înalte. Pozele produselor: 960 px (704 KB toate).
+- Runda 4 (userul): umbra = efectul din Figma pe dreptunghiul de 28 px de la piciorul prefooter-ului: drop shadow
+  y 10, blur 12, negru 25 % → box-shadow pe prefooter, înmulțit cu (1 − progresul), 0 când banda e toată afară.
+  Conținutul benzii urcă acum ca un singur bloc (ca `.footer-bottom-inner` la ei): blocul avea `inset: 0` și,
+  mutat de `top`, se scurta, iar rândul de jos stătea pe loc peste wordmark; acum are înălțimea benzii și rândul vine
+  de sub marginea ei.
+
+## Retușuri 2026-10-21
+
+- Umbra footer-ului: valorile Figma arată mai slab în browser (ca în Webflow) → y 14, blur 36, negru 45 %.
+- „Journal” scos din prefooter (nu va exista pagina).
+- Săgeata din „Request a quote”: animația pe WAAPI; la ieșirea de pe buton se întoarce de unde a ajuns (reverse),
+  nu mai sare la loc.
+
+## PAGINA PRODUCTS (/products) — în lucru (2026-10-21)
+
+- Figma: `docs/reference/Products.pdf` (1440 × 6542). Sus: titlul Aeonik 65 (2 rânduri), regulă sub nav la 91.2,
+  „FILTER BY: CATEGORY”, 6 carduri de categorie (140 × 170, albe, imaginea 134 pe #E7E5DF; activă = #7A9285, text alb),
+  „SHOWING: n/23 RESULTS”, grila de 4 coloane (327, între ele 24, rânduri 348) din 858.2; apoi configuratorul,
+  built to stay și footer-ul, ca pe home.
+- `tools/extract_products_page.py`: fiecare card din PDF (poziție, mărime 1×1 / 1×2 / 2×1, nume, etichetă, finisaj,
+  măsură) și locul randării în card (% din card), randările potrivite pe pixeli cu catalogul colegului →
+  `components/products/grid.json`, `public/products/*.webp` (1100 px). Corecturi: G2/K5_1900 se confundă la potrivire
+  (același cadru) → K5_1900; rastelul are în Figma eticheta „BENCHES” → „BIKE RACKS”. Cardul de catalog: poza din PDF
+  sub masca nopții 60 %; ultimul card gol din Figma rămâne (umple rândul) doar fără filtru.
+- Stări (cererea userului): hover pe card = #E8E5DF sub alb 70 % + eticheta verde; categoria activă #7A9285;
+  la început nicio categorie (toate produsele), al doilea click o deselectează.
+- Comportament = floema.com/en/products (cod citit + măsurat): intrarea — rândurile titlului cad de sus (0.8 s circ.out,
+  0.05 între ele), cardurile de categorie de la −50 % (0.8 s, 0.02), etichetele 1.2 s power4.out, primele 6 carduri
+  urcă 200 px (0.8 s circ.out, la 0.1, de la 0.4 s); filtrarea — cardurile pleacă (30 px, 0.35 s power1.out), lista
+  se schimbă, cele noi vin împreună (0.45 s power2.out, 0.1 s întârziere); hover pe categorie = randarea se apropie
+  (1.01 → 1.09, 2.5 s expo.out). Ale noastre în plus: regulile trasate de la stânga, restul cardurilor urcă 60 px
+  la intrarea în ecran (85 %), poza catalogului se apropie la hover. Filtrul lor plutitor nu e în Figma → nu.
+- Pagini într-un singur document, ca pe KELV (`lib/routes.ts`): home-ul rămâne montat și ascuns (scena 3D, scroll-ul),
+  pagina de produse se montează la fiecare vizită (intrarea se reia); URL-ul prin history (Back / Forward merg);
+  scroll-ul fiecărei pagini se păstrează. `app/*/page.tsx` sunt goale, `<Site />` stă în layout. Intrare directă pe
+  /products: preloader-ul cu fond (nu are scena în spate), navbar-ul vine la predare.
+- Tranziția: dither-ul Codrops Interlude (`transition/dither.ts`, portat din TSL în WebGL2): pătrate de 1/8, 1/16,
+  1/32 din înălțime, umplute prin Bayer 4×4 (256 puncte pe înălțime), acoperire și descoperire 1.1 s power1.inOut,
+  culoarea #0E1F14.
+- Linkuri: „Products” din navbar și din prefooter, „Browse the range” + săgeata din BUILT OUTSIDE → /products; logo-ul
+  duce acasă (pe home reîncarcă, ca înainte). BUILT OUTSIDE își scoate opririle și clasa de navbar cât e ascuns.
+
+## Runda 2 a paginii Products + scroll (2026-10-21)
+
+- Preloader-ul e doar al home-ului: intrarea directă pe /products nu-l are (pagina e liberă imediat, navbar-ul vine
+  odată cu ea). Home-ul (hero + secțiunile lui) se montează abia la prima vizită: venind din /products, dither-ul
+  descoperă preloader-ul, care ține pagina (`setScrollLocked`) până la predarea scenei, exact ca la o încărcare.
+  Navbar-ul stă ascuns cât rulează preloader-ul (`is-preloading`). Configuratorul își preîncarcă produsele când e
+  aproape (nu mai așteaptă preloader-ul).
+- Produsele au o singură paletă (a configuratorului, 5 culori); cele zincate (K7) arată prima culoare, ca în
+  configurator. Cardul gol din Figma e scos; toate cele 23 de produse sunt pe pagină.
+- BUILT OUTSIDE (userul: oprea prea mult la trecerea rapidă, textele dispăreau repede): scroll-ul trece liber prin
+  opriri; după 220 ms fără input între două, pagina se așază (0.7 s) pe următoarea în sensul mișcării dacă a trecut
+  de 30 % din drum, altfel înapoi. Textul unui item rămâne cât poziția e la ±0.35 de el (înainte: doar exact pe
+  oprire) și se stinge în 0.5 s (era 0.2). Măsurat: un scroll continuu trece secțiunea (6600 → 10900) fără oprire.
+
+## PAGINA DE PRODUS (CMS, /products/<slug>) — hero în lucru (2026-10-21)
+
+- Figma: `docs/reference/Product CMS.pdf` (1440 × 9395; exemplul: Plaza Bench with Armrests). Referința de
+  comportament: pedestal.com/products/moon-rollin-ultra-marine (acolo hero-ul e o galerie de poze, săgeata = poza
+  următoare). Se face secțiune cu secțiune; acum doar hero-ul (0–851).
+- O pagină pentru fiecare din cele 23 de produse: `tools/prepare_product_pages.py` → `components/product/catalogue.json`
+  (nume, categorie, dimensiuni, mărimile modelului); adresa = numele (cu mărimea când două produse îl împart: K1, K3,
+  K4, K5, K6). `lib/routes.ts` are al treilea view, „product”, cu slug-ul; cardurile din /products duc la pagină.
+- Hero (decizia userului: 3D viu în piațetă): randarea din Figma n-are scenă în niciun pachet → piațeta e construită
+  în `tools/blender_plaza.py` (dale 1.2 × 1.8, perete de panouri 1.65 m, stâlp vopsit, fâșie de iarbă cu păr Cycles),
+  camera potrivită pe Figma cu banca reală din studioul colegului (doar la `--preview`): poza de repaus pune banca la
+  x 340–1145 (Figma 324–1137). Două plăci, fără produs și fără frunze: lumina cerului și lumina soarelui (1800 × 805 px
+  Figma în jurul cadrului, la 2×), plus mediul văzut de pe bancă (`tools/prepare_plaza.py` → `public/plaza`).
+- three.js (`scene/plaza`): plăcile proiectate din camera Blender pe cutiile piațetei (parallax corect la mișcări mici);
+  culoarea = cer × umbra de contact a studioului + soare × frunze × umbra produsului. Umbra produsului = silueta lui
+  văzută din soare (tot ce e în piațetă stă în spatele ei), cu penumbră. Frunzele (`foliage.ts`) sunt desenate live,
+  ale noastre (nu textura Light Wrangler): ramuri și frunze plate văzute din soare, legănate de vânt (ramuri lent,
+  crenguțe repede, frunzele tremură și se întorc), estompate de un blur; același „cookie” cade pe bancă (lumina
+  direcțională din materiale). Banca are materialele configuratorului (`dress` în `configurator/finishes.ts`, comun).
+- Mișcarea (a noastră): camera se retrage lin din apropiere în poza Blender (2.8 s expo.out) cât apare scena, apoi se
+  înclină puțin după cursor; titlul urcă în mască, grupurile barei vin de jos la 0.08 s, regula se trasează. Săgeata
+  rotește produsul cu 1/6 de tură (1.6 s expo.inOut), umbrele îl urmează. Culorile schimbă cadrul pe loc (5/s).
+- Navbar pe pagina de produs: săgeată înapoi, PRODUCTS LIST (→ /products), QUOTE / 0; logo-ul e #F3F0EA peste
+  piațetă și redevine verde când piațeta a trecut de el.
+- De lămurit: Figma scrie „Natural Galvanised Steel” cu pastila Sage aleasă → eticheta arată numele culorii alese, iar
+  produsele zincate pornesc pe Sage (randarea din Figma). „Configure” și „Add to quote” sunt inerte (fără flux în
+  Figma). Lipsesc GLB-urile pentru G4, G5, K4_1900, K5_1900, K6_1900, K8_module (de exportat cu
+  `tools/blender_configurator.py`).
+- Produs fără GLB (cererea userului): silueta lui în piațetă, tăiată din randarea de catalog (alfa > 0.82, fără
+  umbra moale), plată în culoarea aleasă, cu frunzele trecând peste ea; înaltă cât produsul (×1.35, randarea îl vede
+  de sus), lată cât e lung. Peste ea, o bandă verde #2F4A3A, înclinată −3°, cu „COMING SOON” alb care curge (pe
+  `left`, rămâne clar); săgeata lipsește (n-are ce roti).
+
+## PAGINA DE PRODUS — THE BENCH (Figma 851–2849), în lucru (2026-10-21)
+
+- Eticheta „THE <tip>” (Benches → bench, Bins → bin…), Martian Mono 12 #212325, linia de bază 933.1. Declarația
+  Aeonik 40 / 41 de la x 720, lată de 575 (rândurile cad ca în Figma): primele cuvinte #0E1F14, restul la 15 %
+  (pedestal: la fel, static). Textul e al fiecărui produs: K7 din Figma; celelalte spun ce știe catalogul până vine
+  textul lor. Pozele: una 1424 × 801 (de la 1155), două 708 × 885, 8 între ele și de la margini, colțuri 2.
+- Pozele sunt randări ale produsului în piațetă (`tools/blender_gallery.py`, din studioul colegului, în prima culoare
+  a paginii; K7 primește vopseaua studioului): ansamblu, capătul stâng, detaliu. Tot fără frunze și pe două plăci,
+  plus distanța fiecărui pixel până la cameră (16 biți în doi octeți, WebP lossless; `tools/prepare_gallery.py`):
+  `scene/plaza/gallery.ts` află unde e pixelul și pune umbra frunzelor (aceeași ca în hero, `sun.ts`) pe soare.
+- Mișcarea (a site-ului): eticheta și declarația urcă pe rânduri din mască (fiecare cuvânt își află rândul după
+  așezare, `Statement.tsx`), pozele se descoperă de jos și se așază din 1.12 (2 s expo.out).
+- Declarația e de fapt un fill (userul): toată pornește la 15 % și se umple literă cu literă cu scroll-ul, de când
+  vârful ei ajunge la 85 % din ecran până când baza ajunge la 45 %; o literă se umple pe 6 % din drum. Figma arată
+  starea de la jumătate.
+- Galeria e randată pentru toate cele 23 (69 de cadre, ~1.4 min / cadru, 43 MB în `public/gallery`).
+- Pachetul colegului (verificat tot, 104 fișiere + ZIP): niciun GLB, nicio fotografie; doar .blend-ul (23 de scene,
+  toate cu geometrie), randările de catalog pe transparent, straturile (17) și previzualizările. GLB-urile sunt ale
+  noastre, din .blend: cele 6 lipsă (G4, G5, K4_1900, K5_1900, K6_1900, K8_module) exportate acum, toate 23 au 3D.
+  `blender_configurator.py` cădea pe K6_1900 (scena activă a fișierului e chiar a lui); `prepare_configurator.py`
+  adaugă la `products.json` în loc să-l rescrie. Silueta cu „COMING SOON” rămâne pentru produse viitoare fără model.
+- Poza mare nu se încărca la majoritatea (userul): browserul ține doar câteva contexte WebGL („Too many active WebGL
+  contexts”); fiecare poză avea al ei, iar la fiecare produs se adunau → cădeau cele mai vechi (poza mare, apoi
+  tranziția și configuratorul). Acum galeria are un singur context comun (o umbră de frunze pe cadru, fiecare poză
+  copiată în canvas-ul ei 2D), eliberat cu `forceContextLoss` când pleacă ultima poză; hero-ul își eliberează
+  contextul la demontare (nu și la remontarea din dev, unde canvas-ul rămâne). Testat: 5 produse la rând, zero pierderi.
+
+## PAGINA DE PRODUS — SHOWCASE (Figma 2857–5589), în lucru (2026-10-21)
+
+- Figma: bloc 8 → 1432, culoarea aleasă la 60 % peste hârtie; declarația (fill, ca la THE BENCH) la x 720, linia de
+  bază 2939.7; randarea de catalog 1075 px cu mijlocul la 4051 (+17.5 față de centru); pastila albă verticală
+  (34 lată, 5.9 înăuntru, culori de 22, cea aleasă 44 înaltă) la x 38, cu mijlocul 26.3 deasupra produsului.
+- Comportament = pedestal.com, „Colors for your mood” (product-showcase, citit + măsurat): secțiune înaltă
+  (300svh la ei, 2732 în Figma la noi), produsul într-un sticky de înălțimea ecranului; video-ul lor de rotire (4 s)
+  e derulat liniar de scroll de când blocul ajunge sus până când piciorul lui ajunge jos; culoarea schimbă video-ul
+  și fundalul (0.3 s ease-out), butonul ales se lungește (0.3 s).
+- La noi (`scene/showcase.ts`): produsul 3D cu studioul colegului (luminile, mediul, umbra — încărcarea e acum comună
+  cu configuratorul, `configurator/product.ts`), văzut de camera de catalog (ortografică, 1075 px pe lățimea ei),
+  o tură întreagă pe parcursul secțiunii. Culoarea vopsește cadrul (5/s) și fundalul.
+- Sticky-ul are marginea de sus în bloc (`flow-root`), altfel ieșea din el și împingea blocul cu 769.
+
+## MOBIL / TABLETĂ / LANDSCAPE — în lucru (2026-10-22)
+
+- Regula: sub 1024 px, `web/src/styles/mobile.css` (încărcat ultimul) suprascrie tokenii cu px ficși (gândiți la
+  390), marginile laterale 15 px (cererea userului); 744–1023 (tabletă, telefon culcat) același layout, cu 2 coloane
+  unde referințele le folosesc. Desktopul (≥ 1024) neatins. Pozițiile Figma puse inline din JS sunt anulate pe mobil
+  (`!important`), secțiunile trec în flux; rândurile Figma (`.line`) devin inline (textul curge, intră cu fade).
+- Referințele măsurate headless pe 390×844, 820×1180, 844×390 (agenți, scratchpad/research/):
+  - fluid.glass: o coloană, cuvintele Solid/Civic/Calm stivuite în zigzag (~91 px), liniile ascunse; sliderul
+    ~1.2 carduri (287 px), înălțimi alternante;
+  - floema: meniu pe tot ecranul (linkuri mari 32 px, celelalte jos pe 2 coloane); footer o coloană, desene pe
+    reguli; /products 2 coloane sub 1024, carduri 266 înalte, late pe tot rândul, pe touch doar numele;
+  - telhaclarke: cortina rămâne pe mobil, wordmark-ul pe lățime;
+  - valmont: secvența fixată rămâne, coloana de text ~70 px de la stânga;
+  - pedestal: o coloană, galeria 60svh, opțiunile sub ea, cardurile pe toată lățimea, culorile showcase-ului o
+    pastilă orizontală jos, specificațiile etichetă | valoare, coșul = dialog la 4 px de margini;
+  - MOTO Stack: taburile sus, controalele un panou jos; rubens: nicio adaptare (tuburile mari, tăiate).
+- Făcut: navbar (logo, Quote/Back, burger → `nav/MobileMenu.tsx`), toate secțiunile home, /products, pagina de
+  produs, configuratorul (produsul ridicat cu `lift`, punctele ținute pe ecran), sertarul de ofertă.
+- Capcană: în Git Bash un argument `/` devine cale Windows (`C:/Program Files/Git/`): `MSYS_NO_PATHCONV=1`.

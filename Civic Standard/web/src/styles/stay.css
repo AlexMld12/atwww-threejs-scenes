@@ -1,0 +1,100 @@
+/* BUILT TO STAY: the photo nearly fixed and zooming in as the section arrives (use-stay.ts), the night mask, the
+   closing line and the quote buttons rising in as every text does (details.css) */
+.st {
+  position: relative;
+  height: var(--st-h);
+  overflow: hidden;
+  background: var(--night);
+}
+
+.st > * {
+  position: absolute;
+  margin: 0;
+}
+
+.st__frame {
+  inset: 0;
+}
+
+/* object-position from Figma: the photo spans 9991.9–11143.9 behind the 10126–10956 section */
+.st__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 41.7%;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.st__mask {
+  position: absolute;
+  inset: 0;
+  background: var(--night);
+  opacity: 0.68;
+}
+
+.st__title {
+  display: flex;
+  gap: 0.25em;
+  color: #fff;
+  font: 400 var(--st-title) / var(--st-title) var(--font-sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+/* as the Solid · Civic · Calm words: each rises from 150 % of its height inside its mask, power3.inOut, 0.05 apart
+   there (scrubbed); here on its own time once in view (1.2 s, 0.08 s apart). The mask is padded for the comma. */
+.st__word {
+  display: block;
+  margin: -0.15em 0;
+  padding: 0.15em 0;
+  overflow: clip;
+}
+
+.st__glyphs {
+  position: relative;
+  top: calc(150% + 0.3em);
+  display: block;
+  transition: top 1.2s cubic-bezier(0.65, 0, 0.35, 1) calc(var(--i) * 0.08s);
+}
+
+.st__title.is-in .st__glyphs {
+  top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st__glyphs {
+    transition: none;
+  }
+}
+
+.st__actions {
+  --lh: var(--bo-btn-h);
+  top: var(--st-actions-top);
+  right: var(--dv-edge);
+}
+
+.st__actions .line__inner {
+  display: flex;
+  gap: var(--bo-btn-gap);
+}
+
+.st__quote {
+  height: var(--bo-btn-h);
+  padding: 0 var(--bo-btn-pad);
+}
+
+.st__arrow {
+  width: var(--bo-btn-h);
+  height: var(--bo-btn-h);
+  overflow: hidden;
+}
+
+.st__arrow svg {
+  width: var(--bo-arrow);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}

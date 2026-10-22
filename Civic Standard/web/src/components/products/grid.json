@@ -1,0 +1,442 @@
+{
+ "cards": [
+  {
+   "col": 0,
+   "row": 0,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Park Bench",
+   "tag": "BENCHES",
+   "finish": "Sage",
+   "measure": "1900 MM",
+   "id": "G2_std",
+   "image": [
+    1.22,
+    1.59,
+    97.55
+   ]
+  },
+  {
+   "col": 1,
+   "row": 0,
+   "w": 1,
+   "h": 2,
+   "name": "Frame Litter Bin",
+   "tag": "BINS",
+   "finish": "Anthracite",
+   "measure": "45L",
+   "id": "G1_std",
+   "image": [
+    -17.13,
+    15.11,
+    154.43
+   ]
+  },
+  {
+   "col": 2,
+   "row": 0,
+   "w": 1,
+   "h": 1,
+   "name": "Plaza Lounger",
+   "tag": "LOUNGERS",
+   "finish": "Warm white",
+   "measure": "2000 MM",
+   "id": "G4_std",
+   "image": [
+    1.22,
+    1.87,
+    97.55
+   ]
+  },
+  {
+   "col": 3,
+   "row": 0,
+   "w": 1,
+   "h": 1,
+   "name": "Reuse Bench with Backrest",
+   "tag": "BENCHES",
+   "finish": "Warm white",
+   "measure": "1986 MM",
+   "id": "G6_std",
+   "image": [
+    2.45,
+    3.02,
+    95.11
+   ]
+  },
+  {
+   "col": 0,
+   "row": 1,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Bench with Bike Stand",
+   "tag": "BENCHES",
+   "finish": "Anthracite",
+   "measure": "4 BIKES",
+   "id": "G3_std",
+   "image": [
+    0.92,
+    -3.02,
+    98.17
+   ]
+  },
+  {
+   "col": 2,
+   "row": 1,
+   "w": 2,
+   "h": 1,
+   "name": "Plaza Picnic Table",
+   "tag": "TABLES",
+   "finish": "Petrol",
+   "measure": "1900 MM",
+   "id": "G5_std",
+   "image": [
+    19.03,
+    -15.0,
+    61.95
+   ]
+  },
+  {
+   "col": 0,
+   "row": 2,
+   "w": 2,
+   "h": 1,
+   "name": "Plaza Backless Bench",
+   "tag": "BENCHES",
+   "finish": "Sage",
+   "measure": "2000 MM",
+   "id": "G7_std",
+   "image": [
+    15.04,
+    -25.92,
+    70.06
+   ]
+  },
+  {
+   "col": 2,
+   "row": 2,
+   "w": 1,
+   "h": 1,
+   "name": "Reuse Wide Bench",
+   "tag": "BENCHES",
+   "finish": "Petrol",
+   "measure": "1986 MM",
+   "id": "G8_std",
+   "image": [
+    1.53,
+    2.16,
+    96.94
+   ]
+  },
+  {
+   "col": 3,
+   "row": 2,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Square Planter",
+   "tag": "PLANTERS",
+   "finish": "Anthracite",
+   "measure": "423 l",
+   "id": "K1_Q950",
+   "image": [
+    17.13,
+    16.81,
+    65.75
+   ]
+  },
+  {
+   "col": 0,
+   "row": 3,
+   "w": 2,
+   "h": 1,
+   "tag": "CATALOGUE",
+   "catalogue": true
+  },
+  {
+   "col": 2,
+   "row": 3,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Square Planter",
+   "tag": "PLANTERS",
+   "finish": "Anthracite",
+   "measure": "262 l",
+   "id": "K1_Q700",
+   "image": [
+    18.04,
+    17.67,
+    63.91
+   ]
+  },
+  {
+   "col": 3,
+   "row": 3,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Long Planter",
+   "tag": "PLANTERS",
+   "finish": "Anthracite",
+   "measure": "170 l",
+   "id": "K1_R1500",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 0,
+   "row": 4,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Backless Bench",
+   "tag": "BENCHES",
+   "finish": "Petrol",
+   "measure": "1400 MM",
+   "id": "K4_1400",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 1,
+   "row": 4,
+   "w": 1,
+   "h": 2,
+   "name": "Frame Recycling Bin",
+   "tag": "BINS",
+   "finish": "Warm white",
+   "measure": "35 L",
+   "id": "K2_single",
+   "image": [
+    -20.49,
+    13.86,
+    153.82
+   ]
+  },
+  {
+   "col": 2,
+   "row": 4,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Recycling Station",
+   "tag": "BINS",
+   "finish": "Anthracite",
+   "measure": "4 x 35 L",
+   "id": "K3_Q600",
+   "image": [
+    16.51,
+    16.24,
+    66.97
+   ]
+  },
+  {
+   "col": 3,
+   "row": 4,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Recycling Station",
+   "tag": "BINS",
+   "finish": "Anthracite",
+   "measure": "3 x 35 L",
+   "id": "K3_R900",
+   "image": [
+    13.46,
+    13.36,
+    73.09
+   ]
+  },
+  {
+   "col": 0,
+   "row": 5,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Backless Bench",
+   "tag": "BENCHES",
+   "finish": "Petrol",
+   "measure": "1900 MM",
+   "id": "K4_1900",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 2,
+   "row": 5,
+   "w": 2,
+   "h": 1,
+   "name": "Frame Bench with Backrest",
+   "tag": "BENCHES",
+   "finish": "Petrol",
+   "measure": "1900 MM",
+   "id": "K5_1900",
+   "image": [
+    12.68,
+    -25.0,
+    74.63
+   ]
+  },
+  {
+   "col": 0,
+   "row": 6,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Bench with Backrest",
+   "tag": "BENCHES",
+   "finish": "Petrol",
+   "measure": "1400 MM",
+   "id": "K5_1400",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 1,
+   "row": 6,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Bench with Armrests",
+   "tag": "BENCHES",
+   "finish": "Sage",
+   "measure": "1400 MM",
+   "id": "K6_1400",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 2,
+   "row": 6,
+   "w": 1,
+   "h": 1,
+   "name": "Frame Bench with Armrests",
+   "tag": "BENCHES",
+   "finish": "Sage",
+   "measure": "1900 MM",
+   "id": "K6_1900",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 3,
+   "row": 6,
+   "w": 1,
+   "h": 1,
+   "name": "Plaza Bench with Backrest",
+   "tag": "BENCHES",
+   "finish": "Natural Galvanised Steel",
+   "measure": "2000 MM",
+   "id": "K7_noArmrests",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 0,
+   "row": 7,
+   "w": 2,
+   "h": 1,
+   "name": "Plaza Bike Rack",
+   "tag": "BIKE RACKS",
+   "finish": "Accent Orange",
+   "measure": "4 BIKES",
+   "id": "K8_module",
+   "image": [
+    6.05,
+    -37.93,
+    87.91
+   ]
+  },
+  {
+   "col": 2,
+   "row": 7,
+   "w": 1,
+   "h": 1,
+   "name": "Plaza Bench with Armrests",
+   "tag": "BENCHES",
+   "finish": "Natural Galvanised Steel",
+   "measure": "2000 MM",
+   "id": "K7_armrests",
+   "image": [
+    6.42,
+    6.75,
+    87.16
+   ]
+  },
+  {
+   "col": 3,
+   "row": 7,
+   "w": 1,
+   "h": 1
+  }
+ ],
+ "categories": [
+  {
+   "name": "Benches",
+   "id": "G3_std",
+   "image": [
+    3.0,
+    2.8,
+    134.0
+   ]
+  },
+  {
+   "name": "Loungers",
+   "id": "G4_std",
+   "image": [
+    15.0,
+    14.8,
+    110.0
+   ]
+  },
+  {
+   "name": "Tables",
+   "id": "G5_std",
+   "image": [
+    3.0,
+    2.8,
+    134.0
+   ]
+  },
+  {
+   "name": "Planters",
+   "id": "K1_R1500",
+   "image": [
+    3.0,
+    2.8,
+    134.0
+   ]
+  },
+  {
+   "name": "Bins",
+   "id": "K3_R900",
+   "image": [
+    32.0,
+    22.8,
+    94.0
+   ]
+  },
+  {
+   "name": "Bike racks",
+   "id": "K8_module",
+   "image": [
+    3.0,
+    2.8,
+    134.0
+   ]
+  }
+ ]
+}

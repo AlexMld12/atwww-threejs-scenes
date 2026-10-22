@@ -1,0 +1,120 @@
+/* FROM THE RANGE: a free-dragging slider of the catalogue's benches (use-range.ts); the rule and the label as
+   THE DETAILS (details.css) */
+.range {
+  height: var(--rg-h);
+}
+
+.range__arrows {
+  top: var(--rg-arrows-top);
+  right: var(--dv-edge);
+  display: flex;
+  gap: var(--bo-btn-gap);
+}
+
+.range__arrow {
+  display: grid;
+  place-items: center;
+  width: var(--bo-btn-h);
+  height: var(--bo-btn-h);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--pill-radius);
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+}
+
+.range__arrow svg {
+  width: var(--bo-arrow);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+/* the screen's full width: the cards run off its right edge, as Figma's third one */
+.range__viewport {
+  top: var(--rg-track-top);
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+
+.range__track {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-y pinch-zoom;
+}
+
+.range__card {
+  position: relative;
+  flex: 0 0 var(--rg-card-w);
+  margin-right: var(--rg-gap);
+  /* room for the title and caption under the image */
+  padding-bottom: calc(var(--rg-caption-dy) + var(--mono-lh));
+}
+
+.range__card:first-child {
+  margin-left: var(--dv-edge);
+}
+
+.range__card:last-child {
+  margin-right: var(--dv-edge);
+}
+
+.range__image {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: var(--card);
+}
+
+.range__card--tall .range__image {
+  height: var(--rg-tall);
+}
+
+.range__card--short .range__image {
+  height: var(--rg-short);
+}
+
+/* the product fills the card's width, as a shop's packshot, with its shadow */
+.range__image img {
+  display: block;
+  width: 86%;
+  height: auto;
+  pointer-events: none;
+}
+
+.range__text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--rg-caption-dy) + var(--mono-lh));
+}
+
+.range__title,
+.range__caption {
+  position: absolute;
+  left: 0;
+}
+
+.range__title {
+  --lh: var(--rg-title-lh);
+  top: var(--rg-title-dy);
+  font: 400 var(--rg-title) / var(--rg-title-lh) var(--font-sans);
+}
+
+.range__caption {
+  --lh: var(--mono-lh);
+  top: var(--rg-caption-dy);
+  color: rgb(14 31 20 / 0.4);
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}

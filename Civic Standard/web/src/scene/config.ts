@@ -92,15 +92,12 @@ export const SCROLL = {
 
 // The hero's scroll, in screens: the tube, then the bench photo growing to the full screen (Figma frames 3 → 5).
 // The tube runs at least tubeScreens; the section then lengthens to the next scroll where a bench row is level.
-// Within seekScreens of it the tube turns on (up to seekSpeed rad/s, easing in) until the bench faces the camera.
+// Over the last seekScreens before it the rows brake to a standstill and the scroll turns the bench panel to the
+// front (it used to be time: the page then waited at the landing for the turn, which read as the scroll sticking).
 export const HERO = {
   tubeScreens: 4,
   growScreens: 2,
-  seekScreens: 0.6,
-  seekSpeed: 1.5,
-  seekEase: 1.6,
-  seekHeldSpeed: 3,
-  seekMinSpeed: 0.3,
+  seekScreens: 2,
 };
 
 // A panel at the front of the tube, centred, is Figma's frame-3 card (329 × 456 px); it grows through frame 4's

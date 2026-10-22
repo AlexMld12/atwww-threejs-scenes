@@ -14,7 +14,7 @@ const LINE_RISE = 40;
 const LINE_S = 1.6;
 const LINE_DELAY_S = 0.1;
 const LINE_STAGGER_S = 0.1;
-const FADE_OUT_S = 0.2;
+const FADE_OUT_S = 0.5;
 
 const expoOut = (t: number) => (t >= 1 ? 1 : 1 - 2 ** (-10 * t));
 
@@ -39,7 +39,10 @@ export function useBuiltOutside(root: RefObject<HTMLElement | null>) {
     const html = document.documentElement;
     let arrived = -1;
     let frame = 0;
+    // under another page (hidden): no stops, no hold on the navbar
+    const shown = () => section.offsetParent !== null;
     const removeStops = setScrollStops(() => {
+      if (!shown()) return [];
       const top = section.getBoundingClientRect().top + window.scrollY;
       const height = stage.clientHeight || window.innerHeight;
       return STOPS.map((screens) => top + screens * height);
@@ -47,6 +50,7 @@ export function useBuiltOutside(root: RefObject<HTMLElement | null>) {
 
     const update = (now: number) => {
       frame = requestAnimationFrame(update);
+      if (!shown()) return html.classList.remove('is-nav-hidden');
       const height = stage.clientHeight || window.innerHeight;
       const screens = -section.getBoundingClientRect().top / height;
 
