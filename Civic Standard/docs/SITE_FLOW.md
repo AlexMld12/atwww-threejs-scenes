@@ -466,3 +466,8 @@ Deschise:
 - Făcut: navbar (logo, Quote/Back, burger → `nav/MobileMenu.tsx`), toate secțiunile home, /products, pagina de
   produs, configuratorul (produsul ridicat cu `lift`, punctele ținute pe ecran), sertarul de ofertă.
 - Capcană: în Git Bash un argument `/` devine cale Windows (`C:/Program Files/Git/`): `MSYS_NO_PATHCONV=1`.
+- 2026-10-22, după feedback pe Honor Magic5 Lite: touch nativ (Lenis anula touchstart → tap-urile nu mergeau);
+  hero pe telefon: sticla 3 suprafețe + rest, trasată la 0.6 din rezoluție și afișată de logo (`glass.ts`), fundalul
+  din spate la ½ și la 2 cadre, DPR 1.75 adaptiv (≥ 1.25), cap 60 fps; logo-ul centrat pe zona vizibilă
+  (`--stage-lift`); mișcările de scroll pe `screenHeight()` (100lvh), nu pe innerHeight (bara Chrome). Site live:
+  https://civic-standard.vercel.app (export static: Vercel refuza o funcție numită după calea cu spațiu).
