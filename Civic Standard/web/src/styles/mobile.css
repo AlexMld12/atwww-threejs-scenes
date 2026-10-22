@@ -1110,3 +1110,18 @@
     row-gap: 8px;
   }
 }
+
+/* the configurator's page: the tabs sit under the bar here, so the bar keeps its mark and word */
+@media (max-width: 1023px) {
+  .nav--bare .nav__brand {
+    visibility: visible;
+    pointer-events: auto;
+  }
+}
+
+/* a phone on its side: no room for the configurator's plan */
+@media (max-width: 1023px) and (max-height: 600px) {
+  .cfp__plan {
+    display: none !important;
+  }
+}
