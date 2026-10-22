@@ -167,6 +167,7 @@ export function createGlass(
 
   const size = new THREE.Vector2();
   const handheld = isHandheld();
+  let frame = 0;
 
   return {
     material,
@@ -200,16 +201,21 @@ export function createGlass(
       renderer.getDrawingBufferSize(size);
       // on a phone what the refraction sees, blurred by the glass anyway, at half the screen's pixels each way
       if (handheld) size.multiplyScalar(0.5).floor();
-      if (behind.width !== size.x || behind.height !== size.y) behind.setSize(size.x, size.y);
+      const resized = behind.width !== size.x || behind.height !== size.y;
+      if (resized) behind.setSize(size.x, size.y);
       logo.updateWorldMatrix(true, false);
       material.uniforms.worldToLogo.value.copy(logo.matrixWorld).invert();
 
-      const shown = hidden.map((object) => object.visible);
-      hidden.forEach((object) => (object.visible = false));
-      renderer.setRenderTarget(behind);
-      renderer.clear();
-      renderer.render(scene, camera);
-      hidden.forEach((object, i) => (object.visible = shown[i]));
+      // on a phone the scene behind the glass is drawn every other frame (it is seen only bent through the glass),
+      // the whole scene's second pass halved
+      if (!handheld || frame++ % 2 === 0 || resized) {
+        const shown = hidden.map((object) => object.visible);
+        hidden.forEach((object) => (object.visible = false));
+        renderer.setRenderTarget(behind);
+        renderer.clear();
+        renderer.render(scene, camera);
+        hidden.forEach((object, i) => (object.visible = shown[i]));
+      }
 
       renderer.setRenderTarget(null);
       renderer.render(scene, camera);

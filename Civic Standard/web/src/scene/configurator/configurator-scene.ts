@@ -29,6 +29,8 @@ const DOT_GAP = 88;
 const DOT_DY = { left: 30, right: -50 };
 const DOT_EDGE = 52;
 const DOT_BELOW = 44;
+// under the product on a phone: the circles and their labels
+const DOT_ROOM = 96;
 
 export interface Anchors {
   left: { x: number; y: number };
@@ -43,8 +45,11 @@ export async function createConfiguratorScene(
     onProgress: (fraction: number) => void;
     onAnchors: (anchors: Anchors) => void;
     onDragging: (dragging: boolean) => void;
-    /** Under 1024 px: how far up (px) the product sits, clear of the controls under it. */
-    lift?: number;
+    /**
+     * Under 744 px (a phone): the band the product and its dots fit in, px from the section's top and foot (the
+     * tabs and the name above, the controls below).
+     */
+    band?: { top: number; bottom: number };
   },
 ) {
   const renderer = new THREE.WebGLRenderer({
@@ -162,10 +167,14 @@ export async function createConfiguratorScene(
     camera.aspect = width / height;
     // The section is the screen's height. Shorter than Figma's 850 (or narrow), the product shrinks with it so it
     // stays between the rules; taller, it keeps Figma's scale and the screen sees more around it.
-    const fit = Math.min(1, height / designPx(SECTION_PX), (width * FIT_WIDTH_SHARE) / designPx(FIT.width));
+    // A phone: the product (and the dots under it, DOT_ROOM) fits the band between the text and the controls.
+    const band = width < 744 ? options.band : undefined;
+    const room = band ? (height - band.top - band.bottom - DOT_ROOM) / designPx(FIT.height) : Infinity;
+    const fit = Math.min(1, height / designPx(SECTION_PX), (width * FIT_WIDTH_SHARE) / designPx(FIT.width), room);
     const seen = height / (designPx(SECTION_PX) * fit);
     camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * seen));
-    const lift = width < 1024 ? (options.lift ?? 0) : 0;
+    // the band's middle (less the dots' room under the product), not the section's
+    const lift = band ? (band.bottom + DOT_ROOM - band.top) / 2 : 0;
     camera.setViewOffset(width, height, -designPx(CENTRE_SHIFT.x), -designPx(CENTRE_SHIFT.y) + lift, width, height);
     camera.updateProjectionMatrix();
     dirty = true;

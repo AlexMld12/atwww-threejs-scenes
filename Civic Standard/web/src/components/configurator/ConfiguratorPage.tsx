@@ -90,7 +90,7 @@ export function ConfiguratorPage() {
             layoutDot.current?.style.setProperty('translate', `${right.x}px ${right.y}px`);
           },
           onDragging: (dragging) => root.current?.classList.toggle('is-dragging', dragging),
-          lift: 110,
+          band: { top: 135, bottom: 275 },
         }),
       )
       .then((created) => {

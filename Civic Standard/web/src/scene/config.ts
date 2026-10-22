@@ -46,8 +46,8 @@ export const GLASS = {
   reflectionSize: 512,
   // Surfaces a ray may meet through the logo (Cycles: 8 transmission bounces).
   traceBounces: 8,
-  // a phone's GPU: the light that comes through after 4 surfaces is most of it
-  handheldBounces: 4,
+  // a phone's GPU: the light that comes through after 3 surfaces is most of it
+  handheldBounces: 3,
 };
 
 export const BACKDROP = {

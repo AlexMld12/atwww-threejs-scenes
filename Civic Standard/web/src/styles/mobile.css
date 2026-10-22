@@ -626,6 +626,27 @@
   }
 }
 
+/* a phone: the finish and its swatches, then the call to action under them across the screen */
+@media (max-width: 743px) {
+  :root {
+    --cf-rule2-bottom:  148px;
+    --cf-finish-bottom: 114px;
+  }
+
+  .cf__swatches {
+    bottom: 88px;
+  }
+
+  .cf__actions {
+    left: var(--dv-edge);
+    bottom: 24px;
+  }
+
+  .cf__configure {
+    flex: 1;
+  }
+}
+
 /* PRODUCTS (floema.com/en/products on a phone: the title ~28 px, 2 columns everywhere under 1024, square cards 266
    tall, the wide ones the whole row; on a touch screen only the name shows, no finish or measures): the header in
    the flow, the categories one row that scrolls sideways, then the grid */
@@ -1032,8 +1053,11 @@
     gap: 16px;
   }
 
+  /* scrolls sideways; padded so the pills' outline (a shadow) is not cut by the scroll box */
   .cfp__bar .ph__sizes {
     flex-wrap: nowrap;
+    margin: -3px;
+    padding: 3px;
     overflow-x: auto;
     scrollbar-width: none;
   }

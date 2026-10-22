@@ -78,7 +78,7 @@ async function loadAssets() {
   };
 }
 
-const SLOW = { frames: 60, frameS: 1 / 40, step: 0.8, floor: 0.6 };
+const SLOW = { frames: 45, frameS: 1 / 45, step: 0.8, floor: 0.5 };
 
 /** `onHeroHeight` gets the hero's scroll length in px: it ends where a bench row comes level with the centre. */
 export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: string, onHeroHeight: (px: number) => void) {
