@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useRef, type CSSProperties } from 'react';
+import { screenHeight } from '@/lib/device';
 
 // The statement fills with the scroll, letter by letter (Figma shows it half way: the first words full, the rest at
 // 15 %): it starts as its top reaches 85 % of the screen and is full when its foot reaches 45 %. A letter takes 6 %
@@ -21,7 +22,7 @@ export function Statement({ text, className }: { text: string; className: string
     const update = () => {
       frame = 0;
       const { top, bottom } = element.getBoundingClientRect();
-      const height = window.innerHeight;
+      const height = screenHeight();
       const progress = (START * height - top) / (START * height - END * height + (bottom - top));
       element.style.setProperty('--fill', String(Math.min(1, Math.max(0, progress))));
     };

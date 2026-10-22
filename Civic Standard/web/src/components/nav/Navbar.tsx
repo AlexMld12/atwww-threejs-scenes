@@ -8,6 +8,14 @@ import { openQuote, quoteItems, serverQuoteItems, subscribeQuote } from '@/lib/q
 import { currentView, navigate, subscribe } from '@/lib/routes';
 import { MobileMenu } from './MobileMenu';
 
+const PHONE = '(max-width: 743px)';
+const isPhone = () => window.matchMedia(PHONE).matches;
+const subscribePhone = (listener: () => void) => {
+  const query = window.matchMedia(PHONE);
+  query.addEventListener('change', listener);
+  return () => query.removeEventListener('change', listener);
+};
+
 const LINKS = ['Products', 'About', 'Sustainability'];
 
 // Figma's arrow (Product CMS.pdf)
@@ -65,6 +73,8 @@ function ProductLinks({ quote, burger }: { quote: string; burger: ReactNode }) {
 export function Navbar() {
   const view = useSyncExternalStore(subscribe, currentView, () => currentView());
   const [menu, setMenu] = useState(false);
+  // a phone's bar keeps one width on every page: QUOTE there too (CHECKOUT is longer and crowded the mark's word)
+  const phone = useSyncExternalStore(subscribePhone, isPhone, () => false);
   const close = useCallback(() => setMenu(false), []);
   // another page: the menu is closed
   useEffect(() => subscribe(close), [close]);
@@ -93,7 +103,7 @@ export function Navbar() {
           <span className="nav__word">Civic Standard</span>
         </Link>
         {view === 'product' || view === 'configurator' ? (
-          <ProductLinks quote={view === 'configurator' ? 'Checkout' : 'Quote'} burger={burger} />
+          <ProductLinks quote={view === 'configurator' && !phone ? 'Checkout' : 'Quote'} burger={burger} />
         ) : (
           <nav className="nav__links" aria-label="Main">
             {LINKS.map((label) => (

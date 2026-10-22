@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { clamp01 } from '@/lib/design';
+import { screenHeight } from '@/lib/device';
 
 // As in the reference (fluid.glass/about, AboutBeliefs): scrubbed by the scroll, words rising from 150 % inside their
 // mask (power3.inOut, 0.5 each, 0.05 apart), pills fading in at the end (0.1 each, from 0.4). The range starts later
@@ -81,7 +82,7 @@ export function usePillars(root: RefObject<HTMLElement | null>) {
       last = now;
       if (!visible) return;
       const { top } = section.getBoundingClientRect();
-      const height = window.innerHeight;
+      const height = screenHeight();
       const end = Math.min(height - section.offsetHeight, START * height - 1);
       const target = clamp01((START * height - top) / (START * height - end)) * TIMELINE;
       shownProgress += (target - shownProgress) * (1 - Math.exp(-dt / FOLLOW_S));

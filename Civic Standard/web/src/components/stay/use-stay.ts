@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { clamp01, easeInOut } from '@/lib/design';
+import { screenHeight } from '@/lib/device';
 
 // All tied to the (Lenis-smoothed) scroll, over the part of the way that is seen: from the section's top entering at
 // the bottom of the screen to the whole section on screen (the page's end). Over it the photo zooms in from Figma's
@@ -28,7 +29,7 @@ export function useStay(root: RefObject<HTMLElement | null>) {
       frame = requestAnimationFrame(update);
       if (!visible) return;
       const { top, height } = section.getBoundingClientRect();
-      const screen = window.innerHeight;
+      const screen = screenHeight();
       const way = Math.min(height, screen);
       const seen = clamp01((screen - top) / way);
       // up by LAG of what is left to come in: its foot always stays below the screen's, so no edge shows

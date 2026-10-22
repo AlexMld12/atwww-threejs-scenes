@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { clamp01, designPx } from '@/lib/design';
+import { screenHeight } from '@/lib/device';
 
 // The bench drawing drifts to the right as the page scrolls past it: from DRIFT px left of its Figma place as it comes
 // in at the bottom of the screen to DRIFT px right of it as it leaves at the top (at its place mid-screen).
@@ -22,7 +23,8 @@ export function useDrift(target: RefObject<HTMLElement | null>) {
       if (!visible) return;
       const { top, height } = element.getBoundingClientRect();
       // the layout box: the transform only moves it sideways
-      const progress = clamp01((window.innerHeight - top) / (window.innerHeight + height));
+      const screen = screenHeight();
+      const progress = clamp01((screen - top) / (screen + height));
       element.style.transform = `translateX(${(progress * 2 - 1) * designPx(DRIFT)}px)`;
     };
     frame = requestAnimationFrame(update);

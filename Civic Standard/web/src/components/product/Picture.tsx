@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { isHandheld } from '@/lib/device';
+import { isHandheld, screenHeight } from '@/lib/device';
 import type { GalleryView } from '@/scene/plaza/gallery';
 import type { View } from './content';
 import { heroSettled } from './settle';
@@ -41,7 +41,7 @@ export function Picture({
         if (!entries.at(-1)!.isIntersecting) return;
         observer.disconnect();
         const { top, height } = element.getBoundingClientRect();
-        const hidden = Math.min(1, Math.max(0, (window.innerHeight - top) / height));
+        const hidden = Math.min(1, Math.max(0, (screenHeight() - top) / height));
         const style = mask.current!.style;
         style.transition = 'none';
         style.clipPath = `inset(${hidden * 100}% 0 0 0)`;

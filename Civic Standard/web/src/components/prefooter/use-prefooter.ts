@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { clamp01, designPx } from '@/lib/design';
 import { LAYOUT } from './content';
+import { screenHeight } from '@/lib/device';
 
 // As floema.com's footer (Footer.vue, its GSAP code read and measured): every [data-enter] block plays once when its
 // top reaches data-enter × the screen's height (their own scroll check); the CSS (prefooter.css) runs the motion.
@@ -45,7 +46,7 @@ export function usePrefooter(root: RefObject<HTMLElement | null>) {
       frame = requestAnimationFrame(update);
       if (!visible) return;
       const { top } = section.getBoundingClientRect();
-      const screen = window.innerHeight;
+      const screen = screenHeight();
       benches.style.transform = `translateX(${designPx(BENCHES_FROM) * (1 - pass(top, 0, firstRule, screen))}px)`;
       bin.style.transform = `translateX(${designPx(BIN_FROM) * (1 - pass(top, firstRule, secondRule, screen))}px)`;
       // "top 100%" → "bottom 100%": done once the links' row is all on screen

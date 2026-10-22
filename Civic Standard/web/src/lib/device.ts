@@ -19,3 +19,20 @@ export function stageLift(stageHeight: number) {
 /** Device px a px for a canvas: up to `desktop` on a desktop, up to `handheld` on a phone or a tablet. */
 export const pixelRatio = (desktop = 2, handheld = 1.5) =>
   Math.min(window.devicePixelRatio, isHandheld() ? handheld : desktop);
+
+// The screen's height for scroll-driven motion: on a phone innerHeight changes as the browser's address bar comes
+// and goes (and with it every progress worked out from it: the photos jumped); the large viewport (100lvh) does not.
+// Measured again only when the width changes (a turn of the phone), not on the bar's resizes.
+let screenCache = { width: -1, height: 0 };
+
+export function screenHeight() {
+  if (typeof window === 'undefined') return 0;
+  if (screenCache.width !== window.innerWidth) {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;top:0;height:100vh;height:100lvh;visibility:hidden;pointer-events:none';
+    document.body.append(probe);
+    screenCache = { width: window.innerWidth, height: probe.offsetHeight || window.innerHeight };
+    probe.remove();
+  }
+  return screenCache.height;
+}

@@ -1,5 +1,6 @@
 import Lenis from 'lenis';
 import { onHandover } from './intro';
+import { screenHeight } from './device';
 
 // Every wheel, touchpad and key input adds to one wanted position; each frame Lenis is sent only as far as the shown
 // scroll + MAX_AHEAD screens, so the page has a top speed (≈ MAX_AHEAD × lerp × 60 screens/s) and can't outrun what
@@ -34,7 +35,7 @@ let settleUntil = 0;
 let direction = 1;
 let lastInput = 0;
 
-const screen = () => window.innerHeight;
+const screen = () => screenHeight();
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 const isSettling = () => performance.now() < settleUntil;
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
