@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pixelRatio } from '@/lib/device';
+import { isHandheld, pixelRatio, stageLift } from '@/lib/device';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { handOver, loaderMask, onLoaded, sceneIn } from '@/lib/intro';
@@ -78,11 +78,15 @@ async function loadAssets() {
   };
 }
 
+const SLOW = { frames: 60, frameS: 1 / 40, step: 0.8, floor: 0.6 };
+
 /** `onHeroHeight` gets the hero's scroll length in px: it ends where a bench row comes level with the centre. */
 export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: string, onHeroHeight: (px: number) => void) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  const handheld = isHandheld();
+  // no multisampling on a phone: its pixel ratio already smooths the edges, and it doubles the cost of every pass
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !handheld, powerPreference: 'high-performance' });
   // the glass is ray-traced per pixel: the heaviest of the site's scenes on a phone
-  renderer.setPixelRatio(pixelRatio(2, 1.25));
+  renderer.setPixelRatio(pixelRatio(2, 1));
   renderer.toneMapping = THREE.CustomToneMapping;
   finishTask('scene-code');
 
@@ -119,6 +123,10 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.fov = fovFor(width, height);
+    // the logo in the middle of what the screen shows, as the preloader's (preloader.css, --stage-lift)
+    const lift = stageLift(height);
+    if (lift) camera.setViewOffset(width, height, 0, lift, width, height);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     glass.setBackdropScale(fitBackdrop(camera));
     onHeroHeight(takeover.layout(height));
@@ -191,6 +199,23 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
   const visibility = new IntersectionObserver((entries) => (onScreen = entries.at(-1)!.isIntersecting));
   visibility.observe(canvas.closest('section') ?? canvas);
 
+  // A phone's GPU varies tenfold: if the frames stay slow (under ~40 a second, over a second's worth), the scene
+  // draws at fewer device pixels, step by step, down to SLOW.floor; it never goes back up (no back and forth).
+  const slow = { frames: 0, time: 0 };
+  const adapt = (dt: number) => {
+    if (!handheld || loadedAt < 0) return;
+    slow.frames++;
+    slow.time += dt;
+    if (slow.frames < SLOW.frames) return;
+    const average = slow.time / slow.frames;
+    slow.frames = slow.time = 0;
+    const ratio = renderer.getPixelRatio();
+    if (average > SLOW.frameS && ratio > SLOW.floor) {
+      renderer.setPixelRatio(Math.max(SLOW.floor, ratio * SLOW.step));
+      resize();
+    }
+  };
+
   let last = performance.now();
   renderer.setAnimationLoop((now) => {
     if (!onScreen && loadedAt >= 0) {
@@ -200,6 +225,7 @@ export async function createHeroScene(canvas: HTMLCanvasElement, paperCss: strin
     }
     if (loaded && loadedAt < 0) loadedAt = now;
     update(Math.min((now - last) / 1000, 0.1), now);
+    adapt((now - last) / 1000);
     last = now;
     glass.render(scene, camera, logo.mesh, [logo.model, takeover.card]);
     if (loaded) handOver();

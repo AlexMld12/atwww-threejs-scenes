@@ -390,5 +390,7 @@
 @supports (height: 100lvh) {
   :root {
     --stage-h:        100lvh;
+    /* 0 on a desktop; on a phone with its address bar shown, how far the seen middle is above the stage's */
+    --stage-lift:     calc((100lvh - 100svh) / 2);
   }
 }

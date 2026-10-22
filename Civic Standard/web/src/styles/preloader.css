@@ -16,7 +16,8 @@
 /* same place and size as the 3D outline the scene takes over */
 .preloader__logo {
   position: absolute;
-  top: 50%;
+  /* the screen's seen middle: a phone's address bar hides the stage's foot (lib/device.ts, stageLift) */
+  top: calc(50% - var(--stage-lift, 0px));
   left: calc(50% + var(--loader-logo-x));
   width: var(--loader-logo-w);
   overflow: visible;

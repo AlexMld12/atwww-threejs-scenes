@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BVHShaderGLSL, FloatVertexAttributeTexture, MeshBVH, MeshBVHUniformStruct } from 'three-mesh-bvh';
 import { leavesShadow, WALL_HEIGHT, WALL_WIDTH } from './backdrop';
 import { BACKDROP, GLASS } from './config';
+import { isHandheld } from '@/lib/device';
 import { bindViewCurve } from './view-curve';
 
 /**
@@ -35,7 +36,7 @@ const glassFragment = /* glsl */ `
   varying vec3 vWorldPosition;
   varying vec3 vWorldNormal;
 
-  const int BOUNCES = ${GLASS.traceBounces};
+  const int BOUNCES = ${isHandheld() ? GLASS.handheldBounces : GLASS.traceBounces};
   // Start each ray a little off the surface it leaves, or it finds that same surface again.
   const float SURFACE_OFFSET = 2e-3;
 
@@ -165,6 +166,7 @@ export function createGlass(
   bindViewCurve(material);
 
   const size = new THREE.Vector2();
+  const handheld = isHandheld();
 
   return {
     material,
@@ -196,6 +198,8 @@ export function createGlass(
     /** Draws the scene without the logo (what the rays leaving the glass see), then the whole frame. */
     render(scene: THREE.Scene, camera: THREE.PerspectiveCamera, logo: THREE.Mesh, hidden: THREE.Object3D[]) {
       renderer.getDrawingBufferSize(size);
+      // on a phone what the refraction sees, blurred by the glass anyway, at half the screen's pixels each way
+      if (handheld) size.multiplyScalar(0.5).floor();
       if (behind.width !== size.x || behind.height !== size.y) behind.setSize(size.x, size.y);
       logo.updateWorldMatrix(true, false);
       material.uniforms.worldToLogo.value.copy(logo.matrixWorld).invert();
