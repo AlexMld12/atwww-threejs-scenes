@@ -611,8 +611,9 @@
    the desktop, at the screen's height */
 @media (max-width: 1023px) {
   :root {
-    --cf-tab:           26px;
-    --cf-tab-gap:       10px;
+    /* the three tabs across the screen, at most 26 px (a 320 px phone: 20) */
+    --cf-tab:           clamp(20px, 6.6vw, 26px);
+    --cf-tab-gap:       clamp(7px, 2.4vw, 10px);
     --cf-tabs-top:      24px;
     --cf-rule-top:      70px;
     --cf-name-top:      84px;
@@ -1019,8 +1020,9 @@
     display: none;
   }
 
+  /* over the bar: its sizes, its finish and swatches (about 150 px over 90) */
   .cfp__rule--bottom {
-    bottom: 236px;
+    bottom: 262px;
   }
 
   .cfp__bar {
