@@ -29,7 +29,7 @@ export const OFFICES = [
   },
 ];
 
-export const MAIN_LINKS = ['Products', 'About', 'Sustainability'];
+export const MAIN_LINKS = ['Products', 'Our Projects'];
 export const SUB_LINKS = [
   { x: 288.8, links: ['Careers', 'Press & Media', 'Privacy Policy', 'Warranty and Care'] },
   { x: 547.5, links: ['Downloads', 'CAD and BIM Files', 'Spec Sheets', 'Request Samples'] },

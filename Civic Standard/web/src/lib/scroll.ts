@@ -107,6 +107,9 @@ function drive() {
 
 function onVirtualScroll({ deltaY, event }: { deltaY: number; event: WheelEvent | TouchEvent }) {
   if (!lenis || lenis.isStopped || event.ctrlKey) return true;
+  // a panel that scrolls itself (a project's): Lenis would see its data-lenis-prevent only after this callback
+  if (event.composedPath().some((node) => node instanceof HTMLElement && node.hasAttribute('data-lenis-prevent')))
+    return true;
   if (event.type.startsWith('touch')) {
     // native: nothing cancelled, the browser scrolls and taps
     touching = event.type !== 'touchend';

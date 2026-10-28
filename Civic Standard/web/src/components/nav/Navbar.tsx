@@ -16,7 +16,7 @@ const subscribePhone = (listener: () => void) => {
   return () => query.removeEventListener('change', listener);
 };
 
-const LINKS = ['Products', 'About', 'Sustainability'];
+const LINKS = ['Products', 'Our Projects'];
 
 // Figma's arrow (Product CMS.pdf)
 const BACK_ICON = 'M5.26 10.45 6.02 9.72 2.03 5.72h9.35V4.68H2.03L6.01.7 5.26-.05C3.34 1.87 1.86 3.36.02 5.2z';
@@ -112,18 +112,23 @@ export function Navbar() {
                 type="button"
                 className="pill"
                 aria-label={label}
-                onClick={label === 'Products' ? () => navigate('products') : undefined}
+                onClick={() => navigate(label === 'Products' ? 'products' : 'projects')}
               >
                 <Roll text={label} />
               </button>
             ))}
-            <button type="button" className="pill pill--icon nav__search" aria-label="Search">
-              <svg viewBox="0 0 14.4 14.4" aria-hidden="true">
-                <circle cx="6.1" cy="6.1" r="5.35" />
-                <path d="M10 10l3.9 3.9" />
-              </svg>
-            </button>
-            <QuoteButton label="Quote" />
+            {/* the 404 has only the two links (Page 404.pdf) */}
+            {view !== 'notfound' && (
+              <>
+                <button type="button" className="pill pill--icon nav__search" aria-label="Search">
+                  <svg viewBox="0 0 14.4 14.4" aria-hidden="true">
+                    <circle cx="6.1" cy="6.1" r="5.35" />
+                    <path d="M10 10l3.9 3.9" />
+                  </svg>
+                </button>
+                <QuoteButton label="Quote" />
+              </>
+            )}
             {burger}
           </nav>
         )}

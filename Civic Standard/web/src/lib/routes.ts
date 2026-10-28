@@ -1,15 +1,20 @@
 import type { Dither } from '@/components/transition/dither';
 import catalogue from '@/components/product/catalogue.json';
+import projects from '@/components/projects/projects.json';
 import { jumpTo, scrollPosition, setScrollLocked } from './scroll';
 
 // The pages live in one document, as on KELV: the home stays mounted (its 3D scene, its scroll) and is only hidden
 // while another page is shown, so going back is instant and nothing loads twice. The URL follows (history), and every
 // change of page goes under the dither cover: cover, swap, put the scroll where it belongs, uncover.
 // A product's page is one view for all products: its slug says which; so is the configurator, opened on a product.
-export type View = 'home' | 'products' | 'product' | 'configurator';
+// /projects and an open project are one page: between them there is no cover, the picture grows instead
+// (`navigateSoft`). Any other address is the 404's view.
+export type View = 'home' | 'products' | 'product' | 'configurator' | 'projects' | 'project' | 'notfound';
 
 const PRODUCT_PATH = /^\/products\/([a-z0-9-]+)$/;
 const CONFIGURATOR_PATH = /^\/configurator(?:\/([a-z0-9-]+))?$/;
+const PROJECT_PATH = /^\/projects\/([a-z0-9-]+)$/;
+const isProjects = (target: View) => target === 'projects' || target === 'project';
 
 const pathFor = (target: View, slug: string | null) =>
   target === 'product'
@@ -18,25 +23,40 @@ const pathFor = (target: View, slug: string | null) =>
       ? `/configurator${slug ? `/${slug}` : ''}`
       : target === 'products'
         ? '/products'
-        : '/';
+        : target === 'projects'
+          ? '/projects'
+          : target === 'project'
+            ? `/projects/${slug}`
+            : '/';
 
 function titleFor(target: View, slug: string | null) {
   if (target === 'products') return 'Products';
   if (target === 'configurator') return 'Configurator';
+  if (target === 'notfound') return 'Page not found';
+  if (target === 'projects') return 'Our Projects';
+  if (target === 'project') return projects.find((p) => p.slug === slug)?.name ?? 'Our Projects';
   const product = target === 'product' && catalogue.find((p) => p.slug === slug);
   return product ? product.name : 'Civic Standard';
 }
 
+const isProduct = (slug: string | undefined) => !slug || catalogue.some((p) => p.slug === slug);
+
 export function viewFor(pathname: string): View {
   const path = pathname.replace(/\/$/, '');
-  if (PRODUCT_PATH.test(path)) return 'product';
-  if (CONFIGURATOR_PATH.test(path)) return 'configurator';
-  return path === '/products' ? 'products' : 'home';
+  const product = PRODUCT_PATH.exec(path);
+  if (product) return isProduct(product[1]) ? 'product' : 'notfound';
+  const configurator = CONFIGURATOR_PATH.exec(path);
+  if (configurator) return isProduct(configurator[1]) ? 'configurator' : 'notfound';
+  const project = PROJECT_PATH.exec(path);
+  if (project) return projects.some((p) => p.slug === project[1]) ? 'project' : 'notfound';
+  if (path === '/products') return 'products';
+  if (path === '/projects') return 'projects';
+  return path === '' ? 'home' : 'notfound';
 }
 
 export function slugFor(pathname: string) {
   const path = pathname.replace(/\/$/, '');
-  return PRODUCT_PATH.exec(path)?.[1] ?? CONFIGURATOR_PATH.exec(path)?.[1] ?? null;
+  return PRODUCT_PATH.exec(path)?.[1] ?? CONFIGURATOR_PATH.exec(path)?.[1] ?? PROJECT_PATH.exec(path)?.[1] ?? null;
 }
 
 type Listener = () => void;
@@ -111,8 +131,8 @@ async function run() {
     document.title = titleFor(target, targetSlug);
     listeners.forEach((listener) => listener());
     await nextFrame();
-    // a product's page and the configurator open at their top, the others where they were left
-    jumpTo(target === 'product' || target === 'configurator' ? 0 : (saved[target] ?? 0));
+    // a product's page, the configurator and the 404 open at their top, the others where they were left
+    jumpTo(['product', 'configurator', 'notfound', 'projects', 'project'].includes(target) ? 0 : (saved[target] ?? 0));
     await nextFrame();
     if (wanted !== target || wantedSlug !== targetSlug) continue;
     const clear = dither?.uncover();
@@ -132,9 +152,27 @@ export function navigate(target: View, targetSlug: string | null = null) {
   void run();
 }
 
-/** Back and Forward: the same transition to the page the history has. */
+/** Between /projects and a project: the address and the view change, the page stays (its picture moves instead). */
+export function navigateSoft(target: 'projects' | 'project', targetSlug: string | null = null, replace = false) {
+  const path = pathFor(target, targetSlug);
+  if (path !== window.location.pathname)
+    window.history[replace ? 'replaceState' : 'pushState']({ view: target }, '', path);
+  swap(target, targetSlug);
+}
+
+function swap(target: View, targetSlug: string | null) {
+  view = target;
+  slug = targetSlug;
+  document.title = titleFor(target, targetSlug);
+  listeners.forEach((listener) => listener());
+}
+
+/** Back and Forward: the same transition to the page the history has (none inside /projects). */
 export function followHistory() {
-  wanted = viewFor(window.location.pathname);
-  wantedSlug = slugFor(window.location.pathname);
+  const target = viewFor(window.location.pathname);
+  const targetSlug = slugFor(window.location.pathname);
+  if (!busy && isProjects(view) && isProjects(target)) return swap(target, targetSlug);
+  wanted = target;
+  wantedSlug = targetSlug;
   void run();
 }

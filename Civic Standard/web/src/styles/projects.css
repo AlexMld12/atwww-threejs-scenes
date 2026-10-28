@@ -1,0 +1,347 @@
+/* OUR PROJECTS: one screen, the tube's canvas filling it (no page scroll: the wheel and the finger move the tube,
+   lib/virtual-scroll.ts); an open project's panel at the right, as the quote drawer */
+.pj {
+  position: relative;
+  height: var(--stage-h);
+  overflow: clip;
+  touch-action: none;
+}
+
+.pj__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  visibility: hidden;
+}
+
+.pj__canvas.is-drawn {
+  visibility: visible;
+}
+
+/* over an open project's picture the pointer is Figma's × (Project Page CMS.pdf: 40 px, green) */
+.pj__close,
+.pj__close-button {
+  display: grid;
+  place-items: center;
+  width: var(--pj-close);
+  height: var(--pj-close);
+  border-radius: var(--qd-radius);
+  background: var(--green);
+  color: #fff;
+}
+
+.pj__close svg,
+.pj__close-button svg {
+  width: var(--pj-close-icon);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+.pj__close {
+  position: fixed;
+  /* off screen until the pointer moves (Projects.tsx places it) */
+  top: -100px;
+  left: -100px;
+  z-index: 30;
+  margin: calc(var(--pj-close) / -2) 0 0 calc(var(--pj-close) / -2);
+  opacity: 0;
+  scale: 0.6;
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    scale 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.pj.is-open .pj__close {
+  opacity: 1;
+  scale: 1;
+}
+
+.pj:has(.pjp:hover) .pj__close {
+  opacity: 0;
+  scale: 0.6;
+}
+
+.pj.is-open {
+  cursor: none;
+}
+
+.pj.is-open .pjp {
+  cursor: auto;
+}
+
+/* a finger has no pointer to follow: the × stands over the picture, where Figma has it */
+.pj__close-button {
+  position: fixed;
+  top: clamp(259px, 259 / 1720 * 100vw, 259 / 1720 * 100vw);
+  left: clamp(709px, 709 / 1720 * 100vw, 709 / 1720 * 100vw);
+  z-index: 30;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  scale: 0.5;
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    scale 0.3s ease;
+}
+
+/* it comes in with the panel: it grows a little past its size and settles, the × turning into place */
+.pj__close-button svg {
+  rotate: -90deg;
+  transition: rotate 0.3s ease;
+}
+
+@media (hover: none) {
+  .pj__close {
+    display: none;
+  }
+
+  .pj.is-arrived .pj__close-button {
+    opacity: 1;
+    scale: 1;
+    pointer-events: auto;
+    transition:
+      opacity 0.5s ease 0.35s,
+      scale 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s;
+  }
+
+  .pj.is-arrived .pj__close-button svg {
+    rotate: 0deg;
+    transition: rotate 0.9s cubic-bezier(0.19, 1, 0.22, 1) 0.45s;
+  }
+}
+
+/* the panel: the quote drawer's frame, it comes in from the right */
+.pjp {
+  position: fixed;
+  top: var(--qd-edge);
+  right: var(--qd-edge);
+  bottom: var(--qd-edge);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  width: var(--qd-w);
+  overflow: hidden;
+  border-radius: var(--qd-radius);
+  background: #fbf9f4;
+  color: var(--forest);
+  translate: calc(100% + var(--qd-edge)) 0;
+  transition: translate 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.pjp.is-open {
+  translate: none;
+  transition-duration: 0.9s;
+  transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.pjp__head {
+  position: relative;
+  flex: none;
+  height: calc(var(--pjp-head-h) + var(--qd-rule));
+  border-bottom: var(--qd-rule) solid rgb(23 17 15 / 0.1);
+}
+
+.pjp__label {
+  position: absolute;
+  top: var(--pjp-label-top);
+  left: var(--qd-pad);
+  margin: 0;
+  color: rgb(23 17 15 / 0.5);
+  font: 400 var(--pjp-label) / var(--pjp-label-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.pjp__title {
+  position: absolute;
+  top: var(--pjp-title-top);
+  left: var(--qd-pad);
+  margin: 0;
+  color: #231f20;
+  font: 400 var(--pjp-title) / var(--pjp-title-lh) var(--font-sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.pjp__arrows {
+  position: absolute;
+  top: var(--pjp-arrow-top);
+  right: var(--qd-close-right);
+  display: flex;
+  gap: var(--pill-gap);
+}
+
+.pjp__arrow {
+  display: grid;
+  place-items: center;
+  width: var(--qd-close);
+  height: var(--qd-close);
+  padding: 0;
+  border: 0;
+  border-radius: var(--qd-radius);
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.pjp__arrow:is(:hover, :focus-visible) {
+  background: var(--forest);
+}
+
+.pjp__arrow svg {
+  width: var(--qd-close-icon);
+  fill: currentColor;
+  transition: translate 0.5s var(--roll-ease);
+}
+
+.pjp__arrow:hover svg {
+  translate: calc(-1 * var(--bo-arrow-shift) / 2) 0;
+}
+
+.pjp__arrow--next svg {
+  rotate: 180deg;
+}
+
+.pjp__arrow--next:hover svg {
+  translate: calc(var(--bo-arrow-shift) / 2) 0;
+}
+
+.pjp__scroll {
+  flex: 1;
+  min-height: 0;
+  padding: var(--pjp-picture-dy) var(--qd-pad) 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  animation: pjp-in 0.5s ease both;
+}
+
+@keyframes pjp-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.pjp__picture {
+  display: block;
+  width: 100%;
+  height: var(--pjp-picture-h);
+  border-radius: var(--qd-radius);
+  object-fit: cover;
+  background: #4e4e4e;
+}
+
+.pjp__lead {
+  margin: var(--pjp-lead-dy) 0 0;
+  font: 400 var(--pjp-lead) / var(--pjp-lead-lh) var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+.pjp__story {
+  margin-top: var(--pjp-story-dy);
+}
+
+.pjp__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--qd-pad);
+  margin-top: var(--pjp-columns-dy);
+}
+
+/* FRAME, BOARDS, …: the heavier cut, as the product page's titles (product.css) */
+.pjp__heading {
+  margin: 0 0 var(--pjp-heading-gap);
+  font: 400 var(--pjp-heading) / var(--pjp-heading-lh) var(--font-sans);
+  -webkit-text-stroke: var(--sp-title-stroke) currentColor;
+  text-transform: uppercase;
+}
+
+.pjp__text {
+  margin: 0;
+  font: 400 var(--sp-text) / var(--sp-text-lh) var(--font-sans);
+}
+
+/* the rules: Figma's green at 15 % */
+.pjp__block,
+.pjp__product {
+  border-top: var(--qd-rule) solid rgb(47 74 58 / 0.15);
+}
+
+.pjp__block {
+  margin-top: var(--pjp-block-gap);
+  padding-top: var(--pjp-block-top2);
+}
+
+.pjp__block--first {
+  margin-top: var(--pjp-rule-dy);
+  padding-top: var(--pjp-block-top);
+}
+
+.pjp__block--boxed {
+  margin-top: var(--pjp-rule-dy);
+  padding-bottom: var(--pjp-box-bottom);
+  border-bottom: var(--qd-rule) solid rgb(47 74 58 / 0.15);
+}
+
+.pjp__product {
+  display: grid;
+  grid-template-columns: var(--pjp-product-col) 1fr;
+  height: var(--pjp-product-h);
+  margin-top: var(--pjp-product-dy);
+}
+
+.pjp__drawing {
+  display: grid;
+  place-items: center;
+  border-right: var(--qd-rule) solid rgb(47 74 58 / 0.15);
+}
+
+.pjp__drawing img {
+  max-width: var(--pjp-drawing-w);
+  max-height: var(--pjp-drawing-h);
+  opacity: 0.5;
+}
+
+.pjp__about {
+  padding: var(--pjp-product-top) 0 0 var(--pjp-product-pad);
+}
+
+.pjp__link {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: rgb(14 31 20 / 0.3);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  transition: text-decoration-color 0.3s ease;
+}
+
+.pjp__link:hover {
+  text-decoration-color: currentColor;
+}
+
+.pjp__place {
+  color: rgb(14 31 20 / 0.5);
+}
+
+/* the quote drawer's foot (quote.css), across the panel's width */
+.pjp__foot {
+  margin: var(--pjp-foot-dy) calc(-1 * var(--qd-pad)) 0;
+  border-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pjp,
+  .pjp__scroll {
+    transition: none;
+    animation: none;
+  }
+}

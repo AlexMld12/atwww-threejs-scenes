@@ -385,6 +385,47 @@
   --qd-chevron:       clamp(9px, 9 / 1720 * 100vw, 9 / 1720 * 100vw);
   --qd-scroll-foot:   clamp(24px, 24 / 1720 * 100vw, 24 / 1720 * 100vw);
   --nav-back-icon:    clamp(11.4px, 11.4 / 1720 * 100vw, 11.4 / 1720 * 100vw);
+
+  /* OUR PROJECTS: a project's panel (Project Page CMS.pdf; the quote drawer's frame, --qd-*) */
+  --pjp-head-h:       clamp(87px, 87 / 1720 * 100vw, 87 / 1720 * 100vw);
+  --pjp-label:        clamp(11px, 11 / 1720 * 100vw, 11 / 1720 * 100vw);
+  --pjp-label-lh:     clamp(13px, 13 / 1720 * 100vw, 13 / 1720 * 100vw);
+  --pjp-label-top:    clamp(22.1px, 22.1 / 1720 * 100vw, 22.1 / 1720 * 100vw);
+  --pjp-title:        clamp(29px, 29 / 1720 * 100vw, 29 / 1720 * 100vw);
+  --pjp-title-lh:     clamp(32px, 32 / 1720 * 100vw, 32 / 1720 * 100vw);
+  --pjp-title-top:    clamp(40.75px, 40.75 / 1720 * 100vw, 40.75 / 1720 * 100vw);
+  --pjp-arrow-top:    clamp(26.8px, 26.8 / 1720 * 100vw, 26.8 / 1720 * 100vw);
+  --pjp-picture-dy:   clamp(15px, 15 / 1720 * 100vw, 15 / 1720 * 100vw);
+  --pjp-picture-h:    clamp(364px, 364 / 1720 * 100vw, 364 / 1720 * 100vw);
+  --pjp-lead:         clamp(23px, 23 / 1720 * 100vw, 23 / 1720 * 100vw);
+  --pjp-lead-lh:      clamp(28px, 28 / 1720 * 100vw, 28 / 1720 * 100vw);
+  --pjp-lead-dy:      clamp(32.25px, 32.25 / 1720 * 100vw, 32.25 / 1720 * 100vw);
+  --pjp-columns-dy:   clamp(32px, 32 / 1720 * 100vw, 32 / 1720 * 100vw);
+  --pjp-heading:      clamp(15px, 15 / 1720 * 100vw, 15 / 1720 * 100vw);
+  --pjp-heading-lh:   clamp(18px, 18 / 1720 * 100vw, 18 / 1720 * 100vw);
+  --pjp-heading-gap:  clamp(5.75px, 5.75 / 1720 * 100vw, 5.75 / 1720 * 100vw);
+  --pjp-rule-dy:      clamp(27px, 27 / 1720 * 100vw, 27 / 1720 * 100vw);
+  --pjp-block-top:    clamp(24.25px, 24.25 / 1720 * 100vw, 24.25 / 1720 * 100vw);
+  --pjp-block-gap:    clamp(17px, 17 / 1720 * 100vw, 17 / 1720 * 100vw);
+  --pjp-block-top2:   clamp(14.25px, 14.25 / 1720 * 100vw, 14.25 / 1720 * 100vw);
+  --pjp-box-bottom:   clamp(28px, 28 / 1720 * 100vw, 28 / 1720 * 100vw);
+  --pjp-story-dy:     clamp(31.25px, 31.25 / 1720 * 100vw, 31.25 / 1720 * 100vw);
+  --pjp-product-dy:   clamp(26.75px, 26.75 / 1720 * 100vw, 26.75 / 1720 * 100vw);
+  --pjp-product-h:    clamp(198.8px, 198.8 / 1720 * 100vw, 198.8 / 1720 * 100vw);
+  --pjp-product-col:  clamp(227px, 227 / 1720 * 100vw, 227 / 1720 * 100vw);
+  --pjp-product-pad:  clamp(15px, 15 / 1720 * 100vw, 15 / 1720 * 100vw);
+  --pjp-product-top:  clamp(24px, 24 / 1720 * 100vw, 24 / 1720 * 100vw);
+  --pjp-drawing-w:    clamp(124px, 124 / 1720 * 100vw, 124 / 1720 * 100vw);
+  --pjp-drawing-h:    clamp(157px, 157 / 1720 * 100vw, 157 / 1720 * 100vw);
+  --pjp-foot-dy:      clamp(15px, 15 / 1720 * 100vw, 15 / 1720 * 100vw);
+  --pj-close:         clamp(40px, 40 / 1720 * 100vw, 40 / 1720 * 100vw);
+  --pj-close-icon:    clamp(9px, 9 / 1720 * 100vw, 9 / 1720 * 100vw);
+
+  /* 404 (Page 404.pdf, 1440 × 830) */
+  --nf-text:          clamp(14px, 14 / 1720 * 100vw, 14 / 1720 * 100vw);
+  --nf-text-lh:       clamp(17px, 17 / 1720 * 100vw, 17 / 1720 * 100vw);
+  --nf-btn:           clamp(51px, 51 / 1720 * 100vw, 51 / 1720 * 100vw);
+  --nf-btn-w:         clamp(325.9px, 325.9 / 1720 * 100vw, 325.9 / 1720 * 100vw);
 }
 
 @supports (height: 100lvh) {

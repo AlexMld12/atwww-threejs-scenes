@@ -171,18 +171,18 @@
   transition: scale 0.5s var(--roll-ease);
 }
 
-:is(.pill, .built__actions, .cf__actions, .st__actions, .pn__buttons):is(:hover, :focus-visible) .roll__face {
+:is(.pill, .built__actions, .cf__actions, .st__actions, .pn__buttons, .nf__buttons):is(:hover, :focus-visible) .roll__face {
   top: -100%;
   transition-delay: calc((var(--n) - 1 - var(--i)) * var(--roll-step));
 }
 
-:is(.pill, .built__actions, .cf__actions, .st__actions, .pn__buttons):is(:hover, :focus-visible) .roll__face--next {
+:is(.pill, .built__actions, .cf__actions, .st__actions, .pn__buttons, .nf__buttons):is(:hover, :focus-visible) .roll__face--next {
   top: 0;
 }
 
 /* a label and its arrow are one button: hovering either turns both */
 .pill:is(:hover, :focus-visible),
-:is(.built__actions, .st__actions, .pn__buttons):hover .pill {
+:is(.built__actions, .st__actions, .pn__buttons, .nf__buttons):hover .pill {
   background: var(--green);
   color: #fff;
 }

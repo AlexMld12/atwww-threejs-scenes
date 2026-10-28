@@ -1,0 +1,184 @@
+/* 404 (Page 404.pdf): one screen, Figma's 1440 × 830 frame in the middle of it. The frame is one composition, so its
+   unit is the clamp rule's px, made smaller only where the whole frame would not fit the screen (a laptop's width,
+   a short window); the type and the buttons keep the clamp rule's sizes. A place is (--x, --y) in that frame,
+   (--px, --py) in the phone's (mobile.css). */
+.nf {
+  --nf-w: 1440;
+  --nf-h: 830;
+  --nf-k: 1; /* the 404's own scale in the frame */
+  --nf-u: min(clamp(1px, 1 / 1720 * 100vw, 1 / 1720 * 100vw), 100vw / 1440, 100svh / 830);
+  position: relative;
+  height: 100svh;
+  overflow: clip;
+  background: var(--paper);
+}
+
+.nf__frame {
+  position: absolute;
+  top: calc(50% - var(--nf-h) * var(--nf-u) / 2);
+  left: calc(50% - var(--nf-w) * var(--nf-u) / 2);
+  width: calc(var(--nf-w) * var(--nf-u));
+  height: calc(var(--nf-h) * var(--nf-u));
+  pointer-events: none;
+}
+
+.nf__at {
+  --ax: var(--x);
+  --ay: var(--y);
+  position: absolute;
+  top: calc(var(--ay) * var(--nf-u) + var(--dy, 0px));
+  left: calc(var(--ax) * var(--nf-u) + var(--dx, 0px));
+}
+
+/* the 4s come up out of the ground: uncovered from the bottom as they rise (the site's image reveal) */
+.nf__four {
+  width: calc(291 * var(--nf-k) * var(--nf-u));
+  height: calc(400 * var(--nf-k) * var(--nf-u));
+  overflow: visible;
+  fill: #a9b7a0;
+  clip-path: inset(100% 0 0 0);
+  translate: 0 calc(80 * var(--nf-k) * var(--nf-u));
+  transition:
+    clip-path 1.4s cubic-bezier(0.215, 0.61, 0.355, 1) calc(var(--i) * 0.12s),
+    translate 1.4s cubic-bezier(0.215, 0.61, 0.355, 1) calc(var(--i) * 0.12s);
+}
+
+.is-in .nf__four {
+  clip-path: inset(0);
+  translate: 0 0;
+}
+
+/* the station's silhouette in Figma: bin-scene.ts frames the 3D on it */
+.nf__zero {
+  width: calc(281.6 * var(--nf-k) * var(--nf-u));
+  height: calc(440.7 * var(--nf-k) * var(--nf-u));
+}
+
+.nf__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease 0.3s;
+}
+
+.nf.is-in .nf__canvas {
+  opacity: 1;
+}
+
+.nf__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* the words: placed by their baseline; each rises in its mask, then hovers (use-hover.ts) */
+.nf__label {
+  margin-top: calc((var(--mono-lh) - 1.2 * var(--mono-size)) / -2 - var(--mono-size));
+  overflow: clip;
+  color: var(--button-ink);
+  font: 400 var(--mono-size) / var(--mono-lh) var(--font-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nf__label-inner {
+  position: relative;
+  top: var(--mono-lh);
+  display: block;
+  transition: top 1.2s cubic-bezier(0.19, 1, 0.22, 1) calc(0.7s + var(--i) * 0.08s);
+}
+
+.is-in .nf__label-inner {
+  top: 0;
+}
+
+.nf__text {
+  --lh: var(--nf-text-lh);
+  position: absolute;
+  top: calc(var(--ay) * var(--nf-u) - (var(--nf-text-lh) - var(--nf-text)) / 2 - 0.75 * var(--nf-text));
+  left: 0;
+  width: 100%;
+  margin: 0;
+  align-items: center;
+  color: var(--forest);
+  font: 400 var(--nf-text) / var(--nf-text-lh) var(--font-sans);
+  text-align: center;
+  --ay: var(--y);
+}
+
+.nf__text .line__inner {
+  transition-delay: calc(0.35s + var(--i) * 0.1s);
+}
+
+.nf__actions {
+  --ay: var(--y);
+  position: absolute;
+  top: calc(var(--ay) * var(--nf-u));
+  left: 0;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* BACK TO HOMEPAGE: the site's two-part button in Figma's gold; hovering either turns both (nav.css) */
+.nf__buttons {
+  position: relative;
+  top: var(--ph-rise);
+  display: flex;
+  gap: var(--pill-gap);
+  opacity: 0;
+  pointer-events: auto;
+  transition:
+    top 1.2s cubic-bezier(0.19, 1, 0.22, 1) 0.55s,
+    opacity 0.8s ease 0.55s;
+}
+
+.is-in .nf__buttons {
+  top: 0;
+  opacity: 1;
+}
+
+.nf__arrow,
+.nf__home {
+  height: var(--nf-btn);
+  background: var(--gold);
+}
+
+.nf__home {
+  width: var(--nf-btn-w);
+}
+
+.nf__arrow {
+  position: relative;
+  left: 0;
+  width: var(--nf-btn);
+  transition:
+    left 0.5s cubic-bezier(0.65, 0, 0.35, 1),
+    background-color 0.4s cubic-bezier(0.65, 0, 0.35, 1),
+    color 0.4s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.nf__buttons:hover .nf__arrow {
+  left: calc(-1 * var(--bo-arrow-shift));
+}
+
+.nf__arrow svg {
+  display: block;
+  width: var(--nav-back-icon);
+  fill: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf__four,
+  .nf__label-inner,
+  .nf__buttons {
+    transition: none;
+  }
+}

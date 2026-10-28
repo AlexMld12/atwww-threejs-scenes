@@ -24,10 +24,12 @@ import { Values } from './details/Values';
 import { Footer } from './footer/Footer';
 import { Hero } from './hero/Hero';
 import { Navbar } from './nav/Navbar';
+import { NotFound } from './notfound/NotFound';
 import { Pillars } from './pillars/Pillars';
 import { Preloader } from './preloader/Preloader';
 import { Product } from './product/Product';
 import { Products } from './products/Products';
+import { Projects } from './projects/Projects';
 import { QuoteDrawer } from './quote/QuoteDrawer';
 import { Range } from './range/Range';
 import { Stay } from './stay/Stay';
@@ -81,13 +83,16 @@ export function Site() {
         {view === 'products' && <Products key={entry} />}
         {view === 'product' && <Product key={entry} slug={slug} />}
         {view === 'configurator' && <ConfiguratorPage key={entry} />}
-        {/* the home's and the products' closing sections; a product's page has its own, the configurator none */}
-        <div className="view" hidden={view === 'product' || view === 'configurator'}>
+        {view === 'notfound' && <NotFound key={entry} />}
+        {/* a project opens over /projects without a cover: the same page (routes.ts, navigateSoft) */}
+        {(view === 'projects' || view === 'project') && <Projects key={entry} />}
+        {/* the home's and the products' closing sections; a product's page has its own, the others none */}
+        <div className="view" hidden={view !== 'home' && view !== 'products'}>
           <Configurator />
           <Stay />
         </div>
       </main>
-      {view !== 'configurator' && <Footer />}
+      {(view === 'home' || view === 'products' || view === 'product') && <Footer />}
       <QuoteDrawer />
     </>
   );

@@ -14,14 +14,20 @@ const LINKS_ROW = LAYOUT.rules[1];
 
 const order = (i: number) => ({ '--i': i }) as CSSProperties;
 
-/** A footer link (only Products leads somewhere yet); underlined on hover. */
+/** A footer link (Products and Our Projects lead somewhere yet); underlined on hover. */
 function FooterLink({ label, className, style }: { label: string; className: string; style?: CSSProperties }) {
   return (
     <button
       type="button"
       className={`pf__link ${className}`}
       style={style}
-      onClick={label === 'Products' ? () => navigate('products') : undefined}
+      onClick={
+        label === 'Products'
+          ? () => navigate('products')
+          : label === 'Our Projects'
+            ? () => navigate('projects')
+            : undefined
+      }
     >
       <span className="pf__label">{label}</span>
     </button>

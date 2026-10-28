@@ -471,3 +471,57 @@ Deschise:
   din spate la ½ și la 2 cadre, DPR 1.75 adaptiv (≥ 1.25), cap 60 fps; logo-ul centrat pe zona vizibilă
   (`--stage-lift`); mișcările de scroll pe `screenHeight()` (100lvh), nu pe innerHeight (bara Chrome). Site live:
   https://civic-standard.vercel.app (export static: Vercel refuza o funcție numită după calea cu spațiu).
+
+## Navigație nouă + 404 — în lucru (2026-10-28)
+
+- **Nav New.pdf:** linkurile sunt doar PRODUCTS și OUR PROJECTS (căutarea și QUOTE rămân), pe toate paginile, cu
+  aceleași distanțe ca înainte. În prefooter și în meniul de mobil linkurile mari sunt tot Products și Our Projects.
+  Pagina de produs și configuratorul își păstrează navigația. OUR PROJECTS nu duce încă nicăieri (pagina urmează).
+- **404 (Page 404.pdf, 1440 × 830):** orice altă adresă, inclusiv un slug de produs care nu există
+  (`routes.ts` → `notfound`, `app/not-found.tsx` pentru export). Navbar-ul de aici are doar cele două linkuri, ca
+  în Figma. Fără footer.
+  - Cei doi „4” sunt conturul din PDF (regula nonzero; cu evenodd apărea o așchie pe vârf), #A9B7A0.
+  - „0” e stația K3_Q600 în studioul configuratorului (`scene/notfound/bin-scene.ts`), cu camera ortografică din
+    catalog, încadrată pe silueta măsurată din alfa randării Figma (577.8–859.4 × 144.1–584.8). Nu se rotește.
+  - Unitatea cadrului e regula clamp, micșorată doar când cadrul nu încape (laptop îngust, fereastră scundă).
+    Textul și butoanele păstrează mărimile regulii.
+  - Mobil: pe orizontală, cadrul Figma; pe verticală, un cadru propriu de 390 × 740 (404 la 0.398, cuvintele în jur).
+  - Intrarea: „4” urcă descoperiți de jos, stația coboară pe umbra ei, rândurile urcă, apoi butoanele, apoi
+    cuvintele. Cuvintele plutesc „ca o navă care își caută echilibrul”: un leagăn lent + un arc care depășește
+    puțin ținta (`use-hover.ts`, pe left/top, deci textul rămâne clar).
+
+## Hero cu randările proiectelor + OUR PROJECTS — în lucru (2026-10-28)
+
+- **Randările colegului** (`C:\ATWWW\Civic Standard\Renders`, 51 de PNG de 3000 px) → `tools/prepare_projects.py`
+  → `public/projects`: `tube/<slug>.webp` (512 px), `<slug>-m.webp` (1280 px: panoul, ecranul plin pe telefon),
+  `<slug>.webp` (2400 px: ecranul plin). Fiecare randare e un proiect (`components/projects/projects.json`). Textele
+  le-am scris eu, pe produsul din catalog pe care îl arată randarea.
+- **Tubul** trece prin 9 rânduri × 6 de conținut (`TUBE.contentRows`): 51 de randări + banca (rândul 1, coloana 1)
+  + 2 repetiții. Rândurile fizice se reîmpachetează tot la 3, iar la fiecare împachetare imaginile urcă cu 3 rânduri
+  (`tube.showFor`). Randările sunt afișate ca fotografii (fără curba de culoare), neoglindite pe partea dinspre cameră.
+- **Hero-ul s-a lungit** cât să intre în cadru toate rândurile: `HERO.minTravel` 13.7 unități. Banca ajunge la
+  centru la 16.2 unități, adică ~11 500 px la 1440 × 850 (înainte, ~7 ecrane). Picturile vechi
+  (`public/hero/paintings`) nu se mai folosesc.
+- **/projects** e aceeași scenă (`createHeroScene`, `mode: 'projects'`):
+  - fără preloader: logo-ul se rotește deja, peretele e luminat, iar rândurile urcă de jos;
+  - scroll-ul e virtual, fără capete (`lib/virtual-scroll.ts`: rotița, degetul cu fling, tastele);
+  - click (tap) pe orice imagine, aproape sau departe (a doua variantă, cererea userului): întâi tubul o aduce în
+    față, la mijloc (rândurile urcă sau coboară, inelul se rotește la cel mai apropiat unghi; 1.4–2.6 s, după
+    distanță), abia apoi crește pe tot ecranul (1.6 s). Adresa devine `/projects/<slug>` fără dither (`navigateSoft`).
+    Închiderea face drumul invers (1.4 s), iar rotirea tubului revine treptat (1.6 s). Valorile sunt în
+    `PROJECTS` (config.ts);
+  - imaginea deschisă: întâi acoperă tot ecranul, apoi, cât intră panoul, se strânge ca randarea să încapă aproape
+    întreagă în stânga panoului (pe telefon, deasupra lui). Sub panou continuă în oglindă (doar marginile de 10 px
+    o arată). Imaginea la 2400 px (1280 px pe telefon) se încarcă din hover și e urcată pe GPU la click; pe GPU
+    rămân cel mult 4;
+  - săgețile: imaginea nouă intră cu un wipe moale din partea săgeții (1.8 s), pe zona vizibilă;
+  - scroll-ul din panou: `lib/scroll.ts` lasă în pace elementele cu `data-lenis-prevent` (handler-ul nostru rula
+    înaintea verificării Lenis și bloca rotița);
+  - panoul intră din dreapta (rama sertarului de ofertă). Săgețile schimbă proiectul (replaceState). Back, × sau
+    Escape îl închid, iar imaginea intră înapoi în panoul ei din inel. Tubul stă pe loc cât proiectul e deschis.
+  - × urmează cursorul peste imagine. Pe telefon stă în colțul din dreapta-sus (cererea userului: nu pe mijlocul
+    imaginii), unde e navbar-ul când nu e deschis un proiect. Apare odată cu panoul: crește puțin peste mărimea lui
+    și se așază, iar × se rotește la loc. Navbar-ul pleacă cât e deschis un
+    proiect (Figma nu-l arată).
+  - Panoul: al doilea „DIMENSIONS” din Figma e „MATERIALS”, iar „FINISH” de lângă desen e „PRODUCT” (linkul spre
+    pagina produsului). SEND QUOTE REQUEST pune produsul, cu finisajul și numărul de bucăți, în lista de ofertă.

@@ -1143,3 +1143,74 @@
     display: none !important;
   }
 }
+
+/* 404: on its side (a phone turned, a tablet in landscape) Figma's frame, fitted to the screen; upright, a frame of
+   its own (components/notfound/content.ts): the 404 across the width, the words around it, the sentence and the
+   button under it */
+@media (max-width: 1023px) {
+  :root {
+    --nf-text:          14px;
+    --nf-text-lh:       17px;
+    --nf-btn:           42px;
+    --nf-btn-w:         240px;
+  }
+}
+
+@media (max-width: 1023px) and (orientation: portrait) {
+  .nf {
+    --nf-w: 390;
+    --nf-h: 740;
+    --nf-k: 0.398;
+    --nf-u: min(100vw / 390, 100svh / 740);
+  }
+
+  .nf__at,
+  .nf__text,
+  .nf__actions {
+    --ax: var(--px);
+    --ay: var(--py);
+  }
+}
+
+@media (max-width: 1023px) and (orientation: landscape) {
+  .nf__label {
+    --ax: var(--lx, var(--x));
+    --ay: var(--ly, var(--y));
+  }
+}
+
+/* OUR PROJECTS: an open project's panel rises from the foot over the lower part of the screen, the picture above it
+   with its × in the middle (the quote drawer's margins, 4 px) */
+@media (max-width: 1023px) {
+  :root {
+    --pjp-picture-h:    56vw;
+    --pjp-title:        24px;
+    --pjp-title-lh:     28px;
+    --pjp-title-top:    43px;
+    --pjp-lead:         20px;
+    --pjp-lead-lh:      25px;
+  }
+
+  .pjp {
+    top: 34svh;
+    right: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: auto;
+    translate: 0 calc(100% + 4px);
+  }
+
+  /* in the picture's top right corner, where the navbar's buttons stand when no project is open */
+  .pj__close-button {
+    top: var(--nav-top);
+    right: var(--nav-x);
+    left: auto;
+  }
+}
+
+@media (min-width: 744px) and (max-width: 1023px) {
+  :root {
+    --pjp-picture-h:    40vw;
+  }
+}
+

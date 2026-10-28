@@ -7,7 +7,7 @@ import { MAIN_LINKS, SUB_LINKS } from '../prefooter/content';
 
 // Under 1024 px the navbar's links move into a menu over the whole screen (floema.com's, measured on a phone): the
 // paper, the main links large and rising in one after another, the footer's other links in two columns at the foot.
-// It closes on a link, on the burger again, or on Escape. Only Products leads somewhere yet, as in the footer.
+// It closes on a link, on the burger again, or on Escape. Products and Our Projects lead somewhere, as in the footer.
 export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   useEffect(() => {
     if (!open) return;
@@ -21,9 +21,9 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
   }, [open, onClose]);
 
   const go = (label: string) => {
-    if (label !== 'Products') return;
+    if (label !== 'Products' && label !== 'Our Projects') return;
     onClose();
-    navigate('products');
+    navigate(label === 'Products' ? 'products' : 'projects');
   };
 
   return (

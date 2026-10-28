@@ -23,7 +23,11 @@ export const TUBE = {
   familyOffsets: [0, 0.5, 0],
   panelWidth: 0.72,
   panelHeight: 1,
-  paintings: 7,
+  // The pictures run through 9 rows of 6 (the 51 project renders and the bench, 2 repeated) and then come round
+  // again: a multiple of the three families, so a row keeps its speed when it wraps.
+  contentRows: 9,
+  // where the bench photo sits in them (row, column): the row the hero lands on
+  bench: [1, 1],
   phase: 0.28,
   idleSpin: 0.25,
 };
@@ -93,14 +97,33 @@ export const SCROLL = {
   follow: 0.12,
 };
 
-// The hero's scroll, in screens: the tube, then the bench photo growing to the full screen (Figma frames 3 → 5).
-// The tube runs at least tubeScreens; the section then lengthens to the next scroll where a bench row is level.
+// The hero's scroll: the tube, then the bench photo growing to the full screen (Figma frames 3 → 5). The tube runs
+// until every picture has come into the frame (rows 3–5 show at the start, row 11 = the third row again reaches the
+// top edge at 13.7 units), then on to the next scroll where the bench's row is level with the centre.
 // Over the last seekScreens before it the rows brake to a standstill and the scroll turns the bench panel to the
 // front (it used to be time: the page then waited at the landing for the turn, which read as the scroll sticking).
 export const HERO = {
-  tubeScreens: 4,
+  minTravel: 13.7,
   growScreens: 2,
   seekScreens: 2,
+};
+
+// /projects: the same tube with no end. A picture clicked first comes to the middle (the rows travel and the ring
+// turns until it faces the camera, `seekS` at the least, more the further it has to go), then grows to the full
+// screen (`growS`); closing shrinks it back into its place (`shrinkS`) and the tube's own turn comes back over
+// `resumeS`. Full screen it covers the screen, then fits beside the panel as that comes in (`fitS`). The panel's
+// arrows change the picture with a wipe (`wipeS`). All of it eased in and out.
+export const PROJECTS = {
+  seekS: [1.4, 2.6],
+  seekPerRow: 0.35,
+  seekPerTurn: 0.5,
+  growFrom: 0.85,
+  growS: 1.6,
+  shrinkS: 1.4,
+  resumeS: 1.6,
+  wipeS: 1.8,
+  // the picture making room for the panel (as long as the panel's slide, projects.css)
+  fitS: 0.9,
 };
 
 // A panel at the front of the tube, centred, is Figma's frame-3 card (329 × 456 px); it grows through frame 4's

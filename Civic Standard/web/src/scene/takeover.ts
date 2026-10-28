@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CAMERA, FRAMING, HERO, SCROLL, TAKEOVER, TUBE } from './config';
 import { pxPerUnit } from './framing';
-import { coverCrop, type BenchPanel } from './tube';
+import { coverCrop, type Panel } from './tube';
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -17,15 +17,17 @@ const HALF_TURN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1
 const normal = new THREE.Vector3();
 const from = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion(), scale: new THREE.Vector3() };
 const FRONT_ANGLE = -Math.PI / 2;
-const LOOP = TUBE.familySpeeds.length * TUBE.rowSpacing;
+const FAMILIES = TUBE.familySpeeds.length;
+const LOOP = FAMILIES * TUBE.rowSpacing;
 const MIDDLE_ROW = (TUBE.rows - 1) / 2;
+const [BENCH_ROW, BENCH_COLUMN] = TUBE.bench;
 
 /**
  * The end of the hero. Nothing pulls the tube: the section is just long enough for a bench row to come level with
  * the centre on its own (`layout`). Before there the scroll turns the bench panel to the front (`turn`), and from
  * there the photo grows to the full screen (`grow`, Figma frames 3 → 5).
  */
-export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) {
+export function createTakeover(bench: THREE.Texture, panels: Panel[][]) {
   const map = bench.clone();
   const card = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
@@ -47,15 +49,10 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
   mask.renderOrder = 2;
   card.add(mask);
 
-  // Row offsets (mod one loop) that bring a bench row to height 0, and which panel that is.
-  const landings = benchPanels
-    .filter((panel) => Math.abs(panel.row - MIDDLE_ROW) <= 1)
-    .map((panel) => ({ panel, offset: ((((panel.row - MIDDLE_ROW) * TUBE.rowSpacing) % LOOP) + LOOP) % LOOP }));
-
   let landingScroll = Infinity;
   // where the tube starts braking towards the landing (seekScreens before it)
   let seekStart = Infinity;
-  let landed: BenchPanel = landings[0].panel;
+  let landed: Panel = panels[MIDDLE_ROW][BENCH_COLUMN];
   let locked = false;
   // the tube's own angle while the seek eases in, and the front angle it eases to
   let free = 0;
@@ -65,17 +62,14 @@ export function createTakeover(bench: THREE.Texture, benchPanels: BenchPanel[]) 
   return {
     card,
 
-    /** The scroll at which a bench row is level with the centre, after the tube's screens; returns the hero's height. */
+    /** The scroll at which the bench's row is level with the centre, once every picture has shown; returns the hero's height. */
     layout(stageHeight: number) {
-      const travelAtEnd = HERO.tubeScreens * stageHeight * SCROLL.travelPerPx;
-      let best = Infinity;
-      for (const { panel, offset } of landings) {
-        const travel = offset + LOOP * Math.ceil((travelAtEnd - offset) / LOOP);
-        if (travel < best) {
-          best = travel;
-          landed = panel;
-        }
-      }
+      // the bench's row comes round every contentRows; the first time past minTravel it is level at this travel
+      const passes = Math.ceil((HERO.minTravel / TUBE.rowSpacing + MIDDLE_ROW - BENCH_ROW) / TUBE.contentRows);
+      const row = BENCH_ROW + TUBE.contentRows * passes;
+      const best = (row - MIDDLE_ROW) * TUBE.rowSpacing;
+      // the rows have wrapped round this often by then (tube.ts): the panel that shows it
+      landed = panels[row - FAMILIES * Math.floor((best + LOOP / 2) / LOOP)][BENCH_COLUMN];
       // Braking at a constant rate over the seek covers half the distance full speed would: the landing is that
       // much further down the page, so the rows still come to rest with a bench row level with the centre.
       const zone = HERO.seekScreens * stageHeight;

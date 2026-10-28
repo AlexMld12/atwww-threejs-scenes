@@ -3,10 +3,10 @@
 import { useEffect, useRef } from 'react';
 import { handOver, onLoaded, sceneIn } from '@/lib/intro';
 import { finishAll } from '@/lib/preload';
-import { HERO } from '@/scene/config';
+import { HERO, SCROLL } from '@/scene/config';
 
-// Until the scene measures it: the tube's screens, the photo's growth and the screen on the full photo.
-const HERO_SCREENS = HERO.tubeScreens + HERO.growScreens + 1;
+// Until the scene measures it: the tube's travel (at Figma's 850 px), the photo's growth and the screen on the full photo.
+const HERO_SCREENS = HERO.minTravel / SCROLL.travelPerPx / 850 + HERO.growScreens + 1;
 
 export function Hero() {
   const section = useRef<HTMLElement>(null);
@@ -17,13 +17,14 @@ export function Hero() {
     let cancelled = false;
     import('@/scene/hero-scene')
       .then(({ createHeroScene }) =>
-        createHeroScene(canvas.current!, getComputedStyle(document.documentElement).getPropertyValue('--paper'), (px) =>
-          section.current?.style.setProperty('height', `${Math.round(px)}px`),
-        ),
+        createHeroScene(canvas.current!, getComputedStyle(document.documentElement).getPropertyValue('--paper'), {
+          mode: 'home',
+          onHeroHeight: (px) => section.current?.style.setProperty('height', `${Math.round(px)}px`),
+        }),
       )
-      .then((cleanup) => {
-        if (cancelled) cleanup();
-        else dispose = cleanup;
+      .then((scene) => {
+        if (cancelled) scene.dispose();
+        else dispose = scene.dispose;
       })
       .catch((error) => {
         console.error(error);

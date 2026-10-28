@@ -5,7 +5,7 @@ const TASKS = {
   logo: 0.05,
   backdrop: 0.2,
   environment: 1.7,
-  paintings: 0.77,
+  pictures: 1,
   bench: 0.44,
   compile: 0.3,
   configurator: 2.4,
