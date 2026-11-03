@@ -1,0 +1,32 @@
+{%- doc -%}
+  A product still in development: its name, a line about it and NOTIFY ME (customer form, tagged with the name).
+
+  @param {object} block - The `soon` block of the collection section
+  @param {number} index - Place in its grid (staggers the entrance)
+  @param {object} [image] - The image picked in the section
+  @param {string} note - The line under the form
+  @param {string} button - The form's button
+{%- enddoc -%}
+{%- liquid
+  assign delay = index | times: 0.08 | round: 2
+  assign tag = 'notify-' | append: block.settings.name | handleize
+-%}
+<article class="soon" data-reveal data-reveal-delay="{{ delay }}" {{ block.shopify_attributes }}>
+  <div class="soon__media">
+    <span class="pill pill--soon mono">{{ 'products.coming_soon' | t }}</span>
+    {%- render 'image',
+      image: image,
+      fallback: 'shop-coming-soon.webp',
+      width: 800,
+      height: 820,
+      class: 'soon__img',
+      sizes: '(max-width: 1023px) 100vw, 33vw'
+    -%}
+  </div>
+  <div class="soon__body">
+    <p class="card__title">{{ block.settings.name | escape }}</p>
+    <p class="card__summary">{{ block.settings.summary | escape }}</p>
+    {%- render 'email-form', variant: 'notify', button: button, tag: tag -%}
+    <p class="soon__note">{{ note | escape }}</p>
+  </div>
+</article>

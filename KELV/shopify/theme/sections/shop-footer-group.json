@@ -1,0 +1,38 @@
+{
+  "type": "custom.shop_footer",
+  "name": "Shop footer",
+  "sections": {
+    "footer": {
+      "type": "shop-footer",
+      "blocks": {
+        "social_1": {
+          "type": "social",
+          "settings": {
+            "label": "Facebook"
+          }
+        },
+        "social_2": {
+          "type": "social",
+          "settings": {
+            "label": "LinkedIn"
+          }
+        },
+        "social_3": {
+          "type": "social",
+          "settings": {
+            "label": "Instagram"
+          }
+        },
+        "social_4": {
+          "type": "social",
+          "settings": {
+            "label": "Tik-Tok"
+          }
+        }
+      },
+      "block_order": ["social_1", "social_2", "social_3", "social_4"],
+      "settings": { "credit_link": "https://www.atwww.studio/" }
+    }
+  },
+  "order": ["footer"]
+}

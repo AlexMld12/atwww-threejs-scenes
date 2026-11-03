@@ -1,0 +1,26 @@
+<kelv-hero-scene><canvas class="hero-canvas" aria-hidden="true"></canvas></kelv-hero-scene>
+<kelv-hero>
+  <section class="hero" id="hero">
+    {%- render 'hero-content', hero: section.settings -%}
+  </section>
+</kelv-hero>
+
+{% schema %}
+{
+  "name": "Hero",
+  "settings": [
+    {
+      "type": "text",
+      "id": "info",
+      "label": "Small text (left and right)",
+      "default": "Three steps back to baseline. Cool. Calm. Seal. Repeat."
+    },
+    {
+      "type": "textarea",
+      "id": "paragraph",
+      "label": "Paragraph",
+      "default": "Cool. Calm. Seal. A daily recovery routine for skin under pressure."
+    }
+  ]
+}
+{% endschema %}

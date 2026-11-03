@@ -1,0 +1,210 @@
+{
+  "file": "HERO_130_animated.glb",
+  "bytes": 7047448,
+  "sha256": "271040fb394a030c153fea4ed1f706d04606878b59fad4c5ee00c116c8acfc2c",
+  "duration": 14,
+  "fps": 24,
+  "samples": 337,
+  "revision": 2,
+  "sourceScene": "HERO_130_SCROLL_V2",
+  "phases": [
+    {
+      "name": "REVEAL",
+      "start": 0
+    },
+    {
+      "name": "IGNITION",
+      "start": 4
+    },
+    {
+      "name": "TURN",
+      "start": 8
+    },
+    {
+      "name": "OPEN",
+      "start": 14
+    }
+  ],
+  "clips": {
+    "HERO_Full": 14,
+    "HERO_Reveal": 4,
+    "HERO_Turn": 4,
+    "HERO_Open": 6
+  },
+  "camera": {
+    "name": "HERO_Camera",
+    "aspectRatio": 0.96,
+    "yfov": 0.43422262946981033,
+    "znear": 0.004999999888241291,
+    "zfar": 50.0,
+    "shiftX": 0.0,
+    "shiftY": 0.0,
+    "sensorFit": "HORIZONTAL"
+  },
+  "lights": [
+    {
+      "name": "SCROLL_V2_Rim_R",
+      "type": "AREA",
+      "shape": "RECTANGLE",
+      "watts": 1.2000000476837158,
+      "color": [
+        0.800000011920929,
+        0.8600000143051147,
+        1.0
+      ],
+      "width": 0.05999999865889549,
+      "height": 0.5,
+      "spread": 3.1415927410125732,
+      "position": [
+        0.3463880121707916,
+        0.1539090871810913,
+        -0.2425435185432434
+      ],
+      "quaternion": [
+        -0.08018182963132858,
+        0.8735352158546448,
+        0.1540277898311615,
+        0.4547334611415863
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "background_only": false,
+      "enabled": true
+    },
+    {
+      "name": "SCROLL_V2_Top",
+      "type": "AREA",
+      "shape": "RECTANGLE",
+      "watts": 0.03999999910593033,
+      "color": [
+        0.800000011920929,
+        0.8600000143051147,
+        1.0
+      ],
+      "width": 0.30000001192092896,
+      "height": 0.30000001192092896,
+      "spread": 3.1415927410125732,
+      "position": [
+        -0.08550503849983215,
+        0.46984633803367615,
+        0.14809906482696533
+      ],
+      "quaternion": [
+        -0.5540323257446289,
+        -0.21201211214065552,
+        -0.1484525501728058,
+        0.7912400960922241
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "background_only": false,
+      "enabled": true
+    },
+    {
+      "name": "SCROLL_V2_BG_Back",
+      "type": "AREA",
+      "shape": "DISK",
+      "watts": 0.0,
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "width": 0.15000000596046448,
+      "height": 0.15000000596046448,
+      "spread": 3.1415927410125732,
+      "position": [
+        0.003363977186381817,
+        0.013062206096947193,
+        -0.6000000238418579
+      ],
+      "quaternion": [
+        7.549790836947068e-08,
+        1.0,
+        -1.5695823663008923e-07,
+        7.549789415861596e-08
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "background_only": true,
+      "enabled": true
+    },
+    {
+      "name": "SCROLL_V2_BG_Front",
+      "type": "AREA",
+      "shape": "RECTANGLE",
+      "watts": 0.0,
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "width": 0.30000001192092896,
+      "height": 0.30000001192092896,
+      "spread": 3.1415927410125732,
+      "position": [
+        0.0,
+        -0.320000022649765,
+        -0.15000000596046448
+      ],
+      "quaternion": [
+        0.2941713035106659,
+        0.0,
+        0.0,
+        0.9557527303695679
+      ],
+      "scale": [
+        1.0,
+        0.9999998807907104,
+        0.9999998807907104
+      ],
+      "background_only": true,
+      "enabled": true
+    }
+  ],
+  "world": {
+    "linearColor": [
+      0.0011678003938868642,
+      0.00662517175078392,
+      0.058316491544246674
+    ],
+    "strength": 1.0
+  },
+  "sourceFrame": 97,
+  "background": false,
+  "productNodes": [
+    "K1_COOL_Foam",
+    "K2_CALM_Serum",
+    "K3_SEAL_Cream"
+  ],
+  "glowMaterials": [
+    "GLB_K1_COOL_Foam_GENS_Pump_White",
+    "GLB_K1_COOL_Foam_GENS_Label_Foam"
+  ],
+  "glowMax": 8.0,
+  "rootNodes": {
+    "K1_COOL_Foam": 4,
+    "K2_CALM_Serum": 9,
+    "K3_SEAL_Cream": 14,
+    "HERO_Camera": 15
+  },
+  "view": {
+    "transform": "Filmic",
+    "look": "Very High Contrast"
+  },
+  "approximationNotes": [
+    "SSS omitted in PBR",
+    "K1 emissive indirect light approximated by local area lights in the preview",
+    "Cycles refraction and light transport differ from realtime",
+    "Compositor grade and sampled Look Curve are reconstructed in supplied runtime; bloom, vignette and grain are approximations"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "sections": {
+    "main": { "type": "main-product" },
+    "discover": { "type": "product-discover" },
+    "more": { "type": "product-more-info" }
+  },
+  "order": ["main", "discover", "more"]
+}

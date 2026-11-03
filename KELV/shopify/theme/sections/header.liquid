@@ -1,0 +1,22 @@
+<kelv-header>
+  {%- render 'chrome', header: section.settings -%}
+  {%- render 'chrome', header: section.settings, dark: true -%}
+</kelv-header>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": [
+    { "type": "header", "content": "Title" },
+    { "type": "text", "id": "title_a", "label": "First word (orange)", "default": "Skin" },
+    { "type": "text", "id": "title_b", "label": "Second word", "default": "Collection" },
+    { "type": "header", "content": "Buttons" },
+    { "type": "text", "id": "shop_label", "label": "Shop button", "default": "Open shop" },
+    { "type": "url", "id": "shop_link", "label": "Shop button link", "info": "Empty: all products." },
+    { "type": "text", "id": "quiz_label", "label": "Left corner link", "default": "Take quiz" },
+    { "type": "url", "id": "quiz_link", "label": "Left corner link target", "info": "Empty: the skin analysis page." },
+    { "type": "text", "id": "buy_label", "label": "Right corner link", "default": "Buy now" },
+    { "type": "url", "id": "buy_link", "label": "Right corner link target", "info": "Empty: all products." }
+  ]
+}
+{% endschema %}

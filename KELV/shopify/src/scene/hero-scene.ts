@@ -1,0 +1,370 @@
+import * as THREE from 'three';
+import { transmissionScale } from '@/lib/quality';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+import { AnimationPointerPlugin } from './animation-pointer';
+import { HERO_MODEL, LOOK, POSE_CORRECTION, type Look } from './config';
+import compositorData from './data/hero-compositor.json';
+import lutData from './data/filmic-lut.json';
+import manifestData from './data/hero-manifest.json';
+import { createLut, installFilmic, type LutInfo } from './filmic';
+import { createPostprocessing, type Compositor } from './postprocessing';
+import { clearCapTransmission } from './transmission';
+import { assetUrl } from '@/lib/assets';
+import { fetchWithProgress, finishTask, reportProgress } from '@/lib/preload';
+
+interface Manifest {
+  duration: number;
+  world: { linearColor: [number, number, number]; strength: number };
+  lights: {
+    name: string;
+    watts: number;
+    color: [number, number, number];
+    width: number;
+    height: number;
+    position: [number, number, number];
+    quaternion: [number, number, number, number];
+    background_only: boolean;
+    enabled: boolean;
+  }[];
+  glowMaterials: string[];
+}
+
+export interface HeroScene {
+  duration: number;
+  /** Re-applies LOOK after it was changed at runtime (the dev tuning hook). */
+  applyLook(): void;
+  /** `left` / `frameWidth`: the drawn strip of a wider frame (the part of it on screen). */
+  setSize(width: number, height: number, pixelRatio: number, left?: number, frameWidth?: number): void;
+  setTime(seconds: number): void;
+  render(): void;
+  dispose(): void;
+}
+
+type LitMaterial = THREE.MeshPhysicalMaterial;
+
+const FOAM_WIDTH = 0.045;
+const FOAM_HEIGHT = 0.15;
+
+const capEdge: THREE.IUniform<THREE.Vector2> = { value: new THREE.Vector2() };
+const labelPrint: THREE.IUniform<THREE.Vector2> = { value: new THREE.Vector2() };
+// The mask is raised to a power: filtered down, thin text turns grey in it and would glow (washed out).
+// K1's light on the serum, in its shader: from K1's centre, wrapped round (no terminator) and fading with distance.
+const k1Spill: THREE.IUniform<THREE.Vector4> = { value: new THREE.Vector4() };
+const k1SpillShape: THREE.IUniform<THREE.Vector2> = { value: new THREE.Vector2() };
+const K1_SPILL = `#include <emissivemap_fragment>
+  vec3 toK1 = k1Spill.xyz + vViewPosition;
+  float k1Distance = length(toK1);
+  float k1Facing = clamp((dot(normal, toK1 / k1Distance) + k1SpillShape.y) / (1.0 + k1SpillShape.y), 0.0, 1.0);
+  float k1Falloff = 1.0 / (1.0 + k1Distance * k1Distance / (k1SpillShape.x * k1SpillShape.x));
+  totalEmissiveRadiance += k1Spill.w * k1Facing * k1Facing * k1Falloff * diffuseColor.rgb;`;
+const LABEL_PRINT = `totalEmissiveRadiance *= pow(texture2D(emissiveMap, vEmissiveMapUv).rgb, vec3(labelPrint.y));
+  totalEmissiveRadiance += labelPrint.x * diffuseColor.rgb;`;
+// Fresnel-weighted emission: brightest where the cap's walls are seen edge-on.
+const CAP_EDGE_GLOW = `#include <emissivemap_fragment>
+  totalEmissiveRadiance += capEdge.x * pow(1.0 - abs(dot(normal, normalize(vViewPosition))), capEdge.y);`;
+
+const lutUniform: THREE.IUniform<THREE.Data3DTexture | null> = { value: null };
+export async function createHeroScene(canvas: HTMLCanvasElement): Promise<HeroScene> {
+  // JSON imports are typed from their contents; these interfaces name the part the scene reads.
+  const manifest = manifestData as unknown as Manifest;
+  const lutInfo = lutData as LutInfo;
+  const compositor = compositorData as unknown as Compositor;
+
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  loader.register((parser) => new AnimationPointerPlugin(parser));
+  const [gltf, lutBuffer] = await Promise.all([
+    loader
+      .loadAsync(assetUrl(HERO_MODEL), (event) => {
+        if (event.total) reportProgress('hero-model', event.loaded / event.total);
+      })
+      .finally(() => finishTask('hero-model')),
+    fetchWithProgress(assetUrl(lutInfo.file), 'hero-lut').then((blob) => blob.arrayBuffer()),
+  ]);
+
+  installFilmic(lutInfo);
+  RectAreaLightUniformsLib.init();
+
+  // Only the composite quad reaches the canvas; the scene is antialiased in the HDR target.
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
+  renderer.transmissionResolutionScale = transmissionScale();
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.CustomToneMapping;
+
+  const lut = createLut(lutBuffer, lutInfo);
+
+  const scene = new THREE.Scene();
+  scene.add(gltf.scene);
+  const animatedCamera = gltf.cameras[0] as THREE.PerspectiveCamera | undefined;
+  if (!animatedCamera) throw new Error('Animated camera missing');
+  const camera = animatedCamera;
+
+  // ---- materials ----
+  const materials = new Set<LitMaterial>();
+  gltf.scene.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (mesh.isMesh) for (const m of [mesh.material].flat()) materials.add(m as LitMaterial);
+  });
+  const glowMaterials: LitMaterial[] = [];
+
+  const capMaterials: LitMaterial[] = [];
+  const baseRoughness = new Map<LitMaterial, number>();
+  const lifted = Object.keys(LOOK.lift).map((product) => ({
+    product: product as keyof Look['lift'],
+    materials: [] as LitMaterial[],
+  }));
+  const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+  for (const material of materials) {
+    const isCap = material.name.endsWith('Cap_Clear');
+    if (manifest.glowMaterials.includes(material.name)) {
+      glowMaterials.push(material);
+    }
+    // K1's label: its white ground glows (the GLB's mask), its print adds its own colour on top.
+    const isSpilled = !isCap && material.name.includes('K2_CALM_Serum');
+    const isLabel = manifest.glowMaterials.includes(material.name) && Boolean(material.emissiveMap && material.map);
+    if (isCap) capMaterials.push(material);
+    else baseRoughness.set(material, material.roughness);
+    const lift = lifted.find(({ product }) => material.name.includes(product));
+    if (lift && !isCap) {
+      lift.materials.push(material);
+      material.emissive.copy(material.color);
+      material.emissiveMap = material.map;
+    }
+    for (const value of Object.values(material)) {
+      if ((value as THREE.Texture | null)?.isTexture) (value as THREE.Texture).anisotropy = maxAnisotropy;
+    }
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.heroLUT = lutUniform;
+      if (isCap) {
+        shader.uniforms.capEdge = capEdge;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <transmission_pars_fragment>', clearCapTransmission)
+          .replace('void main() {', `uniform vec2 capEdge;\nvoid main() {`)
+          .replace('#include <emissivemap_fragment>', CAP_EDGE_GLOW);
+      } else if (isSpilled) {
+        shader.uniforms.k1Spill = k1Spill;
+        shader.uniforms.k1SpillShape = k1SpillShape;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('void main() {', `uniform vec4 k1Spill;\nuniform vec2 k1SpillShape;\nvoid main() {`)
+          .replace('#include <emissivemap_fragment>', K1_SPILL);
+      } else if (isLabel) {
+        shader.uniforms.labelPrint = labelPrint;
+        shader.fragmentShader = shader.fragmentShader
+          .replace(
+            'void main() {',
+            `uniform vec2 labelPrint;
+void main() {`,
+          )
+          .replace('#include <emissivemap_fragment>', LABEL_PRINT);
+      }
+    };
+    const key = isCap ? 'cap' : isSpilled ? 'spill' : isLabel ? 'label' : 'base';
+    material.customProgramCacheKey = () => `kelv-hero-${key}`;
+  }
+
+  // ---- lighting ----
+  const envScene = new THREE.Scene();
+  envScene.background = new THREE.Color().setRGB(...manifest.world.linearColor);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const environment = pmrem.fromScene(envScene, 0, 0.001, 10);
+  scene.environment = environment.texture;
+
+  const studioLights = manifest.lights
+    .filter((l) => l.enabled && !l.background_only)
+    .map((light) => {
+      const area = new THREE.RectAreaLight(new THREE.Color().setRGB(...light.color), 0, light.width, light.height);
+      area.position.fromArray(light.position);
+      area.quaternion.fromArray(light.quaternion);
+      scene.add(area);
+      const base = light.watts / (Math.PI * light.width * light.height);
+      return { area, base, control: light.name.endsWith('Rim_R') ? ('rim' as const) : ('top' as const) };
+    });
+
+  const fillLights = LOOK.fills.map(() => new THREE.RectAreaLight(0xffffff, 0, 1, 1));
+  if (fillLights.length) scene.add(...fillLights);
+
+  const foamNode = gltf.scene.getObjectByName('K1_COOL_Foam');
+  if (!foamNode) throw new Error('K1_COOL_Foam missing');
+  const foam: THREE.Object3D = foamNode;
+
+  const foamCentre = new THREE.Vector3();
+  const neighbourCentre = new THREE.Vector3();
+  const glowLights = (Object.keys(LOOK.glowLights) as (keyof Look['glowLights'])[]).map((name) => {
+    const target = gltf.scene.getObjectByName(name);
+    if (!target) throw new Error(`${name} missing`);
+    const light = new THREE.RectAreaLight(0xffffff, 0, FOAM_WIDTH, FOAM_HEIGHT);
+    scene.add(light);
+    return { name, target, light };
+  });
+
+  function aimGlowLights() {
+    new THREE.Box3().setFromObject(foam).getCenter(foamCentre);
+    for (const { target, light } of glowLights) {
+      new THREE.Box3().setFromObject(target).getCenter(neighbourCentre);
+      const towards = neighbourCentre.clone().sub(foamCentre).normalize();
+      light.position.copy(foamCentre).addScaledVector(towards, FOAM_WIDTH / 2);
+      light.lookAt(neighbourCentre);
+    }
+  }
+
+  // ---- animation ----
+  const clip = gltf.animations.find((a) => a.name === 'HERO_Full');
+  if (!clip) throw new Error('HERO_Full clip missing');
+  const mixer = new THREE.AnimationMixer(gltf.scene);
+  const action = mixer.clipAction(clip);
+  action.setLoop(THREE.LoopOnce, 1);
+  action.clampWhenFinished = true;
+  action.play();
+
+  const glowTrack = clip.tracks.find((t) => t.name.endsWith('material.emissiveIntensity'));
+  if (!glowTrack) throw new Error('K1 light-up animation missing');
+  const glowCurve =
+    glowTrack.getInterpolation() === THREE.InterpolateDiscrete
+      ? glowTrack.InterpolantFactoryMethodDiscrete()
+      : glowTrack.InterpolantFactoryMethodLinear();
+
+  const corrections = Object.entries(POSE_CORRECTION).map(([name, { position, rotation }]) => {
+    const node = gltf.scene.getObjectByName(name);
+    if (!node) throw new Error(`${name} missing`);
+    const rotate = new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation));
+    return { node, offset: new THREE.Vector3(...position), rotate, unrotate: rotate.clone().invert() };
+  });
+
+  const post = createPostprocessing(renderer, lut, compositor);
+  const referenceAspect = camera.aspect;
+  const baseFov = camera.fov;
+  let time = -1;
+
+  function setTime(seconds: number) {
+    const t = THREE.MathUtils.clamp(seconds, 0, manifest.duration);
+    if (t === time) return;
+    // Undo the last correction first: the mixer skips nodes whose value did not change.
+    if (time >= 0) {
+      for (const c of corrections) {
+        c.node.position.sub(c.offset);
+        c.node.quaternion.premultiply(c.unrotate);
+      }
+    }
+    time = t;
+    mixer.setTime(t);
+    for (const c of corrections) {
+      c.node.position.add(c.offset);
+      c.node.quaternion.premultiply(c.rotate);
+    }
+
+    scene.updateMatrixWorld(true);
+    aimGlowLights();
+    updateGlow();
+    scene.updateMatrixWorld(true);
+  }
+
+  // After the mixer, which only writes values that changed.
+  function updateGlow() {
+    const level = glowCurve.evaluate(Math.max(0, time))[0];
+    const glow = level * LOOK.emission;
+    for (const m of glowMaterials) m.emissiveIntensity = m.emissiveMap ? level * LOOK.labelGlow : glow;
+    labelPrint.value.set(level * LOOK.labelPrint, LOOK.labelMaskPower);
+    const centre = foamCentre.clone().applyMatrix4(camera.matrixWorldInverse);
+    k1Spill.value.set(centre.x, centre.y, centre.z, level * LOOK.k1Spill.strength);
+    k1SpillShape.value.set(LOOK.k1Spill.radius, LOOK.k1Spill.wrap);
+    for (const { name, light } of glowLights) light.intensity = glow * LOOK.glowLights[name];
+  }
+
+  function applyLook() {
+    renderer.toneMappingExposure = 2 ** LOOK.exposure;
+    scene.environmentIntensity = manifest.world.strength * LOOK.ambient;
+    for (const { area, base, control } of studioLights) area.intensity = base * LOOK[control];
+    const { fills, cap } = LOOK;
+    fills.forEach((fill, i) => {
+      const light = fillLights[i];
+      light.intensity = fill.intensity;
+      light.width = light.height = fill.size;
+      light.position.fromArray(fill.position);
+      light.lookAt(...fill.target);
+    });
+    for (const [material, roughness] of baseRoughness) material.roughness = Math.min(1, roughness * LOOK.roughness);
+    for (const material of capMaterials) {
+      material.roughness = cap.roughness;
+      material.transmission = cap.transmission;
+      material.ior = cap.ior;
+      material.thickness = cap.thickness / 1000;
+      material.specularIntensity = cap.reflectivity;
+      material.color.set(cap.tint);
+      material.emissive.set(0xffffff);
+      material.emissiveIntensity = cap.glow;
+      capEdge.value.set(cap.edge, cap.edgePower);
+    }
+    for (const { product, materials: list } of lifted) {
+      for (const material of list) material.emissiveIntensity = LOOK.lift[product];
+    }
+    for (const material of glowMaterials) material.emissive.set(LOOK.emissionColor);
+    scene.updateMatrixWorld(true);
+    aimGlowLights();
+    updateGlow();
+    scene.updateMatrixWorld(true);
+  }
+
+  setTime(0);
+  applyLook();
+  lutUniform.value = lut;
+  await post.compile(scene, camera);
+  for (const material of materials) {
+    for (const value of Object.values(material)) {
+      if ((value as THREE.Texture | null)?.isTexture) renderer.initTexture(value as THREE.Texture);
+    }
+  }
+  renderer.initTexture(lut);
+  finishTask('hero-compile');
+
+  return {
+    duration: manifest.duration,
+    applyLook,
+
+    setSize(width, height, pixelRatio, left = 0, frameWidth = width) {
+      renderer.setPixelRatio(pixelRatio);
+      renderer.setSize(width, height, false);
+      post.setSize(
+        Math.round(width * pixelRatio),
+        Math.round(height * pixelRatio),
+        left / frameWidth,
+        width / frameWidth,
+      );
+      // Wider than the reference keeps the vertical framing; narrower widens the view.
+      camera.aspect = frameWidth / height;
+      const scale = Math.max(1, referenceAspect / camera.aspect);
+      camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(baseFov) / 2) * scale));
+      if (width < frameWidth) camera.setViewOffset(frameWidth, height, left, 0, width, height);
+      else camera.clearViewOffset();
+    },
+
+    setTime,
+
+    render() {
+      lutUniform.value = lut;
+      post.render(scene, camera, LOOK);
+    },
+
+    dispose() {
+      const textures = new Set<THREE.Texture>();
+      gltf.scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (mesh.isMesh) mesh.geometry.dispose();
+      });
+      for (const material of materials) {
+        for (const value of Object.values(material)) {
+          if ((value as THREE.Texture | null)?.isTexture) textures.add(value as THREE.Texture);
+        }
+        material.dispose();
+      }
+      for (const texture of textures) texture.dispose();
+      mixer.stopAllAction();
+      post.dispose();
+      lut.dispose();
+      environment.dispose();
+      pmrem.dispose();
+      renderer.dispose();
+    },
+  };
+}

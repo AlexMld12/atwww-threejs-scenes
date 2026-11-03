@@ -1,0 +1,11 @@
+{%- comment -%} Where the code finds the files it loads itself (3D scenes, the colour LUT, product models). {%- endcomment -%}
+<script type="application/json" id="kelv-assets">
+  {
+    "hero.glb": {{ 'hero.glb' | asset_url | json }},
+    "wisdom.glb": {{ 'wisdom.glb' | asset_url | json }},
+    "filmic-lut.bin": {{ 'filmic-lut.bin' | asset_url | json }},
+    "K1_COOL_Foam.glb": {{ 'K1_COOL_Foam.glb' | asset_url | json }},
+    "K2_CALM_Serum.glb": {{ 'K2_CALM_Serum.glb' | asset_url | json }},
+    "K3_SEAL_Cream.glb": {{ 'K3_SEAL_Cream.glb' | asset_url | json }}
+  }
+</script>

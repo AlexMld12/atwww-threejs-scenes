@@ -1,0 +1,107 @@
+{%- liquid
+  assign s = section.settings
+  assign privacy_url = shop.privacy_policy.url | default: '/policies/privacy-policy'
+  capture title_label
+    echo s.title_1 | append: ' ' | append: s.title_2_accent | append: s.title_2 | append: ' ' | append: s.title_3
+  endcapture
+-%}
+<kelv-join>
+  <section class="join" id="join">
+    <div class="join__sticky">
+      <h2 class="join__title" aria-label="{{ title_label | strip | escape }}">
+        <span class="join__line" data-reveal aria-hidden="true">{{ s.title_1 | escape }}</span>
+        <span class="join__line" data-reveal data-reveal-delay="0.07" aria-hidden="true">
+          {%- if s.title_2_accent != blank -%}
+            <span class="join__exp">{{ s.title_2_accent | escape }}</span>
+          {%- endif -%}
+          <span>{{ s.title_2 | escape }}</span>
+        </span>
+        <span class="join__line" data-reveal data-reveal-delay="0.14" aria-hidden="true">{{ s.title_3 | escape }}</span>
+      </h2>
+      <p class="join__text mono" data-reveal="lines" data-reveal-delay="0.2">{{ s.text | escape }}</p>
+
+      {%- liquid
+        # A signed-in customer who already gets the emails counts as subscribed.
+        assign subscribed = ''
+        if customer.accepts_marketing
+          assign subscribed = customer.email
+        endif
+      -%}
+      {%- form 'customer',
+        id: 'join-form',
+        class: 'join__form',
+        novalidate: 'novalidate',
+        data-subscribed: subscribed
+      -%}
+        <input type="hidden" name="contact[tags]" value="newsletter">
+        <div class="field" data-part="field">
+          <input
+            class="field__input mono"
+            id="join-email"
+            type="email"
+            name="contact[email]"
+            placeholder=" "
+            autocomplete="email"
+            spellcheck="false"
+            aria-invalid="false"
+            data-part="email"
+          >
+          <label class="field__label mono" for="join-email">{{ 'newsletter.email' | t }}</label>
+        </div>
+        <p class="field__error mono" role="alert" data-part="error" hidden>
+          {%- render 'icon-error' -%}
+          <span>{{ 'newsletter.invalid_email' | t }}</span>
+        </p>
+        <p
+          class="field__error field__error--note mono"
+          role="status"
+          data-part="note"
+          data-subscribed="{{ 'newsletter.subscribed' | t }}"
+          data-already="{{ 'newsletter.already_subscribed' | t }}"
+          hidden
+        >
+          {%- render 'icon-check' -%}
+          <span data-part="note-text"></span>
+        </p>
+        <div class="consent is-disabled" data-part="consent">
+          <span class="consent__box">
+            <input class="consent__input" id="join-consent" type="checkbox" disabled data-part="consent-input">
+            <svg class="consent__check" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M4 8L7 11L12 5" pathLength="1"/>
+            </svg>
+          </span>
+          <label class="consent__label mono" for="join-consent">
+            {{- 'newsletter.consent' | t }}
+            <a href="{{ privacy_url }}" data-page-link>{{ 'newsletter.privacy_policy' | t }}</a>
+          </label>
+        </div>
+        <button class="join__send mono" type="submit" disabled data-roll-host data-part="send">
+          {%- render 'roll-text', text: s.button -%}
+          {%- render 'icon-arrow' -%}
+        </button>
+      {%- endform -%}
+    </div>
+  </section>
+</kelv-join>
+
+{% schema %}
+{
+  "name": "Newsletter",
+  "enabled_on": { "groups": ["custom.home"] },
+  "settings": [
+    { "type": "paragraph", "content": "Sign-ups become customers tagged \"newsletter\" (Customers in the admin)." },
+    { "type": "text", "id": "title_1", "label": "Title, first line", "default": "Become" },
+    { "type": "text", "id": "title_2_accent", "label": "Title, second line: wide part", "default": "Som" },
+    { "type": "text", "id": "title_2", "label": "Title, second line: the rest", "default": "eone" },
+    { "type": "text", "id": "title_3", "label": "Title, third line", "default": "Powerful" },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Get KELV routine notes, product news and daily recovery tips."
+    },
+    { "type": "text", "id": "button", "label": "Button", "default": "Join club" }
+  ],
+  "presets": [{ "name": "Newsletter" }]
+}
+{% endschema %}

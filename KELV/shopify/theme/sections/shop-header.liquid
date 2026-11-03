@@ -1,0 +1,46 @@
+{%- liquid
+  assign title_a = section.settings.title_a
+  assign title_b = section.settings.title_b
+  # A policy page names itself in the header: "Privacy policy" → PRIVACY / POLICY.
+  if request.page_type == 'policy'
+    assign words = page_title | split: ' '
+    assign title_a = words.first
+    assign title_b = page_title | remove_first: title_a | strip
+  endif
+  assign quiz_url = section.settings.quiz_link | default: '/pages/skin-analysis'
+-%}
+<header class="shop-head">
+  <a class="shop-logo" href="{{ routes.root_url }}" aria-label="{{ 'general.home' | t }}" data-page-link>
+    {%- render 'logo', degree_class: 'shop-deg' -%}
+  </a>
+  <p class="shop-title">
+    <span class="shop-title__a">{{ title_a | escape }}</span><span class="shop-title__b">{{ title_b | escape }}</span>
+  </p>
+  <div class="shop-head__end">
+    <button type="button" class="shop-cart-link mono" data-cart-open>
+      {{- 'cart.link' | t: count: cart.item_count -}}
+    </button>
+    <a class="btn-shop shop-quiz" href="{{ quiz_url }}" data-roll-host data-page-link>
+      {%- render 'roll-text', text: section.settings.quiz_label -%}
+      {%- render 'icon-arrow' -%}
+    </a>
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Shop header",
+  "enabled_on": { "groups": ["custom.shop_header"] },
+  "settings": [
+    { "type": "text", "id": "title_a", "label": "Title, first word (orange)", "default": "Shop" },
+    { "type": "text", "id": "title_b", "label": "Title, second word", "default": "Products" },
+    {
+      "type": "paragraph",
+      "content": "On the policy pages the title is the policy's name."
+    },
+    { "type": "text", "id": "quiz_label", "label": "Button", "default": "Take quiz" },
+    { "type": "url", "id": "quiz_link", "label": "Button link", "info": "Empty: the skin analysis page." }
+  ],
+  "presets": [{ "name": "Shop header" }]
+}
+{% endschema %}

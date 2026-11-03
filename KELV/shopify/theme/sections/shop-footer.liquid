@@ -1,0 +1,118 @@
+{%- liquid
+  assign s = section.settings
+  assign collection = s.collection | default: collections.all
+  assign privacy = shop.privacy_policy.url | default: '/policies/privacy-policy'
+  assign terms = shop.terms_of_service.url | default: '/policies/terms-of-service'
+-%}
+<footer class="shop-foot">
+  <div class="shop-foot__top">
+    <nav class="shop-foot__cols mono" aria-label="{{ 'footer.label' | t }}">
+      <div class="shop-foot__col" data-reveal>
+        <span class="shop-foot__heading">{{ 'footer.products' | t }}</span>
+        <span class="shop-foot__links">
+          {%- for product in collection.products limit: 6 -%}
+            <a class="shop-foot__link" href="{{ product.url }}" data-page-link>
+              {{- product.metafields.kelv.display_title.value | default: product.title | escape -}}
+            </a>
+          {%- endfor -%}
+        </span>
+      </div>
+      <div class="shop-foot__col" data-reveal>
+        <span class="shop-foot__heading">{{ 'footer.explore' | t }}</span>
+        <span class="shop-foot__links">
+          <a class="shop-foot__link" href="{{ collection.url }}" data-page-link>{{ 'footer.shop' | t }}</a>
+          <a class="shop-foot__link" href="{{ routes.root_url }}" data-page-link>{{ 'footer.homepage' | t }}</a>
+          <button type="button" class="shop-foot__link" data-cart-open>{{ 'footer.cart' | t }}</button>
+        </span>
+      </div>
+      <div class="shop-foot__col" data-reveal>
+        <span class="shop-foot__heading">{{ 'footer.socials' | t }}</span>
+        <span class="shop-foot__links">
+          {%- for block in section.blocks -%}
+            <a href="{{ block.settings.link | default: '#' }}" class="shop-foot__link" {{ block.shopify_attributes }}>
+              {{- block.settings.label | escape -}}
+            </a>
+          {%- endfor -%}
+        </span>
+      </div>
+      <div class="shop-foot__col" data-reveal>
+        <span class="shop-foot__heading">{{ 'footer.terms_heading' | t }}</span>
+        <span class="shop-foot__links">
+          <a class="shop-foot__link" href="{{ privacy }}" data-page-link>{{ 'footer.privacy' | t }}</a>
+          {%- if shop.refund_policy -%}
+            <a class="shop-foot__link" href="{{ shop.refund_policy.url }}" data-page-link>{{ 'footer.refund' | t }}</a>
+          {%- endif -%}
+          {%- if shop.shipping_policy -%}
+            <a class="shop-foot__link" href="{{ shop.shipping_policy.url }}" data-page-link>
+              {{- 'footer.shipping' | t -}}
+            </a>
+          {%- endif -%}
+          <a class="shop-foot__link" href="{{ terms }}" data-page-link>{{ 'footer.terms' | t }}</a>
+        </span>
+      </div>
+    </nav>
+    <div class="shop-updates" data-reveal data-reveal-delay="0.1">
+      <p class="shop-updates__title">
+        <span class="shop-title__a">{{ s.updates_a | escape }}</span
+        ><span class="shop-title__b">{{ s.updates_b | escape }}</span>
+      </p>
+      <p class="shop-updates__text">{{ s.updates_text | escape }}</p>
+      {%- render 'email-form', variant: 'updates', button: s.updates_button -%}
+    </div>
+  </div>
+  <div class="shop-foot__bar mono" data-reveal>
+    <span>{{ s.copyright | escape }}</span>
+    <span>
+      {{- s.credit_label | escape }}
+      <a
+        href="{{ s.credit_link | default: 'https://www.atwww.studio/' }}"
+        target="_blank"
+        rel="noopener"
+        class="shop-foot__by"
+      >
+        {{- s.credit_name | escape -}}
+      </a>
+    </span>
+  </div>
+</footer>
+
+{% schema %}
+{
+  "name": "Shop footer",
+  "enabled_on": { "groups": ["custom.shop_footer"] },
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Products listed",
+      "info": "Empty: all products. The policy links follow Settings → Policies."
+    },
+    { "type": "header", "content": "Receive updates" },
+    { "type": "text", "id": "updates_a", "label": "Title, first word (orange)", "default": "Receive" },
+    { "type": "text", "id": "updates_b", "label": "Title, second word", "default": "Updates" },
+    {
+      "type": "textarea",
+      "id": "updates_text",
+      "label": "Text",
+      "default": "Get KELV routine notes, product news and daily recovery tips."
+    },
+    { "type": "text", "id": "updates_button", "label": "Button", "default": "Subscribe" },
+    { "type": "header", "content": "Bottom line" },
+    { "type": "text", "id": "copyright", "label": "Copyright", "default": "2026 — KELV Inc. ALL RIGHTS RESERVED" },
+    { "type": "text", "id": "credit_label", "label": "Credit", "default": "WEBSITE BY" },
+    { "type": "text", "id": "credit_name", "label": "Credit link", "default": "ATWWW" },
+    { "type": "url", "id": "credit_link", "label": "Credit link target", "info": "Empty: https://www.atwww.studio/" }
+  ],
+  "blocks": [
+    {
+      "type": "social",
+      "name": "Social link",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Name", "default": "Instagram" },
+        { "type": "url", "id": "link", "label": "Link" }
+      ]
+    }
+  ],
+  "presets": [{ "name": "Shop footer" }]
+}
+{% endschema %}

@@ -1,0 +1,69 @@
+{%- doc -%}
+  A product in the shop's grids: packshot, summary table and Add to cart (Shopify's product form).
+
+  @param {object} product - The product
+  @param {number} index - Place in its grid (staggers the entrance)
+{%- enddoc -%}
+{%- liquid
+  assign kelv = product.metafields.kelv
+  assign variant = product.selected_or_first_available_variant
+  assign delay = index | times: 0.08 | round: 2
+  assign centre = kelv.image_centre.value | default: 0.5
+  assign image_style = '--img-cy: ' | append: centre
+  assign add_label = 'products.add_to_cart' | t
+-%}
+<article class="card" data-reveal data-reveal-delay="{{ delay }}">
+  <a class="card__media" href="{{ product.url }}" aria-label="{{ product.title | escape }}" data-page-link>
+    {%- if kelv.step.value -%}
+      <span class="pill mono">{{ 'products.step' | t: step: kelv.step.value }}</span>
+    {%- endif -%}
+    {{
+      product.featured_image
+      | image_url: width: 1024
+      | image_tag:
+        class: 'card__img',
+        alt: '',
+        widths: '480, 720, 1024',
+        sizes: '(max-width: 1023px) 100vw, 33vw',
+        loading: 'lazy',
+        style: image_style
+    }}
+  </a>
+  <div class="card__body">
+    <a class="card__title" href="{{ product.url }}" data-page-link>
+      {{- kelv.display_title.value | default: product.title | escape -}}
+    </a>
+    <p class="card__summary">{{ kelv.summary.value | escape }}</p>
+    <dl class="card__table mono">
+      <div>
+        <dt>{{ 'products.active' | t }}</dt>
+        <dd>{{ kelv.active.value | escape }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'products.when' | t }}</dt>
+        <dd>{{ kelv.when.value | escape }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'products.size' | t }}</dt>
+        <dd>{{ kelv.size.value | escape }}</dd>
+      </div>
+    </dl>
+    {%- form 'product', product, class: 'card__form' -%}
+      <input type="hidden" name="id" value="{{ variant.id }}">
+      <button
+        type="submit"
+        class="shop-btn shop-btn--dark card__add mono"
+        data-roll-host
+        {% unless variant.available %}
+          disabled
+        {% endunless %}
+      >
+        <span class="card__add-label">
+          {%- render 'roll-text', text: add_label -%}
+          {%- render 'icon-plus' -%}
+        </span>
+        <span>{{ variant.price | money }}</span>
+      </button>
+    {%- endform -%}
+  </div>
+</article>

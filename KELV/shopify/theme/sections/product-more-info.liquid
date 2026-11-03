@@ -1,0 +1,77 @@
+{%- liquid
+  assign s = section.settings
+  assign kelv = product.metafields.kelv
+  assign faq = kelv.faq.value
+-%}
+{%- if faq != blank -%}
+  <kelv-more-info>
+    <section class="more">
+      <div class="more__head">
+        <h2 class="section-title" data-reveal>{{ s.title | escape }}</h2>
+        <div class="more__nav mono" data-reveal data-reveal-delay="0.05">
+          <span aria-live="polite"><span data-part="index">1</span>/{{ faq.size }}</span>
+          <button type="button" class="sweep" data-part="next">{{ 'products.next' | t }}</button>
+        </div>
+        <span class="more__bar" data-part="bar" aria-hidden="true"></span>
+      </div>
+      <div class="more__body">
+        <div class="faq" data-reveal>
+          {%- for item in faq -%}
+            <div class="acc faq__item{% if forloop.first %} is-open{% endif %}">
+              <button
+                type="button"
+                class="acc__head"
+                aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+                aria-controls="{{ section.id }}-{{ forloop.index }}"
+              >
+                <span>{{ item.question | escape }}</span>
+                <span class="acc__icon" aria-hidden="true"></span>
+              </button>
+              <div class="acc__body" id="{{ section.id }}-{{ forloop.index }}">
+                <div class="acc__inner">
+                  <p class="faq__answer">{{ item.answer | escape }}</p>
+                </div>
+              </div>
+            </div>
+          {%- endfor -%}
+        </div>
+        <div class="more__img" data-reveal data-reveal-delay="0.05">
+          {%- render 'image',
+            image: s.image,
+            fallback: 'shop-scene.webp',
+            width: 2400,
+            height: 1600,
+            sizes: '(max-width: 1023px) 100vw, 50vw'
+          -%}
+        </div>
+        <div class="more__notes">
+          {%- for note in kelv.notes.value -%}
+            {%- assign delay = forloop.index0 | times: 0.05 | plus: 0.1 | round: 2 -%}
+            <p
+              class="more__note{% unless forloop.first %} dim{% endunless %}"
+              data-reveal="lines"
+              data-reveal-delay="{{ delay }}"
+            >
+              {{- note | escape -}}
+            </p>
+          {%- endfor -%}
+        </div>
+      </div>
+    </section>
+  </kelv-more-info>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "More information",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "The questions come from the product's kelv.faq metafield, the notes from kelv.notes."
+    },
+    { "type": "text", "id": "title", "label": "Title", "default": "More Informations" },
+    { "type": "image_picker", "id": "image", "label": "Image" }
+  ],
+  "presets": [{ "name": "More information" }]
+}
+{% endschema %}

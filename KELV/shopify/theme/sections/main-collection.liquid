@@ -1,0 +1,137 @@
+{%- liquid
+  assign s = section.settings
+  assign groups = section.blocks | where: 'type', 'group'
+  assign goals = s.goals | split: ','
+  assign goal_on = s.goal_on | strip
+-%}
+<kelv-collection>
+  <section class="products">
+    <div class="tabs" data-reveal="blur">
+      <button type="button" class="tab is-active" aria-pressed="true" data-tab="all">{{ s.all_label | escape }}</button>
+      {%- for block in groups -%}
+        <button type="button" class="tab" aria-pressed="false" data-tab="{{ block.id }}">
+          {%- render 'category-label', label: block.settings.label -%}
+        </button>
+      {%- endfor -%}
+    </div>
+
+    <div class="goals" data-reveal data-reveal-delay="0.1">
+      <p class="goals__label">
+        {{ s.goals_label | escape }}
+        <span class="dim">{{ s.goals_hint | escape }}</span>
+      </p>
+      <div class="goals__list">
+        {%- for goal in goals -%}
+          {%- assign name = goal | strip -%}
+          <button
+            type="button"
+            class="goal mono{% if name == goal_on %} is-on{% endif %}"
+            aria-pressed="{% if name == goal_on %}true{% else %}false{% endif %}"
+            data-goal
+          >
+            {{- name | escape -}}
+          </button>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    <div class="groups" data-part="groups">
+      {%- for block in section.blocks -%}
+        {%- if block.type != 'group' -%}
+          {%- continue -%}
+        {%- endif -%}
+        {%- liquid
+          # A group's products, then the "coming soon" blocks placed under it in the editor.
+          assign after = forloop.index
+          assign products = null
+          if block.settings.this_collection
+            assign products = collection.products
+          elsif block.settings.collection != blank
+            assign products = block.settings.collection.products
+          endif
+          assign soon_count = 0
+          capture soon_cards
+            for item in section.blocks offset: after
+              if item.type == 'group'
+                break
+              endif
+              render 'coming-soon-card', block: item, index: soon_count, image: s.soon_image, note: s.soon_note, button: s.notify_button
+              assign soon_count = soon_count | plus: 1
+            endfor
+          endcapture
+          assign count = products.size | default: 0 | plus: soon_count
+        -%}
+        <div class="group" data-group="{{ block.id }}" {{ block.shopify_attributes }}>
+          <p class="group__label" data-reveal>
+            {{- block.settings.label | escape }}
+            <span class="dim">[{{ count }}]</span>
+          </p>
+          <div class="grid">
+            {%- for product in products -%}
+              {%- render 'product-card', product: product, index: forloop.index0 -%}
+            {%- endfor -%}
+            {{- soon_cards -}}
+          </div>
+        </div>
+      {%- endfor -%}
+    </div>
+  </section>
+</kelv-collection>
+
+{% schema %}
+{
+  "name": "Products",
+  "settings": [
+    { "type": "text", "id": "all_label", "label": "First tab", "default": "All Products" },
+    { "type": "header", "content": "Goals" },
+    { "type": "text", "id": "goals_label", "label": "Label", "default": "My goal is" },
+    { "type": "text", "id": "goals_hint", "label": "Hint", "default": "[Combine goals as needed]:" },
+    {
+      "type": "text",
+      "id": "goals",
+      "label": "Goals",
+      "info": "Separated by commas.",
+      "default": "Focus, Calm, Energy, Glow, Recovery, Resilience, Heat, Stamina"
+    },
+    { "type": "text", "id": "goal_on", "label": "Goal selected at first", "default": "Glow" },
+    { "type": "header", "content": "Coming soon" },
+    { "type": "image_picker", "id": "soon_image", "label": "Image" },
+    { "type": "text", "id": "notify_button", "label": "Button", "default": "Notify me" },
+    {
+      "type": "textarea",
+      "id": "soon_note",
+      "label": "Note under the form",
+      "default": "In development. Leave your email and we will tell you first when it is ready."
+    }
+  ],
+  "blocks": [
+    {
+      "type": "group",
+      "name": "Category",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Name", "default": "KELV Skincare" },
+        {
+          "type": "checkbox",
+          "id": "this_collection",
+          "label": "Show this page's products",
+          "default": false
+        },
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Or the products of",
+          "info": "\"Coming soon\" blocks placed under a category belong to it."
+        }
+      ]
+    },
+    {
+      "type": "soon",
+      "name": "Coming soon",
+      "settings": [
+        { "type": "text", "id": "name", "label": "Name", "default": "Gel Cleanser" },
+        { "type": "textarea", "id": "summary", "label": "Text" }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,111 @@
+:root {
+  --hdr-ink: var(--c-ink);
+  --hdr-tick: var(--c-ink);
+  --hdr-btn-bg: var(--c-ink);
+  --hdr-btn-fg: var(--c-black);
+}
+.chrome {
+  --lb-a: 0px;
+  --lb-b: 0px;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  clip-path: polygon(0 0, 100% 0, 100% var(--lb-a), 0 var(--lb-a), 0 var(--lb-b),
+                     100% var(--lb-b), 100% 100%, 0 100%);
+}
+.chrome--dark {
+  --hdr-ink: var(--c-dark);
+  --hdr-tick: var(--c-orange);
+  --hdr-btn-bg: var(--c-dark);
+  --hdr-btn-fg: var(--c-ink);
+  clip-path: inset(var(--lb-a) 0 calc(100% - var(--lb-b)) 0);
+}
+.site-header {
+  position: absolute;
+  inset: 0 0 auto 0;
+}
+.site-header a, .site-header button, .cta { pointer-events: auto; }
+
+.ticks {
+  --ticks-lit: 0;
+  position: absolute;
+  top: var(--tk-y, var(--pad-edge));
+  left: var(--tk-x, var(--pad-edge));
+  width: var(--tk-len, calc(100% - 2 * var(--pad-edge)));
+  height: var(--tk-h, var(--tick-h));
+}
+.ticks::before, .ticks__lit {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  background-image: linear-gradient(to right,
+    var(--hdr-tick) 0 var(--tk-w, var(--tick-w)), transparent 0);
+  background-size: var(--tk-p, var(--tick-pitch)) 100%;
+  background-repeat: repeat-x;
+}
+.ticks::before { right: 0; opacity: var(--tick-dim); }
+.ticks__lit { width: calc(var(--tk-p, var(--tick-pitch)) * var(--ticks-lit)); }
+
+.head-row {
+  position: absolute;
+  top: var(--head-top);
+  left: var(--pad-edge);
+  right: var(--pad-edge);
+  height: var(--head-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo { width: var(--logo-w); color: var(--hdr-ink); }
+.logo svg { width: 100%; height: auto; }
+
+.head-title {
+  position: absolute;
+  left: calc(50% + var(--title-dx));
+  top: 50%;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: var(--title-gap);
+  font-size: var(--fs-title);
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.head-title__a { font-family: var(--font-exp);  font-weight: 900; letter-spacing: -0.06em;  color: var(--c-orange); }
+.head-title__b { font-family: var(--font-cond); font-weight: 700; letter-spacing: -0.014em; color: var(--hdr-ink); }
+
+.btn-shop {
+  display: flex;
+  align-items: center;
+  gap: var(--btn-gap);
+  width: var(--btn-w);
+  height: 100%;
+  padding-left: var(--btn-pad);
+  background: var(--hdr-btn-bg);
+  color: var(--hdr-btn-fg);
+  border-radius: var(--btn-radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-btn);
+  letter-spacing: var(--ls-btn);
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.btn-shop svg { width: var(--arrow-w); height: auto; flex: none; }
+
+@media (max-width: 1023.98px) {
+  .ticks { top: var(--ticks-top); }
+  .head-title { display: none; }
+  .head-row { justify-content: center; }
+  /* not in Figma's phone flow (the user's request): the header links are the only CTAs */
+  .site-header .btn-shop { display: none; }
+  .cta {
+    top: calc(var(--head-top) + var(--head-h) / 2);
+    bottom: auto;
+    translate: 0 -50%;
+    font-size: var(--fs-cta);
+  }
+}

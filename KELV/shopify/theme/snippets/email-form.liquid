@@ -1,0 +1,57 @@
+{%- doc -%}
+  RECEIVE UPDATES (with the privacy checkbox) and NOTIFY ME: Shopify's customer form, tagged so the admin can tell
+  them apart; a successful send clears the field and says so.
+
+  @param {string} variant - `updates` or `notify`
+  @param {string} button - The button's label
+  @param {string} [tag] - Customer tag (default: newsletter)
+{%- enddoc -%}
+{%- liquid
+  assign updates = false
+  if variant == 'updates'
+    assign updates = true
+  endif
+  assign privacy_url = shop.privacy_policy.url | default: '/policies/privacy-policy'
+  assign form_class = 'shop-form shop-form--' | append: variant
+  # Without an id Shopify gives every customer form `contact_form`.
+  assign form_tag = tag | default: 'newsletter'
+  assign form_id = 'email-form-' | append: form_tag | handleize
+-%}
+<kelv-email-form>
+  {%- form 'customer', id: form_id, class: form_class -%}
+    <input type="hidden" name="contact[tags]" value="{{ form_tag }}">
+    <input
+      class="shop-input mono"
+      type="email"
+      name="contact[email]"
+      required
+      placeholder="{{ 'newsletter.email' | t }}"
+      aria-label="{{ 'newsletter.email' | t }}"
+    >
+    {%- if updates -%}
+      <label class="shop-check mono">
+        <input type="checkbox" required>
+        <span>
+          {{- 'newsletter.accept' | t }}
+          <a class="sweep sweep--line shop-check__link" href="{{ privacy_url }}" data-page-link>
+            {{- 'newsletter.privacy_policy_lower' | t -}}
+            <span class="cta__line sweep__line" aria-hidden="true"></span>
+          </a>
+        </span>
+      </label>
+    {%- endif -%}
+    <button
+      type="submit"
+      class="shop-btn shop-btn--center mono {% if updates %}shop-btn--dark shop-btn--slim{% else %}shop-btn--orange{% endif %}"
+      data-roll-host
+    >
+      {%- render 'roll-text', text: button -%}
+      {%- render 'icon-arrow' -%}
+    </button>
+    {%- comment -%} Not in Figma: the home's JOIN note, once the address went through. {%- endcomment -%}
+    <p class="shop-form__note mono" role="status" data-part="note" hidden>
+      {%- render 'icon-check' -%}
+      <span>{{ 'newsletter.subscribed' | t }}</span>
+    </p>
+  {%- endform -%}
+</kelv-email-form>

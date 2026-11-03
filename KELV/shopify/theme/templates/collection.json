@@ -1,0 +1,51 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-collection",
+      "blocks": {
+        "kelv": {
+          "type": "group",
+          "settings": { "label": "KELV Skincare", "this_collection": true }
+        },
+        "serum": {
+          "type": "group",
+          "settings": { "label": "Serum" }
+        },
+        "serum-xbionic": {
+          "type": "soon",
+          "settings": {
+            "name": "Serum Xbionic",
+            "summary": "A post-training serum that cools flushed skin fast and calms it before it settles red."
+          }
+        },
+        "face-serum": {
+          "type": "soon",
+          "settings": {
+            "name": "Face Serum",
+            "summary": "A daily hydrating serum for skin that tightens in dry air, heating or AC."
+          }
+        },
+        "cleanser": {
+          "type": "group",
+          "settings": { "label": "Cleanser" }
+        },
+        "gel-cleanser": {
+          "type": "soon",
+          "settings": {
+            "name": "Gel Cleanser",
+            "summary": "A clear gel cleanser for oily and shine-prone skin, built for hot days and humid cities."
+          }
+        },
+        "cleansing-balm": {
+          "type": "soon",
+          "settings": {
+            "name": "Cleansing Balm",
+            "summary": "Melts long-wear makeup and water-resistant sunscreen before K1, without leaving a film."
+          }
+        }
+      },
+      "block_order": ["kelv", "serum", "serum-xbionic", "face-serum", "cleanser", "gel-cleanser", "cleansing-balm"]
+    }
+  },
+  "order": ["main"]
+}

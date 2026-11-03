@@ -1,0 +1,11 @@
+{%- doc -%}
+  One clipped window per line of a multi-line text, so each line can slide in and out.
+
+  @param {string} text - The text, one line per row
+{%- enddoc -%}
+{%- assign lines = text | strip | newline_to_br | split: '<br />' -%}
+{%- for line in lines -%}
+  <span class="sw-win sw-win--line"
+    ><span class="sw-in">{{ line | strip | escape }}</span></span
+  >
+{%- endfor -%}

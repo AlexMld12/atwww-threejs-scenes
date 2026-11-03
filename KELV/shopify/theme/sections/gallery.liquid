@@ -1,0 +1,69 @@
+{%- liquid
+  assign tiles = 'g-tile--r1l,g-tile--r1r,g-tile--r2l,g-tile--r2r,g-tile--r3l,g-tile--r3r' | split: ','
+  assign poster = 'video-poster.webp' | asset_url
+-%}
+<kelv-gallery>
+  <section class="gallery" id="gallery">
+    <div class="gallery__sticky">
+      <div class="gallery__zoom" data-part="zoom">
+        {%- for tile in tiles -%}
+          {%- liquid
+            assign key = 'tile_' | append: forloop.index
+            assign fallback = 'gallery-' | append: forloop.index | append: '.webp'
+          -%}
+          <div class="g-tile {{ tile }}">
+            {%- render 'image',
+              image: section.settings[key],
+              fallback: fallback,
+              width: 705,
+              height: 400,
+              sizes: '50vw'
+            -%}
+          </div>
+          {%- if forloop.index == 3 -%}
+            <div class="g-tile g-tile--scene" data-part="tile" style="--g-poster: url('{{ poster }}')">
+              <canvas class="g-scene" data-part="scene" aria-hidden="true"></canvas>
+              <div class="g-mask" data-part="mask" aria-hidden="true"></div>
+            </div>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+
+      <div class="g-screen-mask" data-part="screen-mask" aria-hidden="true"></div>
+
+      <div class="wisdom" data-part="wisdom">
+        <h2 class="wisdom__title">
+          <span class="wisdom__a">{{ section.settings.title_a | escape }}</span>
+          <span class="wisdom__b">{{ section.settings.title_b | escape }}</span>
+        </h2>
+        <p class="wisdom__text" data-part="text">{% render 'words', text: section.settings.text %}</p>
+      </div>
+    </div>
+  </section>
+</kelv-gallery>
+
+{% schema %}
+{
+  "name": "Gallery",
+  "enabled_on": { "groups": ["custom.home"] },
+  "settings": [
+    { "type": "header", "content": "Pictures around the 3D scene" },
+    { "type": "image_picker", "id": "tile_1", "label": "Top left" },
+    { "type": "image_picker", "id": "tile_2", "label": "Top right" },
+    { "type": "image_picker", "id": "tile_3", "label": "Middle left" },
+    { "type": "image_picker", "id": "tile_4", "label": "Middle right" },
+    { "type": "image_picker", "id": "tile_5", "label": "Bottom left" },
+    { "type": "image_picker", "id": "tile_6", "label": "Bottom right" },
+    { "type": "header", "content": "Text over the scene" },
+    { "type": "text", "id": "title_a", "label": "Title, first word", "default": "Ancient" },
+    { "type": "text", "id": "title_b", "label": "Title, second word", "default": "Wisdom" },
+    {
+      "type": "textarea",
+      "id": "text",
+      "label": "Text",
+      "default": "Sun, sweat and city air put skin under pressure. KELV brings it back to baseline: cleanse with K1, calm with K2 and seal with K3. Three considered formulas. One daily recovery routine."
+    }
+  ],
+  "presets": [{ "name": "Gallery" }]
+}
+{% endschema %}

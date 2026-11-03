@@ -1,0 +1,41 @@
+{%- doc -%}
+  An image picked in the theme editor, or the theme's own file when none is picked.
+
+  @param {object} [image] - The image setting
+  @param {string} fallback - The file in assets/
+  @param {number} width - Intrinsic width of the fallback
+  @param {number} height - Intrinsic height of the fallback
+  @param {string} [class] - Class of the <img>
+  @param {string} [sizes] - The `sizes` attribute (default 100vw)
+  @param {boolean} [eager] - Loaded with the page (default: lazily)
+  @param {string} [style] - Inline style
+{%- enddoc -%}
+{%- liquid
+  assign loading = 'lazy'
+  if eager
+    assign loading = 'eager'
+  endif
+-%}
+{%- if image -%}
+  {{
+    image
+    | image_url: width: 2880
+    | image_tag: class: class, alt: '', sizes: sizes
+    | default: '100vw', widths: '720, 1080, 1440, 1920, 2880', loading: loading, style: style, aria-hidden: 'true'
+  }}
+{%- else -%}
+  <img
+    {% if class %}
+      class="{{ class }}"
+    {% endif %}
+    src="{{ fallback | asset_url }}"
+    alt=""
+    width="{{ width }}"
+    height="{{ height }}"
+    loading="{{ loading }}"
+    {% if style %}
+      style="{{ style }}"
+    {% endif %}
+    aria-hidden="true"
+  >
+{%- endif -%}

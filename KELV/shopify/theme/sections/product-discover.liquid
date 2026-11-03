@@ -1,0 +1,29 @@
+{%- liquid
+  assign s = section.settings
+  assign source = s.collection | default: collections.all
+-%}
+<section class="discover">
+  <h2 class="section-title" data-reveal>{{ s.title | escape }}</h2>
+  <p class="group__label discover__label" data-reveal data-reveal-delay="0.05">
+    {{- s.label | escape }}
+    <a href="{{ source.url }}" class="dim" data-page-link>{{ 'products.view_all' | t }}</a>
+  </p>
+  <div class="grid">
+    {%- for product in source.products limit: s.limit -%}
+      {%- render 'product-card', product: product, index: forloop.index0 -%}
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Discover products",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Title", "default": "Discover All Products" },
+    { "type": "text", "id": "label", "label": "Label", "default": "KELV Skincare" },
+    { "type": "collection", "id": "collection", "label": "Products", "info": "Empty: all products." },
+    { "type": "range", "id": "limit", "label": "Products shown", "min": 3, "max": 12, "step": 3, "default": 3 }
+  ],
+  "presets": [{ "name": "Discover products" }]
+}
+{% endschema %}

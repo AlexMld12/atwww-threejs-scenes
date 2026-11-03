@@ -1,0 +1,12 @@
+{%- comment -%} Under a policy: the link to the other one (privacy ↔ terms). {%- endcomment -%}
+{%- liquid
+  assign privacy = shop.privacy_policy.url | default: '/policies/privacy-policy'
+  assign terms = shop.terms_of_service.url | default: '/policies/terms-of-service'
+-%}
+<p class="legal__other mono" data-reveal data-part="other">
+  {%- if request.path == privacy -%}
+    <a href="{{ terms }}" class="sweep" data-page-link>{{ 'policies.read_terms' | t }}</a>
+  {%- else -%}
+    <a href="{{ privacy }}" class="sweep" data-page-link>{{ 'policies.read_privacy' | t }}</a>
+  {%- endif -%}
+</p>

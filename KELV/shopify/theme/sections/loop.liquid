@@ -1,0 +1,21 @@
+{%- comment -%}
+  The hero again after the footer: the scroll wraps from here back to the top, where the real hero shows the same
+  frame. Its content is copied from the hero section by the code, so it always matches it.
+{%- endcomment -%}
+<kelv-loop>
+  <section class="loop" aria-hidden="true" inert></section>
+</kelv-loop>
+
+{% schema %}
+{
+  "name": "Loop to the top",
+  "enabled_on": { "groups": ["custom.home"] },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Repeats the hero after the footer, so the page scrolls on into its beginning. Keep it last."
+    }
+  ],
+  "presets": [{ "name": "Loop to the top" }]
+}
+{% endschema %}

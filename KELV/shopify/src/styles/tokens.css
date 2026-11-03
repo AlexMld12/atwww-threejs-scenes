@@ -1,0 +1,665 @@
+:root {
+  /* One design px: Figma's 1440 frame scaled down on laptops, fixed up to 1720, fluid above. */
+  --u: max(1px, 100vw / 1720);
+
+  /* Colours */
+  --c-navy:   #030f38;
+  --c-ink:    #ffffff;
+  --c-ink-20: rgba(255, 255, 255, 0.20);
+  --c-orange: #ff4d1f;
+  --c-black:  #000000;
+  --c-light:  #f0f8fc;
+  --c-dark:   #17110f;
+  --sa-bg:    #f0f8fc;
+
+  /* Type */
+  --font-exp:  var(--font-archivo-expanded), var(--font-archivo), sans-serif;
+  --font-cond: var(--font-archivo-condensed), var(--font-archivo), sans-serif;
+  --font-body: var(--font-archivo), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, Menlo, monospace;
+
+  /* Easing */
+  --ease-p2o:    cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-p3o:    cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-p2i:    cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  --ease-expo-o: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-io3:    cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Shared */
+  --fs-mono:     calc(14 * var(--u));
+  --lh-mono:     calc(18 * var(--u));
+  --w-mono:      calc(227 * var(--u));
+  --fs-btn:      calc(13 * var(--u));
+  --ls-btn:      -0.04em;
+  --fs-body:     calc(16 * var(--u));
+  --lh-body:     calc(21 * var(--u));
+  --ls-body:     0.01em;
+  --pad-edge:    calc(10 * var(--u));
+  --arrow-w:     calc(7.58 * var(--u));
+  --err-gap:     calc(6 * var(--u));
+  --err-mt:      calc(6 * var(--u));
+  --fs-err:      calc(10 * var(--u));
+  --err-icon:    calc(14 * var(--u));
+  --perspective: calc(1200 * var(--u));
+  --rv-y:        calc(30 * var(--u));
+  --rv-blur:     calc(4 * var(--u));
+  --rv-scale:    0.96;
+  --rv-ease:     cubic-bezier(0.76, 0, 0.24, 1);
+
+  /* Header and CTAs */
+  --tick-w:       calc(1.5 * var(--u));
+  --tick-h:       calc(13 * var(--u));
+  --tick-pitch:   calc(6.5 * var(--u));
+  --tick-dim:     0.13;
+  --head-top:     calc(39 * var(--u));
+  --head-h:       calc(43 * var(--u));
+  --logo-w:       calc(94.34 * var(--u));
+  --btn-w:        calc(109.58 * var(--u));
+  --btn-pad:      calc(14 * var(--u));
+  --btn-gap:      calc(7.5 * var(--u));
+  --btn-radius:   calc(3 * var(--u));
+  --fs-title:     calc(27.12 * var(--u));
+  --title-dx:     calc(0.06 * var(--u));
+  --title-gap:    calc(5.5 * var(--u));
+  --cta-bottom:   calc(32 * var(--u));
+  --cta-mid:      calc(9 * var(--u));
+  --cta-line-top: calc(16 * var(--u));
+  --cta-line-w:   calc(1 * var(--u));
+
+  /* 01 Hero */
+  --hero-rest:    calc(859 * var(--u));
+  --fs-mega:      calc(130.3 * var(--u));
+  --lh-mega:      calc(96 * var(--u));
+  --mega-dy:      calc(137.5 * var(--u));
+  --mega-x:       calc(364.15 * var(--u));
+  --mega-blur:    calc(6 * var(--u));
+  --info-l-left:  calc(250.5 * var(--u));
+  --info-l-top:   calc(343 * var(--u));
+  --info-r-right: calc(166 * var(--u));
+  --info-r-dy:    calc(284 * var(--u));
+  --para-dy:      calc(492 * var(--u));
+  --para-dx:      calc(7.5 * var(--u));
+  --para-w:       calc(330 * var(--u));
+  --glow-x:       calc(1329 * var(--u));
+  --glow-y:       calc(168 * var(--u));
+  --glow-w:       calc(2602 * var(--u));
+  --glow-h:       calc(2210 * var(--u));
+  --prod-x:       calc(667 * var(--u));
+  --prod-y:       calc(64 * var(--u));
+  --prod-w:       calc(1322 * var(--u));
+  --prod-h:       calc(1377 * var(--u));
+
+  /* 02–04 Pillars */
+  --zoom-min:      0.08;
+  --zoom-r-max:    calc(32 * var(--u));
+  --zoom-r-k:      calc(64 * var(--u));
+  --pl-title-x:    calc(209 * var(--u));
+  --pl-title-dy:   calc(-66.84 * var(--u));
+  --pl-title-gap:  calc(-8.51 * var(--u));
+  --fs-pl-a:       calc(58.4 * var(--u));
+  --fs-pl-b:       calc(69.26 * var(--u));
+  --ls-pl-a:       -0.04em;
+  --ls-pl-b:       -0.06em;
+  --pl-copy-dx:    calc(184 * var(--u));
+  --pl-copy-dy:    calc(-59 * var(--u));
+  --pl-copy-w:     calc(280 * var(--u));
+  --pl-copy-gap:   calc(16 * var(--u));
+  --pl-swap-y:     calc(14 * var(--u));
+
+  /* 05–06 Gallery, Ancient Wisdom */
+  --c-navy-g:       #031038;
+  --g-gap:          calc(10 * var(--u));
+  --w-text-bottom:  calc(32 * var(--u));
+  --w-title-bottom: calc(226.14 * var(--u));
+  --w-title-gap:    calc(3 * var(--u));
+  --w-text-w:       calc(840 * var(--u));
+  --fs-w-text:      calc(25 * var(--u));
+  --lh-w-text:      calc(30 * var(--u));
+
+  /* 07 Join */
+  --fs-join:          calc(72.41 * var(--u));
+  --join-l1-dx:       calc(-4 * var(--u));
+  --join-l2-dx:       calc(1 * var(--u));
+  --lh-join:          calc(62 * var(--u));
+  --join-title-dy:    calc(-220.4 * var(--u));
+  --join-text-dy:     calc(6.5 * var(--u));
+  --join-text-w:      calc(320 * var(--u));
+  --lh-join-text:     calc(16 * var(--u));
+  --join-field-dy:    calc(103.5 * var(--u));
+  --join-field-w:     calc(462 * var(--u));
+  --join-field-h:     calc(64 * var(--u));
+  --join-field-pad:   calc(18 * var(--u));
+  --join-border:      calc(2 * var(--u));
+  --join-radius:      calc(4 * var(--u));
+  --join-consent-dy:  calc(181.5 * var(--u));
+  --join-box:         calc(14 * var(--u));
+  --join-box-r:       calc(2 * var(--u));
+  --join-box-gap:     calc(11 * var(--u));
+  --fs-join-small:    calc(12 * var(--u));
+  --join-send-dy:     calc(226.5 * var(--u));
+  --join-send-w:      calc(460 * var(--u));
+  --join-send-h:      calc(43 * var(--u));
+  --fs-join-float:    calc(11 * var(--u));
+  --join-float-top:   calc(11 * var(--u));
+  --join-error-shift: calc(20 * var(--u));
+
+  /* 08–09 Travel product, footer */
+  --travel-h:      calc(1042 * var(--u));
+  /* Zone 8's blue ellipse (Figma xref 30); it grows and rises with the scroll */
+  --z8-glow-top:    calc(608 * var(--u));
+  --z8-fade:        calc(560 * var(--u));
+  --z8-glow-dx:     calc(-2 * var(--u));
+  --z8-glow-w:      calc(2238 * var(--u));
+  --z8-glow-h:      calc(1769 * var(--u));
+  --ft-fs:         calc(184.4 * var(--u));
+  --ft-lh:         calc(135.86 * var(--u));
+  --ft-dy:         calc(-262.8 * var(--u));
+  --ft-x:          calc(486.76 * var(--u));
+  --ft-blur:       calc(8.5 * var(--u));
+  --ft-info-x:     calc(207 * var(--u));
+  --ft-info-dy:    calc(5 * var(--u));
+  --ft-bar-w:      calc(753 * var(--u));
+  --ft-bar-h:      calc(42 * var(--u));
+  --ft-bar-bottom: calc(31 * var(--u));
+  --ft-bar-pad:    calc(14 * var(--u));
+  --ft-bar-gap:    calc(14 * var(--u));
+  --fs-ft-bar:     calc(12 * var(--u));
+  --tp-s:          calc(721.6 * var(--u));
+  --ft-hold:       60vh;
+
+  /* Preloader */
+  --ld-tick-top:     calc(15 * var(--u));
+  --ld-logo-dx:      calc(-96.52 * var(--u));
+  --ld-logo-dy:      calc(-7 * var(--u));
+  --ld-logo-w:       calc(96.033 * var(--u));
+  --ld-logo-h:       calc(19 * var(--u));
+  --ld-word-dx:      calc(2.52 * var(--u));
+  --ld-word-dy:      calc(-11 * var(--u));
+  --ld-word-w:       calc(96 * var(--u));
+  --ld-word-h:       calc(27 * var(--u));
+  --ld-word-roll:    calc(21 * var(--u));
+  --ld-word-text-dy: calc(4.14 * var(--u));
+  --ld-side-dy:      calc(-5 * var(--u));
+  --ld-info-bottom:  calc(11 * var(--u));
+  --lh-ld-info:      calc(17 * var(--u));
+  --fs-ld-count:     calc(200 * var(--u));
+  --ld-count-right:  calc(15.9 * var(--u));
+  --ld-count-bottom: calc(-3 * var(--u));
+}
+
+@media (min-width: 1024px) and (max-width: 1439.98px) {
+  :root { --u: calc(100vw / 1440); }
+}
+/* Phones and tablets: Figma px as they are; layouts are rearranged per section (drinksom.eu `lg`). */
+@media (max-width: 1023.98px) {
+  :root {
+    --u: 1px;
+    /* Mobile layout unit: a 390 px phone, grown up to 1.4× on tablets, held down on short (landscape) screens */
+    --mu: min(100vw / 390, 100svh / 640, 1.4px);
+
+    /* Header and CTAs (drinksom.eu below `lg`: links | logo | links, the main button fixed at the bottom) */
+    --pad-edge:    calc(10 * var(--mu));
+    --head-top:    calc(22 * var(--mu));
+    --head-h:      calc(56 * var(--mu));
+    --tick-h:      calc(16 * var(--mu));
+    --ticks-top:   calc(12 * var(--mu));
+    --logo-w:      calc(80 * var(--mu));
+    --fs-cta:      calc(12 * var(--mu));
+    --btn-pad:     calc(14 * var(--mu));
+    --fs-btn:      calc(14 * var(--mu));
+
+    /* 01 Hero: the products fill the first screen, the mega title and the paragraph below it */
+    --hero-screen:  100svh;
+    --hero-rest:    calc(360 * var(--mu));
+    --fs-mega:      calc(68.3 * var(--mu));
+    --lh-mega:      calc(50.3 * var(--mu));
+    --mega-top:     calc(40 * var(--mu));
+    --mega-blur:    calc(3 * var(--mu));
+    --prod-w:       calc(600 * var(--mu));
+    --prod-h:       calc(625 * var(--mu));
+    --prod-dy:      calc(-20 * var(--mu));
+    --glow-w:       calc(1300 * var(--mu));
+    --glow-h:       calc(1104 * var(--mu));
+    --glow-dy:      calc(-460 * var(--mu));
+    --fs-hero-info: calc(12 * var(--mu));
+    --lh-hero-info: calc(13.7 * var(--mu));
+    --w-hero-info:  calc(170 * var(--mu));
+    --para-top:     calc(239 * var(--mu));
+    --para-w:       calc(300 * var(--mu));
+
+    /* 02–04 Pillars: centred column (drinksom.eu below `lg`) */
+    --pl-title-top: calc(14% + 16 * var(--mu));
+    --fs-pl-a:      calc(32 * var(--mu));
+    --fs-pl-b:      calc(38 * var(--mu));
+    --pl-title-gap: calc(-4 * var(--mu));
+    --pl-copy-w:    calc(320 * var(--mu));
+    --pl-copy-bottom: calc(96 * var(--mu));
+    --pl-tag-bottom:  calc(40 * var(--mu));
+
+    /* 05–06 Gallery, Ancient Wisdom: portrait tiles filling the screen, text centred */
+    --g-gap:          calc(8 * var(--mu));
+    --w-title-top:    calc(130 * var(--mu));
+    --w-title-gap:    calc(2 * var(--mu));
+    --w-text-bottom:  calc(40 * var(--mu));
+    --w-text-w:       min(100vw - 2 * var(--pad-edge), calc(370 * var(--mu)));
+    --fs-w-text:      calc(16 * var(--mu));
+    --lh-w-text:      calc(19 * var(--mu));
+
+    /* 07 Join: stacked in the pinned screen; the product lands under the form */
+    --fs-join:          calc(46 * var(--mu));
+    --lh-join:          calc(39.4 * var(--mu));
+    --join-l1-dx:       0px;
+    --join-l2-dx:       0px;
+    --join-title-dy:    calc(-300 * var(--mu));
+    --join-text-dy:     calc(-140 * var(--mu));
+    --join-text-w:      calc(300 * var(--mu));
+    --join-field-dy:    calc(-70 * var(--mu));
+    --join-field-w:     min(100vw - 2 * var(--pad-edge), calc(370 * var(--mu)));
+    --join-field-h:     calc(56 * var(--mu));
+    --join-consent-dy:  calc(4 * var(--mu));
+    --join-send-dy:     calc(44 * var(--mu));
+    --join-send-w:      min(100vw - 2 * var(--pad-edge), calc(370 * var(--mu)));
+    --join-send-h:      calc(48 * var(--mu));
+
+    /* 08–09 Travel product, footer */
+    --tp-s:          calc(330 * var(--mu));
+    --travel-h:      calc(700 * var(--mu));
+    --z8-glow-top:   calc(380 * var(--mu));
+    --z8-fade:       calc(380 * var(--mu));
+    --z8-glow-dx:    0px;
+    --z8-glow-w:     calc(1100 * var(--mu));
+    --z8-glow-h:     calc(870 * var(--mu));
+    --ft-fs:         calc(68 * var(--mu));
+    --ft-lh:         calc(50 * var(--mu));
+    --ft-dy:         calc(-250 * var(--mu));
+    --ft-blur:       calc(3 * var(--mu));
+    --ft-info-top:   calc(120 * var(--mu));
+    --ft-mega-min:   calc(172 * var(--mu));
+    --ft-hold:       60svh;
+    --ft-bar-bottom: calc(16 * var(--mu));
+    --ft-row-pad:    calc(9 * var(--mu));
+    --ft-rule:       calc(1 * var(--mu));
+    --fs-ft-bar:     calc(12 * var(--mu));
+
+    /* Preloader: the side words above and below the logo */
+    --ld-side-gap:   calc(48 * var(--mu));
+    --fs-ld-count:   calc(140 * var(--mu));
+  }
+}
+
+/* Skin analysis, scoped to its panel */
+.sa {
+  --sa-deg-gap:         calc(0.5 * var(--u));
+  --ls-sa-cond:         -0.04em;
+  --ls-sa-exp:          -0.06em;
+  --sa-u:               calc(1 * var(--u));
+  --sa-ink:             #17110f;
+  --sa-muted:           #5a524d;
+  --sa-navy:            #041447;
+  --sa-blue:            #1751cb;
+  --sa-scale-off:       #c9c1b8;
+  --sa-edge:            calc(16 * var(--u));
+  --sa-logo-top:        calc(26.73 * var(--u));
+  --sa-logo-w:          calc(89.46 * var(--u));
+  --sa-title-gap:       calc(1.5 * var(--u));
+  --sa-title-dx:        calc(-1 * var(--u));
+  --sa-title-base:      calc(45.5 * var(--u));
+  --sa-live-base:       calc(28 * var(--u));
+  --sa-live-vbase:      calc(57 * var(--u));
+  --fs-sa-live:         calc(22 * var(--u));
+  --sa-deg:             calc(6 * var(--u));
+  --sa-deg-w:           calc(1.5 * var(--u));
+  --sa-deg-top:         calc(40 * var(--u));
+  --sa-rule-top:        calc(72 * var(--u));
+  --sa-stage-base:      calc(102 * var(--u));
+  --sa-stage-gap:       calc(10 * var(--u));
+  --sa-tick-top:        calc(112 * var(--u));
+  --sa-tick-w:          calc(4 * var(--u));
+  --sa-tick-h:          calc(10 * var(--u));
+  --sa-tick-pitch:      calc(6.305 * var(--u));
+  --fs-sa-12:           calc(12 * var(--u));
+  --fs-sa-13:           calc(13 * var(--u));
+  --fs-sa-14:           calc(14 * var(--u));
+  --fs-sa-16:           calc(16 * var(--u));
+  --fs-sa-18:           calc(18 * var(--u));
+  --fs-sa-27:           calc(27 * var(--u));
+  --lh-sa-18:           calc(18 * var(--u));
+  --lh-sa-17:           calc(17 * var(--u));
+  --lh-sa-21:           calc(21 * var(--u));
+  --sa-card-top:        calc(182 * var(--u));
+  --sa-card-w:          calc(637 * var(--u));
+  --sa-card-r:          calc(16 * var(--u));
+  --sa-card-px:         calc(32 * var(--u));
+  --sa-card-head:       calc(74 * var(--u));
+  --sa-btn-h:           calc(51 * var(--u));
+  --sa-r:               calc(3 * var(--u));
+  --sa-opt-h:           calc(68 * var(--u));
+  --sa-opt-gap:         calc(8 * var(--u));
+  --sa-box:             calc(50 * var(--u));
+  --sa-box-in:          calc(8 * var(--u));
+  --sa-opt-label:       calc(16 * var(--u));
+  --sa-why-w:           calc(118 * var(--u));
+  --sa-why-h:           calc(34 * var(--u));
+  --sa-why-icon:        calc(16 * var(--u));
+  --sa-back-w:          calc(145 * var(--u));
+  --sa-btn-gap:         calc(10 * var(--u));
+  --sa-input-px:        calc(17 * var(--u));
+  --sa-check:           calc(12 * var(--u));
+  --fs-sa-hero:         calc(72.41 * var(--u));
+  --lh-sa-hero:         calc(62 * var(--u));
+  --sa-start-btn-w:     calc(328 * var(--u));
+  --sa-rep-left:        calc(505 * var(--u));
+  --sa-rep-right:       calc(615 * var(--u));
+  --sa-rep-gap:         calc(16 * var(--u));
+  --fs-sa-reading:      calc(92.47 * var(--u));
+  --sa-rdeg:            calc(25.22 * var(--u));
+  --sa-rdeg-w:          calc(6 * var(--u));
+  --sa-scale-tick:      calc(4 * var(--u));
+  --sa-scale-pitch:     calc(8 * var(--u));
+  --sa-scale-h:         calc(14 * var(--u));
+  --sa-scale-mark-w:    calc(3 * var(--u));
+  --sa-scale-mark-h:    calc(30 * var(--u));
+  --fs-sa-11:           calc(11 * var(--u));
+  --sa-cal-r:           calc(6 * var(--u));
+  --sa-cal-px:          calc(17 * var(--u));
+  --sa-cal-row:         calc(28 * var(--u));
+  --sa-kit-h:           calc(92 * var(--u));
+  --sa-kit-gap:         calc(12 * var(--u));
+  --sa-kit-icon:        calc(61.76 * var(--u));
+  --sa-kit-ix:          calc(19 * var(--u));
+  --sa-kit-tx:          calc(101.77 * var(--u));
+  --sa-note-sq:         calc(8 * var(--u));
+  --sa-note-tx:         calc(18 * var(--u));
+  --sa-add-w:           calc(332 * var(--u));
+  --sa-body-pb:         calc(60 * var(--u));
+  --sa-btn-icon-gap:    calc(6 * var(--u));
+  --sa-start-top:       calc(141 * var(--u));
+  --sa-start-text-mt:   calc(39.95 * var(--u));
+  --lh-sa-16:           calc(16 * var(--u));
+  --sa-start-text-w:    calc(560 * var(--u));
+  --sa-start-text-gap:  calc(17 * var(--u));
+  --sa-start-note-mt:   calc(18.75 * var(--u));
+  --sa-start-btn-mt:    calc(40.5 * var(--u));
+  --sa-card-pt:         calc(32.48 * var(--u));
+  --sa-card-pb:         calc(30.4 * var(--u));
+  --sa-q-title-w:       calc(440 * var(--u));
+  --sa-q-sub-mt:        calc(17.68 * var(--u));
+  --sa-why-mt:          calc(17.84 * var(--u));
+  --sa-why-gap:         calc(8.5 * var(--u));
+  --sa-why-pl:          calc(10.5 * var(--u));
+  --sa-why-text-pt:     calc(12 * var(--u));
+  --sa-hint-mt:         calc(29.6 * var(--u));
+  --sa-field-gap:       calc(25.75 * var(--u));
+  --sa-field-mt:        calc(27.6 * var(--u));
+  --sa-input-mt:        calc(8.25 * var(--u));
+  --sa-consent-gap:     calc(12 * var(--u));
+  --sa-consent-mt:      calc(27 * var(--u));
+  --lh-sa-14:           calc(14 * var(--u));
+  --sa-check-border:    calc(1.5 * var(--u));
+  --sa-check-r:         calc(1.5 * var(--u));
+  --sa-form-info-mt:    calc(23.3 * var(--u));
+  --sa-form-nav-mt:     calc(27.7 * var(--u));
+  --sa-read-pt:         calc(29.75 * var(--u));
+  --sa-plan-pt:         calc(32.48 * var(--u));
+  --sa-plan-pb:         calc(28.18 * var(--u));
+  --sa-rep-value-mt:    calc(12.54 * var(--u));
+  --sa-rdeg-top:        calc(5.9 * var(--u));
+  --sa-rdeg-mr:         calc(5 * var(--u));
+  --sa-rdeg-ml:         calc(8.44 * var(--u));
+  --sa-rep-line-mt:     calc(4.81 * var(--u));
+  --sa-rep-line-w:      calc(400 * var(--u));
+  --sa-rep-profile-mt:  calc(8 * var(--u));
+  --sa-scale-mt:        calc(31.84 * var(--u));
+  --sa-scale-labels-h:  calc(13.38 * var(--u));
+  --sa-scale-labels-mt: calc(2.38 * var(--u));
+  --sa-cal-mt:          calc(29.62 * var(--u));
+  --sa-cal-pt:          calc(17.75 * var(--u));
+  --sa-cal-pb:          calc(11.25 * var(--u));
+  --sa-cal-title-pb:    calc(18.84 * var(--u));
+  --sa-cal-rows-mt:     calc(4.16 * var(--u));
+  --sa-plan-sub-mt:     calc(13.68 * var(--u));
+  --sa-kits-mt:         calc(29.84 * var(--u));
+  --sa-kit-pt:          calc(14.99 * var(--u));
+  --sa-kit-pb:          calc(13.18 * var(--u));
+  --sa-kit-r:           calc(10 * var(--u));
+  --sa-kit-when-mt:     calc(12.51 * var(--u));
+  --sa-kit-text-mt:     calc(4.32 * var(--u));
+  --sa-notes-gap:       calc(10 * var(--u));
+  --sa-notes-mt:        calc(30.82 * var(--u));
+  --sa-sub-gap:         calc(11 * var(--u));
+  --sa-sub-mt:          calc(24 * var(--u));
+  --sa-buy-mt:          calc(31.18 * var(--u));
+  --sa-buy-mt-sub:      calc(16 * var(--u));
+  --sa-disclaimer-mt:   calc(12.82 * var(--u));
+}
+
+/* Shop pages and cart, scoped to their layer */
+.shop {
+  /* Header */
+  --sh-head-h:            calc(73 * var(--u));
+  --sh-edge:              calc(16 * var(--u));
+  --sh-logo-w:            calc(89.8 * var(--u));
+  --sh-logo-top:          calc(27.3 * var(--u));
+  --sh-btn-top:           calc(15 * var(--u));
+  --sh-cart-gap:          calc(16.2 * var(--u));
+  --sh-title-y:           calc(37.5 * var(--u));
+  --sh-title-dx:          calc(-0.75 * var(--u));
+
+  /* Type */
+  --sh-fs-tab:            calc(35 * var(--u));
+  --sh-fs-h1:             calc(31 * var(--u));
+  --sh-fs-card:           calc(20 * var(--u));
+  --sh-fs-name:           calc(16 * var(--u));
+  --sh-fs-body:           calc(14 * var(--u));
+  --sh-lh-body:           calc(18 * var(--u));
+  --sh-lh-list:           calc(20 * var(--u));
+  --sh-fs-mono:           calc(13 * var(--u));
+  --sh-fs-label:          calc(14 * var(--u));
+  --sh-fs-small:          calc(12 * var(--u));
+  --sh-lh-small:          calc(16 * var(--u));
+  --sh-fs-foot:           calc(16 * var(--u));
+  --sh-lh-foot:           calc(25 * var(--u));
+
+  /* Products */
+  --sh-tabs-top:          calc(112.4 * var(--u));
+  --sh-tab-gap:           calc(22 * var(--u));
+  --sh-kelv-deg:          calc(9 * var(--u));
+  --sh-kelv-deg-gap:      calc(3 * var(--u));
+  --sh-goals-top:         calc(61.2 * var(--u));
+  --sh-goals-gap-top:     calc(17.4 * var(--u));
+  --sh-goal-w:            calc(100 * var(--u));
+  --sh-goal-h:            calc(43 * var(--u));
+  --sh-goal-gap:          calc(5 * var(--u));
+  --sh-goals-bottom:      calc(32 * var(--u));
+  --sh-group-top:         calc(20.6 * var(--u));
+  --sh-cards-top:         calc(21.4 * var(--u));
+  --sh-group-bottom:      calc(60 * var(--u));
+  --sh-list-bottom:       calc(100 * var(--u));
+
+  /* Cards */
+  --sh-col-gap:           calc(16 * var(--u));
+  --sh-card-h:            calc(762 * var(--u));
+  --sh-pill-w:            calc(88 * var(--u));
+  --sh-pill-soon-w:       calc(111 * var(--u));
+  --sh-pill-h:            calc(33 * var(--u));
+  --sh-pill-pad:          calc(13 * var(--u));
+  --sh-card-pad:          calc(16 * var(--u));
+  --sh-card-img:          calc(511 * var(--u));
+  --sh-card-body:         calc(473 * var(--u));
+  --sh-card-title-top:    calc(16 * var(--u));
+  --sh-card-summary-top:  calc(11 * var(--u));
+  --sh-card-table-top:    calc(19 * var(--u));
+  --sh-row-h:             calc(35 * var(--u));
+  --sh-btn-h:             calc(51 * var(--u));
+  --sh-btn-pad:           calc(14 * var(--u));
+  --sh-card-btn-top:      calc(10 * var(--u));
+  --sh-soon-img-h:        calc(474 * var(--u));
+  --sh-soon-gap:          calc(5 * var(--u));
+  --sh-soon-body-h:       calc(280 * var(--u));
+  --sh-input-h:           calc(51 * var(--u));
+  --sh-input-pad:         calc(17 * var(--u));
+  --sh-soon-btn-gap:      calc(8 * var(--u));
+  --sh-soon-note-top:     calc(8 * var(--u));
+
+  /* Product page */
+  --sh-left-w:            calc(849 * var(--u));
+  --sh-area-h:            calc(850 * var(--u));
+  --sh-pill-top:          calc(15 * var(--u));
+  --sh-hero-img:          calc(823 * var(--u));
+  --sh-zoom-btn:          calc(40 * var(--u));
+  --sh-zoom-gap:          calc(8 * var(--u));
+  --sh-zoom-fs:           calc(18 * var(--u));
+  --sh-scene-w:           calc(1523 * var(--u));
+  --sh-scene-h:           calc(1015 * var(--u));
+  --sh-scene-x:           calc(-337 * var(--u));
+  --sh-scene-y:           calc(-77 * var(--u));
+  --sh-info-pad-l:        calc(15 * var(--u));
+  --sh-crumb-top:         calc(32.6 * var(--u));
+  --sh-title-top:         calc(21.5 * var(--u));
+  --sh-lead-top:          calc(9.8 * var(--u));
+  --sh-lead-w:            calc(400 * var(--u));
+  --sh-price-top:         calc(19 * var(--u));
+  --sh-price-bottom:      calc(32.2 * var(--u));
+  --sh-sec-top:           calc(21.6 * var(--u));
+  --sh-para-top:          calc(21.3 * var(--u));
+  --sh-specs-top:         calc(19.1 * var(--u));
+  --sh-spec-h:            calc(47 * var(--u));
+  --sh-spec-cap:          calc(17.5 * var(--u));
+  --sh-buy-top:           calc(31 * var(--u));
+  --sh-buy-bottom:        calc(29 * var(--u));
+  --sh-qty-w:             calc(75 * var(--u));
+  --sh-buy-w:             calc(232 * var(--u));
+  --sh-buy-gap:           calc(10 * var(--u));
+  --sh-acc-h:             calc(81 * var(--u));
+  --sh-acc-pad-b:         calc(33.4 * var(--u));
+  --sh-faq-pad-t:         calc(22 * var(--u));
+  --sh-faq-pad-b:         calc(20 * var(--u));
+  --sh-acc-cap:           calc(32.6 * var(--u));
+  --sh-acc-body-top:      calc(21.3 * var(--u));
+  --sh-acc-body-bottom:   calc(31 * var(--u));
+  --sh-icon:              calc(10 * var(--u));
+  --sh-section-top:       calc(73.4 * var(--u));
+  --sh-section-rule:      calc(14.7 * var(--u));
+  --sh-section-label:     calc(21.6 * var(--u));
+  --sh-more-top:          calc(109 * var(--u));
+  --sh-more-rule:         calc(16 * var(--u));
+  --sh-faq-top:           calc(21 * var(--u));
+  --sh-faq-row:           calc(57 * var(--u));
+  --sh-faq-answer-top:    calc(42 * var(--u));
+  --sh-faq-answer-bottom: calc(19 * var(--u));
+  --sh-more-img-top:      calc(20 * var(--u));
+  --sh-more-img-h:        calc(883 * var(--u));
+  --sh-notes-gap:         calc(20 * var(--u));
+
+  /* Footer */
+  --sh-foot-top:          calc(99.2 * var(--u));
+  --sh-foot-card-top:     calc(101 * var(--u));
+  --sh-foot-links-top:    calc(61 * var(--u));
+  --sh-foot-card-pad:     calc(16 * var(--u));
+  --sh-foot-card-h:       calc(270 * var(--u));
+  --sh-foot-text-top:     calc(4 * var(--u));
+  --sh-foot-input-top:    calc(33 * var(--u));
+  --sh-foot-check:        calc(14 * var(--u));
+  --sh-foot-check-top:    calc(13 * var(--u));
+  --sh-foot-check-gap:    calc(11 * var(--u));
+  --sh-foot-sub-h:        calc(42 * var(--u));
+  --sh-foot-sub-top:      calc(13 * var(--u));
+  --sh-foot-h:            calc(703 * var(--u));
+  --sh-foot-bottom:       calc(36 * var(--u));
+
+  /* Cart */
+  --sh-cart-w:            calc(404 * var(--u));
+  --sh-cart-head:         calc(56 * var(--u));
+  --sh-cart-title-gap:    calc(5.1 * var(--u));
+  --sh-cart-close-gap:    calc(9.2 * var(--u));
+  --sh-cart-x:            calc(8.9 * var(--u));
+  --sh-cart-ship:         calc(57 * var(--u));
+  --sh-thumb:             calc(80 * var(--u));
+  --sh-item-gap:          calc(16 * var(--u));
+  --sh-step-w:            calc(59 * var(--u));
+  --sh-step-h:            calc(27 * var(--u));
+  --sh-cart-foot:         calc(150 * var(--u));
+  --sh-cart-foot-empty:   calc(113 * var(--u));
+  --sh-cart-blur:         calc(20 * var(--u));
+
+  /* Legal */
+  --sh-legal-w:           calc(840 * var(--u));
+  --sh-legal-head:        calc(300 * var(--u));
+}
+
+@media (max-width: 1023.98px) {
+  .shop {
+    --sh-edge:          calc(10 * var(--mu));
+    --sh-head-h:        calc(64 * var(--mu));
+    --sh-logo-top:      calc(23 * var(--mu));
+    --sh-btn-h-m:       calc(40 * var(--mu));
+    --sh-fs-tab:        calc(26 * var(--mu));
+    --sh-tab-gap:       calc(12 * var(--mu));
+    --sh-tabs-top:      calc(48 * var(--mu));
+    --sh-goals-top:     calc(36 * var(--mu));
+    --sh-goal-h:        calc(40 * var(--mu));
+    --sh-fs-goal:       calc(12 * var(--mu));
+    --sh-fs-h1:         calc(26 * var(--mu));
+    --sh-col-gap:       calc(12 * var(--mu));
+    --sh-card-body:     calc(340 * var(--mu));
+    --sh-card-img:      calc(380 * var(--mu));
+    --sh-soon-img-h:    calc(340 * var(--mu));
+    --sh-soon-body-h:   auto;
+    --sh-area-h:        calc(460 * var(--mu));
+    --sh-hero-img:      calc(460 * var(--mu));
+    --sh-zoom-btn:      calc(40 * var(--mu));
+    --sh-zoom-gap:      calc(8 * var(--mu));
+    --sh-zoom-fs:       calc(18 * var(--mu));
+    --sh-scene-w:       calc(690 * var(--mu));
+    --sh-scene-h:       calc(460 * var(--mu));
+    --sh-scene-x:       calc(-170 * var(--mu));
+    --sh-scene-y:       0px;
+    --sh-info-pad-l:    calc(16 * var(--mu));
+    --sh-lead-w:        100%;
+    --sh-buy-gap:       calc(8 * var(--mu));
+    --sh-qty-w:         calc(70 * var(--mu));
+    --sh-section-top:   calc(56 * var(--mu));
+    --sh-more-top:      calc(72 * var(--mu));
+    --sh-more-img-h:    calc(420 * var(--mu));
+    --sh-foot-top:      calc(56 * var(--mu));
+    --sh-foot-card-top: calc(40 * var(--mu));
+    --sh-foot-card-h:   auto;
+    --sh-foot-h:        auto;
+    --sh-foot-bottom:   calc(110 * var(--mu));
+    --sh-legal-head:    calc(180 * var(--mu));
+    --sh-legal-w:       100%;
+    --sh-list-bottom:   calc(64 * var(--mu));
+    --sh-cart-w:        min(100vw, calc(404 * var(--mu)));
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .sa {
+    --sa-edge:          calc(10 * var(--mu));
+    --sa-card-w:        calc(100vw - 2 * var(--sa-edge));
+    --sa-card-px:       calc(18 * var(--mu));
+    --sa-card-pt:       calc(22 * var(--mu));
+    --sa-card-top:      calc(150 * var(--mu));
+    --sa-stage-gap:     calc(6 * var(--mu));
+    --fs-sa-stage:      calc(10 * var(--mu));
+    --fs-sa-hero:       calc(42 * var(--mu));
+    --lh-sa-hero:       calc(36 * var(--mu));
+    --sa-start-top:     calc(80 * var(--mu));
+    --sa-start-text-w:  calc(100vw - 2 * var(--sa-edge));
+    --sa-start-btn-w:   calc(100vw - 2 * var(--sa-edge));
+    --fs-sa-27:         calc(22 * var(--mu));
+    --sa-q-title-w:     100%;
+    --sa-rep-left:      calc(100vw - 2 * var(--sa-edge));
+    --sa-rep-right:     calc(100vw - 2 * var(--sa-edge));
+    --sa-rep-line-w:    100%;
+    --sa-body-pb:       calc(48 * var(--mu));
+    --fs-sa-reading:    calc(64 * var(--mu));
+    --sa-rdeg:          calc(17.5 * var(--mu));
+    --sa-rdeg-w:        calc(4.2 * var(--mu));
+    --sa-rdeg-top:      calc(4 * var(--mu));
+    /* The 55-tick scale, 0.72 of its design width so it fits the card */
+    --sa-scale-u:       calc(0.72 * var(--mu));
+    --sa-scale-tick:    calc(2.88 * var(--mu));
+    --sa-scale-pitch:   calc(5.76 * var(--mu));
+  }
+}

@@ -274,6 +274,7 @@
     --ft-dy:         calc(-250 * var(--mu));
     --ft-blur:       calc(3 * var(--mu));
     --ft-info-top:   calc(120 * var(--mu));
+    --ft-mega-min:   calc(172 * var(--mu));
     --ft-hold:       60svh;
     --ft-bar-bottom: calc(16 * var(--mu));
     --ft-row-pad:    calc(9 * var(--mu));

@@ -1,0 +1,106 @@
+{%- liquid
+  # The home stays in the document under every page; the other pages are layers that slide over it.
+  case request.page_type
+    when 'index'
+      assign layer = ''
+    when 'page'
+      if template.suffix == 'skin-analysis'
+        assign layer = 'sa'
+      else
+        assign layer = 'shop'
+      endif
+    else
+      assign layer = 'shop'
+  endcase
+-%}
+<!doctype html>
+<html
+  lang="{{ request.locale.iso_code }}"
+  {% if layer != blank %}
+    data-page="{{ layer }}"
+  {% endif %}
+>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#030f38">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <link rel="icon" type="image/png" href="{{ 'favicon.png' | asset_url }}">
+    <title>
+      {%- if request.page_type == 'index' -%}
+        {{ page_title }}
+      {%- elsif request.page_type == 'cart' -%}
+        {{ shop.name }} | {{ 'cart.title' | t }}
+      {%- else -%}
+        {{ shop.name }} | {{ page_title }}
+      {%- endif -%}
+    </title>
+    {%- if page_description %}
+      <meta name="description" content="{{ page_description | escape }}">
+    {%- endif %}
+
+    <script>
+      history.scrollRestoration = 'manual';
+      document.documentElement.classList.add('js');
+      // Shows the page even if the code never boots.
+      setTimeout(function () {
+        document.documentElement.classList.add('is-ready');
+      }, 3000);
+    </script>
+    {% render 'fonts' %}
+    {{ 'kelv.css' | asset_url | stylesheet_tag }}
+    {% render 'asset-urls' %}
+    <script type="module" src="{{ 'kelv.js' | asset_url }}"></script>
+
+    {{ content_for_header }}
+  </head>
+
+  <body>
+    {%- comment -%}
+      In the theme editor: no preloader, and no home under another page (its sections would crowd the sidebar).
+    {%- endcomment -%}
+    {%- if layer == blank and request.design_mode == false -%}
+      {% section 'preloader' %}
+    {%- endif %}
+    {%- if layer == blank or request.design_mode == false %}
+      <div class="home">
+        {% sections 'home' %}
+      </div>
+    {%- endif %}
+
+    <div class="layer-scrim" aria-hidden="true"></div>
+    {%- comment -%}
+      The layers: only the one that is the page is filled; a link fills another one from Shopify's render of
+      its page (src/lib/page-layers.ts).
+    {%- endcomment -%}
+    <div class="shop page-layer" id="shop" data-layer="shop">
+      {%- if layer == 'shop' -%}
+        <kelv-reveals>
+          {% sections 'shop-header-group' %}
+          <div class="shop-main" data-layer-main>
+            {%- if request.page_type == 'policy' -%}
+              <kelv-policy>
+                {{ content_for_layout }}
+                {%- render 'policy-updated' -%}
+                {%- render 'policy-other' -%}
+              </kelv-policy>
+            {%- elsif request.page_type == 'captcha' -%}
+              {%- comment -%} Not in Figma: Shopify's captcha page, laid out as the legal pages. {%- endcomment -%}
+              <div class="legal challenge">{{ content_for_layout }}</div>
+            {%- else -%}
+              {{ content_for_layout }}
+            {%- endif -%}
+            {% sections 'shop-footer-group' %}
+          </div>
+        </kelv-reveals>
+      {%- endif -%}
+    </div>
+    <div class="sa page-layer" id="skin-analysis" data-layer="sa">
+      {%- if layer == 'sa' %}{{ content_for_layout }}{% endif -%}
+    </div>
+    {%- comment -%} Outside the layers, so it opens over any page; `.shop` carries its tokens. {%- endcomment -%}
+    <div class="shop shop--cart">
+      {% section 'cart-drawer' %}
+    </div>
+  </body>
+</html>

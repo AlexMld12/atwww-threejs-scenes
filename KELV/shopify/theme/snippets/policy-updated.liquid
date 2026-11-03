@@ -1,0 +1,19 @@
+{%- comment -%} Above a policy: when it was last updated (Theme settings → Policies; Shopify does not give the date). {%- endcomment -%}
+{%- liquid
+  assign updated = blank
+  if request.path == shop.privacy_policy.url
+    assign updated = settings.privacy_updated
+  elsif request.path == shop.terms_of_service.url
+    assign updated = settings.terms_updated
+  elsif request.path == shop.refund_policy.url
+    assign updated = settings.refund_updated
+  elsif request.path == shop.shipping_policy.url
+    assign updated = settings.shipping_updated
+  endif
+-%}
+{%- if updated != blank -%}
+  <p class="legal__meta mono" data-reveal data-reveal-delay="0.1" data-part="updated">
+    {{- 'policies.last_updated' | t }}
+    <span class="dim">[{{ updated | escape }}]</span>
+  </p>
+{%- endif -%}

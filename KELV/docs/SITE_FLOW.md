@@ -1,5 +1,8 @@
 # KELV — parcursul site-ului
 
+> **Din 2026-10-29 site-ul se portează într-o temă Shopify custom (`shopify/`).** Parcursul și
+> comportamentul de aici rămân referința; arhitectura temei, etapele și diferențele: `docs/SHOPIFY.md`.
+
 **Site de referință (cererea userului, 2026-10-05):** tot site-ul trebuie să se comporte
 exact ca https://web.archive.org/web/20260409222057/https://www.drinksom.eu/ — macheta KELV
 e aceeași structură, cu alt conținut. Când o secțiune are o animație, se citește ÎNTÂI
@@ -593,3 +596,9 @@ rămân vizibile (`chrome-off` scos); CTA-urile tot urcă la mijloc.
     - hero + galerie redesenează cel mult la 30 fps;
     - hero-ul desenează doar fâșia vizibilă (`setViewOffset`; vigneta pe cadrul întreg prin `viewX`).
   - **Scroll nativ pe touch** (`syncTouch: !isTouch()`): la capăt, `wrapNativeScroll` sare din copia hero-ului în hero. Canvas-ul hero e `position: absolute` în pagină, nu fixed.
+
+## 2026-11-03 — footer pe telefoanele scunde
+
+- Pe mobil BEYOND / ALWAYS / STATE OF MIND stă la `50% − 250 mu`, iar tagline-ul la `120 mu` de sus: sub 844 de
+  pixeli înălțime titlul urca peste tagline (375 × 667, 360 × 640). Acum `top: max(50% − 250 mu, 172 mu)` (`--ft-mega-min`),
+  adică exact poziția de la 390 × 844, care rămâne neschimbată. Același lucru în `shopify/`.

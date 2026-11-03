@@ -1,0 +1,61 @@
+{%- assign digits = '0,1,2,3,4,5,6,7,8,9' | split: ',' -%}
+<kelv-preloader class="preloader" role="status" aria-label="{{ 'general.loading' | t }}">
+  <div class="ld-bar" data-part="bar">
+    <div class="ticks" data-top-token="--ld-tick-top" aria-hidden="true"><span class="ticks__lit"></span></div>
+  </div>
+  <div class="ld-logo">
+    <span class="ld-move" data-part="logo">{% render 'logo-loader' %}</span>
+  </div>
+  <div class="ld-word" aria-hidden="true">
+    <span class="ld-move" data-part="word">
+      {%- comment -%} The word rolls up into its copy at each step of the counter. {%- endcomment -%}
+      <span>{{ section.settings.word | escape }}</span><span>{{ section.settings.word | escape }}</span>
+    </span>
+  </div>
+  <p class="ld-side mono">
+    <span class="ld-move" data-part="side">{{ section.settings.side | escape }}</span>
+  </p>
+  <p class="ld-loading mono">
+    <span class="ld-move" data-part="loading">{{ section.settings.loading | escape }}</span>
+  </p>
+  <p class="ld-info mono">
+    <span class="ld-move" data-part="info">{{ section.settings.info | escape }}</span>
+  </p>
+  <div class="ld-count">
+    <span class="ld-move" data-part="count">
+      <span class="ld-counter" data-part="counter" aria-label="0">
+        <span class="ld-counter__sizers" aria-hidden="true">
+          {%- for digit in digits -%}
+            <span>{{ digit }}</span>
+          {%- endfor -%}
+        </span>
+        {%- for reel in (1..3) -%}
+          <span class="ld-reel{% unless forloop.last %} is-off{% endunless %}" style="--digit: 0" aria-hidden="true">
+            <span class="ld-reel__strip">
+              {%- for digit in digits -%}
+                <span>{{ digit }}</span>
+              {%- endfor -%}
+            </span>
+          </span>
+        {%- endfor -%}
+      </span>
+    </span>
+  </div>
+</kelv-preloader>
+
+{% schema %}
+{
+  "name": "Preloader",
+  "settings": [
+    { "type": "text", "id": "word", "label": "Word under the logo", "default": "Skincare" },
+    { "type": "text", "id": "side", "label": "Left label", "default": "Skincare" },
+    { "type": "text", "id": "loading", "label": "Right label", "default": "Loading experience" },
+    {
+      "type": "text",
+      "id": "info",
+      "label": "Bottom line",
+      "default": "Three steps back to baseline. Cool. Calm. Seal. Repeat."
+    }
+  ]
+}
+{% endschema %}

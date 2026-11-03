@@ -1,0 +1,12 @@
+{%- doc -%}
+  Each word in its own clipped window, so it can slide in and out (`.sw-*` in pillars.css).
+
+  @param {string} text - The text
+{%- enddoc -%}
+{%- assign words = text | strip | split: ' ' -%}
+{%- for word in words -%}
+  <span class="sw-win"
+    ><span class="sw-in">{{ word | escape }}</span></span
+  >
+  {%- unless forloop.last %}{{ ' ' }}{% endunless -%}
+{%- endfor -%}

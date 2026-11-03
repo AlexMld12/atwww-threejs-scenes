@@ -1,0 +1,72 @@
+{
+  "type": "custom.home",
+  "name": "Home",
+  "sections": {
+    "header": {
+      "type": "header",
+      "settings": {}
+    },
+    "hero": {
+      "type": "hero",
+      "settings": {}
+    },
+    "pillars": {
+      "type": "pillars",
+      "blocks": {
+        "pillar_k1": {
+          "type": "pillar",
+          "settings": {
+            "title_a": "Foam",
+            "title_b": "Cleanser",
+            "accent": "orange",
+            "description": "Lift sweat, sunscreen and city residue without stripping. A cool finish that resets skin for the next step.",
+            "tagline": "Step one of three.\nK1 / Cool. Cleanse without stripping."
+          }
+        },
+        "pillar_k2": {
+          "type": "pillar",
+          "settings": {
+            "title_a": "Active",
+            "title_b": "Serum",
+            "accent": "orange",
+            "description": "Take the edge off redness and visible stress. A lightweight serum that absorbs fast and layers cleanly under K3.",
+            "tagline": "Step two of three.\nK2 / Calm. Take the edge off redness."
+          }
+        },
+        "pillar_k3": {
+          "type": "pillar",
+          "settings": {
+            "title_a": "Barrier",
+            "title_b": "Cream",
+            "accent": "ink",
+            "description": "Lock hydration in and support your skin barrier. A soft, comfortable cream that seals the routine without feeling heavy.",
+            "tagline": "Step three of three.\nK3 / Seal. Lock hydration in."
+          }
+        }
+      },
+      "block_order": ["pillar_k1", "pillar_k2", "pillar_k3"],
+      "settings": {}
+    },
+    "gallery": {
+      "type": "gallery",
+      "settings": {}
+    },
+    "join": {
+      "type": "join",
+      "settings": {}
+    },
+    "travel": {
+      "type": "travel",
+      "settings": {}
+    },
+    "footer": {
+      "type": "footer",
+      "settings": { "credit_link": "https://www.atwww.studio/" }
+    },
+    "loop": {
+      "type": "loop",
+      "settings": {}
+    }
+  },
+  "order": ["header", "hero", "pillars", "gallery", "join", "travel", "footer", "loop"]
+}

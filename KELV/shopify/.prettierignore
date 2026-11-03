@@ -1,0 +1,6 @@
+node_modules
+theme/assets
+theme/config/settings_data.json
+*.css
+*.md
+src/scene/data

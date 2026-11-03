@@ -1,0 +1,35 @@
+<kelv-travel>
+  <div class="travel-product" data-part="product" aria-hidden="true">
+    <div class="tp-reveal" data-part="reveal">
+      <canvas class="tp-canvas"></canvas>
+      <div class="tp-spin" data-part="spin">
+        <img class="tp-face" src="{{ 'product-1.webp' | asset_url }}" alt="" width="1024" height="1024" loading="lazy">
+        <img
+          class="tp-face tp-face--back"
+          src="{{ 'product-1.webp' | asset_url }}"
+          alt=""
+          width="1024"
+          height="1024"
+          loading="lazy"
+        >
+      </div>
+    </div>
+  </div>
+  <section class="travel" id="travel">
+    <div class="travel__glow" data-part="glow" aria-hidden="true"></div>
+  </section>
+</kelv-travel>
+
+{% schema %}
+{
+  "name": "Travelling product",
+  "enabled_on": { "groups": ["custom.home"] },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "The K1 bottle that rises under the newsletter and lands in the footer. Nothing to set."
+    }
+  ],
+  "presets": [{ "name": "Travelling product" }]
+}
+{% endschema %}

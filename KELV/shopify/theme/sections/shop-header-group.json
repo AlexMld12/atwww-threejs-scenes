@@ -1,0 +1,8 @@
+{
+  "type": "custom.shop_header",
+  "name": "Shop header",
+  "sections": {
+    "header": { "type": "shop-header", "settings": {} }
+  },
+  "order": ["header"]
+}

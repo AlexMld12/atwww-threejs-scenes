@@ -1,0 +1,15 @@
+{%- doc -%}
+  Button label that rolls up letter by letter on hover (`.roll` in ui.css); the host carries `data-roll-host`.
+
+  @param {string} text - The label
+{%- enddoc -%}
+{%- assign letters = text | split: '' -%}
+<span class="roll" aria-hidden="true">
+  {%- for letter in letters -%}
+    {%- capture glyph %}{% if letter == ' ' %}&nbsp;{% else %}{{ letter | escape }}{% endif %}{% endcapture -%}
+    <span class="roll__ch" style="--i: {{ forloop.index0 }}; --ri: {{ forloop.rindex0 }}"
+      ><span>{{ glyph }}</span><span>{{ glyph }}</span></span
+    >
+  {%- endfor -%}
+</span>
+<span class="sr-only">{{ text | escape }}</span>

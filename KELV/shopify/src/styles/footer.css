@@ -1,0 +1,96 @@
+.footer {
+  position: relative;
+  height: calc(100vh + var(--ft-hold));
+  background: var(--c-navy);
+}
+/* Pinned for --ft-hold of scroll, so the footer is not passed in one flick */
+.footer__pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: clip;
+}
+.footer__pin > * { position: absolute; }
+.footer__mega {
+  z-index: 1;
+  left: calc(50% - var(--ft-x));
+  top: calc(50% + var(--ft-dy));
+  margin: 0;
+  color: var(--c-ink-20);
+  font-size: var(--ft-fs);
+  line-height: var(--ft-lh);
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+  --mega-blur: var(--ft-blur);
+}
+.footer__mega > span { display: flex; position: relative; }
+
+.footer__info {
+  z-index: 5;
+  left: var(--ft-info-x);
+  top: calc(50% + var(--ft-info-dy));
+  width: var(--w-mono);
+  margin: 0;
+}
+
+.footer__bar {
+  z-index: 5;
+  left: 50%;
+  bottom: var(--ft-bar-bottom);
+  translate: -50% 0;
+  width: var(--ft-bar-w);
+  height: var(--ft-bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--ft-bar-pad);
+  border-radius: var(--btn-radius);
+  background: rgba(215, 238, 247, 0.14);
+  font-size: var(--fs-ft-bar);
+  letter-spacing: -0.022em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.footer__bar a { text-decoration: none; transition: color 0.3s var(--ease-p2o); }
+
+@media (hover: hover) { .footer__bar a:hover { color: var(--c-orange); } }
+.footer__bar a:focus-visible { color: var(--c-orange); outline: none; }
+
+.loop {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--c-navy);
+}
+.loop .hero { pointer-events: none; }
+.footer__policies { display: flex; gap: var(--ft-bar-gap); }
+.footer__by { color: rgba(255, 255, 255, 0.2); }
+
+@media (max-width: 1023.98px) {
+  .footer { height: calc(100svh + var(--ft-hold)); }
+  .footer__pin { height: 100svh; }
+  /* Never above the tagline: on screens shorter than 844 the middle would lift it over the tagline */
+  .footer__mega { left: 50%; top: max(calc(50% + var(--ft-dy)), var(--ft-mega-min)); translate: -50% 0; }
+  .footer__info { left: var(--pad-edge); top: var(--ft-info-top); text-align: left; }
+  /* not in Figma (the user's request): a plain list of ruled rows instead of the desktop bar */
+  .footer__bar {
+    left: var(--pad-edge);
+    right: var(--pad-edge);
+    width: auto;
+    height: auto;
+    translate: none;
+    display: block;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .footer__policies { display: contents; }
+  .footer__bar > a, .footer__policies > a, .footer__credit {
+    display: block;
+    padding: var(--ft-row-pad) 0;
+    border-top: var(--ft-rule) solid var(--c-ink-20);
+  }
+  .loop { height: 100svh; }
+}

@@ -1,0 +1,11 @@
+{%- doc -%}
+  A category tab's label: "KELV Skincare" carries the orange degree of the logo.
+
+  @param {string} label - The category's name
+{%- enddoc -%}
+{%- assign head = label | slice: 0, 5 -%}
+{%- if head == 'KELV ' -%}
+  KELV<span class="tab__deg" aria-hidden="true"></span> {{ label | slice: 5, label.size | escape }}
+{%- else -%}
+  {{- label | escape -}}
+{%- endif -%}

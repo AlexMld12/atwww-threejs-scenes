@@ -1,0 +1,64 @@
+{%- liquid
+  assign s = section.settings
+  assign privacy = shop.privacy_policy.url | default: '/policies/privacy-policy'
+  assign refund = shop.refund_policy.url | default: '/policies/refund-policy'
+  assign shipping = shop.shipping_policy.url | default: '/policies/shipping-policy'
+  assign terms = shop.terms_of_service.url | default: '/policies/terms-of-service'
+-%}
+<kelv-reveals>
+  <footer class="footer" id="footer">
+    <div class="footer__pin">
+      {%- render 'mega', tag: 'p', class: 'footer__mega' -%}
+      <p class="footer__info mono" data-reveal="lines" data-reveal-delay="0.2">{{ s.info | escape }}</p>
+      <nav class="footer__bar mono" data-reveal data-reveal-delay="0.3" aria-label="{{ 'footer.label' | t }}">
+        {%- if s.contact_label != blank -%}
+          <a href="{{ s.contact_link | default: '#contacts' }}">{{ s.contact_label | escape }}</a>
+        {%- endif -%}
+        <span class="footer__policies">
+          {%- comment -%} The store's policies (Settings → Policies), named as in Figma. {%- endcomment -%}
+          <a href="{{ privacy }}" data-page-link>{{ 'footer.privacy' | t }}</a>
+          {%- if shop.refund_policy -%}
+            <a href="{{ refund }}" data-page-link>{{ 'footer.refund' | t }}</a>
+          {%- endif -%}
+          {%- if shop.shipping_policy -%}
+            <a href="{{ shipping }}" data-page-link>{{ 'footer.shipping' | t }}</a>
+          {%- endif -%}
+          <a href="{{ terms }}" data-page-link>{{ 'footer.terms' | t }}</a>
+        </span>
+        <span class="footer__credit">
+          {%- if s.credit_label != blank -%}
+            <span class="footer__by">{{ s.credit_label | escape }}</span>
+          {% endif -%}
+          <a href="{{ s.credit_link | default: 'https://www.atwww.studio/' }}" target="_blank" rel="noopener">
+            {{- s.credit_name | escape -}}
+          </a>
+        </span>
+      </nav>
+    </div>
+  </footer>
+</kelv-reveals>
+
+{% schema %}
+{
+  "name": "Footer",
+  "enabled_on": { "groups": ["custom.home"] },
+  "settings": [
+    {
+      "type": "textarea",
+      "id": "info",
+      "label": "Small text",
+      "default": "Three steps back to baseline. Cool. Calm. Seal. Repeat."
+    },
+    { "type": "text", "id": "contact_label", "label": "Contact link", "default": "Contact" },
+    { "type": "url", "id": "contact_link", "label": "Contact link target" },
+    {
+      "type": "paragraph",
+      "content": "The policy links follow Settings → Policies; refund and shipping show once they are written."
+    },
+    { "type": "text", "id": "credit_label", "label": "Credit", "default": "Website by" },
+    { "type": "text", "id": "credit_name", "label": "Credit link", "default": "ATWWW" },
+    { "type": "url", "id": "credit_link", "label": "Credit link target", "info": "Empty: https://www.atwww.studio/" }
+  ],
+  "presets": [{ "name": "Footer" }]
+}
+{% endschema %}

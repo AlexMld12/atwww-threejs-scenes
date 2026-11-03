@@ -71,7 +71,8 @@
 @media (max-width: 1023.98px) {
   .footer { height: calc(100svh + var(--ft-hold)); }
   .footer__pin { height: 100svh; }
-  .footer__mega { left: 50%; translate: -50% 0; }
+  /* Never above the tagline: on screens shorter than 844 the middle would lift it over the tagline */
+  .footer__mega { left: 50%; top: max(calc(50% + var(--ft-dy)), var(--ft-mega-min)); translate: -50% 0; }
   .footer__info { left: var(--pad-edge); top: var(--ft-info-top); text-align: left; }
   /* not in Figma (the user's request): a plain list of ruled rows instead of the desktop bar */
   .footer__bar {

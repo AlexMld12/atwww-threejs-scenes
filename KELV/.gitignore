@@ -19,3 +19,9 @@ desktop.ini
 .claude/
 archive/
 __pycache__/
+
+# ---- tema Shopify: se reface din npm / npm run build ----
+shopify/node_modules/
+shopify/theme/assets/kelv*.js
+shopify/theme/assets/kelv.css
+shopify/*.zip

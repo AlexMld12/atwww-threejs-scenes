@@ -1,0 +1,6 @@
+{
+  "sections": {
+    "discover": { "type": "product-discover" }
+  },
+  "order": ["discover"]
+}

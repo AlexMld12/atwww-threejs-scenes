@@ -1,0 +1,39 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--c-navy);
+  color-scheme: dark;
+  overflow-y: scroll;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+body {
+  margin: 0;
+  background: var(--c-navy);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  /* clip, not hidden: hidden turns body into a scroll container and breaks position: sticky */
+  overflow-x: clip;
+  visibility: hidden;
+}
+html.is-ready body { visibility: visible; }
+img, svg, canvas { display: block; }
+a { color: inherit; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+h1, h2, p { margin: 0; font-weight: inherit; }
+
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Custom elements that only attach behaviour: no box of their own. */
+kelv-reveals, kelv-header, kelv-hero, kelv-hero-scene, kelv-pillars, kelv-gallery, kelv-join, kelv-travel,
+kelv-loop, kelv-policy, kelv-email-form, kelv-collection, kelv-product, kelv-more-info,
+kelv-skin-analysis { display: contents; }

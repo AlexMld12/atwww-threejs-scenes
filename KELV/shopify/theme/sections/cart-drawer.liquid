@@ -1,0 +1,144 @@
+{%- liquid
+  assign threshold = settings.free_shipping_threshold | times: 100
+  assign missing = threshold | minus: cart.total_price
+  assign missing_amount = missing | money
+  assign shipping_url = shop.shipping_policy.url
+  if shipping_url == blank
+    assign terms = shop.terms_of_service.url | default: '/policies/terms-of-service'
+    assign shipping_url = terms | append: '#shipping'
+  endif
+  assign checkout_label = 'cart.checkout' | t
+  assign shop_label = 'cart.shop' | t
+-%}
+{%- comment -%} /cart (where a form posted without the script lands): the products, with the drawer open. {%- endcomment -%}
+<kelv-cart-drawer
+  {% if request.page_type == 'cart' %}
+    class="cart is-open" aria-hidden="false"
+  {% else %}
+    class="cart" aria-hidden="true" inert
+  {% endif %}
+  data-add-url="{{ routes.cart_add_url }}"
+  data-change-url="{{ routes.cart_change_url }}"
+>
+  <div class="cart__scrim" data-cart-close></div>
+  <aside
+    class="cart__panel"
+    role="dialog"
+    aria-modal="true"
+    aria-label="{{ 'cart.title' | t }}"
+    data-lenis-prevent
+    data-part="panel"
+    data-link-label="{{ 'cart.link' | t: count: cart.item_count }}"
+  >
+    <div class="cart__head">
+      <p class="cart__title">
+        <span class="shop-title__a">{{ 'cart.title' | t }}</span>
+        <span class="cart__count">[{{ cart.item_count }}]</span>
+      </p>
+      <button type="button" class="cart__close mono" data-cart-close>
+        {{- 'cart.close' | t -}}
+        <svg viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+      </button>
+    </div>
+    <p class="cart__ship">
+      {%- if missing > 0 -%}
+        {{ 'cart.free_shipping_missing_html' | t: amount: missing_amount }}
+      {%- else -%}
+        <strong>{{ 'cart.free_shipping' | t }}</strong>
+      {%- endif -%}
+    </p>
+
+    {%- if cart.item_count > 0 -%}
+      <ul class="cart__lines">
+        {%- comment -%} Shopify puts the newest line first: the drawer lists them in the order they were added. {%- endcomment -%}
+        {%- for item in cart.items reversed -%}
+          <li class="line">
+            <a href="{{ item.url }}" class="line__thumb" data-page-link data-cart-close>
+              {{-
+                item.product.featured_image
+                | image_url: width: 256
+                | image_tag: alt: item.product.title, widths: '128, 256', sizes: '128px', loading: 'lazy'
+              -}}
+            </a>
+            <div class="line__info">
+              <p class="line__name">{{ item.product.title | escape }}</p>
+              <p class="line__code mono">{{ item.product.metafields.kelv.code.value | escape }}</p>
+              <div class="stepper stepper--small">
+                <button
+                  type="button"
+                  aria-label="{{ 'cart.decrease' | t: title: item.product.title }}"
+                  data-line="{{ item.key }}"
+                  data-quantity="{{ item.quantity | minus: 1 }}"
+                >
+                  -
+                </button>
+                <span>{{ item.quantity }}</span>
+                <button
+                  type="button"
+                  aria-label="{{ 'cart.increase' | t: title: item.product.title }}"
+                  data-line="{{ item.key }}"
+                  data-quantity="{{ item.quantity | plus: 1 }}"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <button type="button" class="line__remove mono" data-line="{{ item.key }}" data-quantity="0">
+              {{- 'cart.remove' | t -}}
+            </button>
+            <p class="line__price">{{ item.final_line_price | money }}</p>
+          </li>
+        {%- endfor -%}
+      </ul>
+    {%- else -%}
+      <div class="cart__empty">
+        <p>{{ 'cart.empty' | t }}</p>
+        <p class="cart__empty-sub">{{ 'cart.empty_sub' | t }}</p>
+      </div>
+    {%- endif -%}
+
+    <div class="cart__foot{% if cart.item_count == 0 %} cart__foot--empty{% endif %}">
+      {%- if cart.item_count > 0 -%}
+        <p class="cart__subtotal">
+          <span>{{ 'cart.subtotal' | t }}</span>
+          <span>{{ cart.total_price | money }}</span>
+        </p>
+        <form action="{{ routes.cart_url }}" method="post">
+          <button type="submit" name="checkout" class="shop-btn shop-btn--dark shop-btn--center mono" data-roll-host>
+            {%- render 'roll-text', text: checkout_label -%}
+            {%- render 'icon-arrow' -%}
+          </button>
+        </form>
+      {%- else -%}
+        <a
+          href="{{ routes.all_products_collection_url }}"
+          class="shop-btn shop-btn--dark shop-btn--center mono"
+          data-roll-host
+          data-page-link
+          data-cart-close
+        >
+          {%- render 'roll-text', text: shop_label -%}
+        </a>
+      {%- endif -%}
+      <p class="cart__note mono">
+        {{ 'cart.note_before' | t }}
+        <a href="{{ shipping_url }}" data-page-link data-cart-close>{{ 'cart.note_link' | t }}</a>
+        {{ 'cart.note_after' | t }}
+      </p>
+    </div>
+  </aside>
+</kelv-cart-drawer>
+
+{% schema %}
+{
+  "name": "Cart drawer",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "The free shipping threshold is in Theme settings → Cart."
+    }
+  ]
+}
+{% endschema %}

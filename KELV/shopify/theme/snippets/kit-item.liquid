@@ -1,0 +1,10 @@
+{%- doc -%}
+  One product of the skin reading's kit, as JSON: its variant and its first selling plan (a refill), if any.
+
+  @param {object} product - The product
+{%- enddoc -%}
+{%- liquid
+  assign variant = product.selected_or_first_available_variant
+  assign plan = product.selling_plan_groups.first.selling_plans.first
+-%}
+{"id": {{ variant.id | json }}, "selling_plan": {% if plan %}{{ plan.id | json }}{% else %}null{% endif %}}

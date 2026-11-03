@@ -1,0 +1,180 @@
+{%- liquid
+  assign s = section.settings
+  assign kelv = product.metafields.kelv
+  assign variant = product.selected_or_first_available_variant
+  assign add_label = 'products.add_to_cart' | t
+  assign buy_label = 'products.buy_now' | t
+-%}
+<kelv-product>
+  <section class="pdp">
+    <div class="pdp__media">
+      <div class="pdp__hero">
+        {%- if kelv.step.value -%}
+          <span class="pill mono">{{ 'products.step' | t: step: kelv.step.value }}</span>
+        {%- endif -%}
+        <div class="pdp__product" data-reveal="blur">
+          <kelv-product-viewer class="viewer" data-model="{{ kelv.model.value | escape }}">
+            {{
+              product.featured_image
+              | image_url: width: 1024
+              | image_tag:
+                class: 'viewer__img',
+                alt: product.title,
+                widths: '480, 720, 1024',
+                sizes: '(max-width: 1023px) 100vw, 50vw',
+                loading: 'eager'
+            }}
+            {%- if kelv.model.value != blank -%}
+              <div class="viewer__stage" data-part="stage" data-lenis-prevent>
+                <canvas class="viewer__canvas" data-part="canvas" aria-hidden="true"></canvas>
+              </div>
+              <div class="viewer__zoom">
+                <button type="button" class="viewer__btn mono" aria-label="{{ 'products.zoom_in' | t }}" data-zoom="in">
+                  +
+                </button>
+                <button
+                  type="button"
+                  class="viewer__btn mono"
+                  aria-label="{{ 'products.zoom_out' | t }}"
+                  data-zoom="out"
+                >
+                  −
+                </button>
+              </div>
+            {%- endif -%}
+          </kelv-product-viewer>
+        </div>
+      </div>
+      <div class="pdp__scene">
+        {%- render 'image',
+          image: s.scene_image,
+          fallback: 'shop-scene.webp',
+          width: 2400,
+          height: 1600,
+          sizes: '(max-width: 1023px) 100vw, 50vw'
+        -%}
+      </div>
+    </div>
+
+    <div class="pdp__info" data-part="info">
+      <div class="pdp__intro">
+        <p class="crumbs mono" data-reveal>
+          <a href="{{ routes.all_products_collection_url }}" class="dim" data-page-link>
+            {{- 'products.breadcrumb' | t -}}
+          </a>
+          <span class="dim">/</span> {{ product.title | escape }}
+        </p>
+        <h1 class="pdp__title" data-reveal data-reveal-delay="0.05">
+          {{- kelv.display_title.value | default: product.title | escape -}}
+        </h1>
+        <p class="pdp__lead" data-reveal="lines" data-reveal-delay="0.1">
+          {{- product.description | strip_html | strip | escape -}}
+        </p>
+        <p class="pdp__price" data-reveal data-reveal-delay="0.15">{{ variant.price | money }}</p>
+      </div>
+
+      <div class="pdp__details">
+        <p class="pdp__label mono" data-reveal>{{ 'products.details' | t }}</p>
+        <p class="pdp__para" data-reveal="lines" data-reveal-delay="0.05">{{ kelv.details.value | escape }}</p>
+        <dl class="specs mono" data-reveal data-reveal-delay="0.1">
+          {%- for spec in kelv.specs.value -%}
+            <div>
+              <dt>{{ spec.label | escape }}</dt>
+              <dd>
+                {%- comment -%} Figma sets the amount of the size in bold ("150 ml, about 60 days"). {%- endcomment -%}
+                {%- if spec.label == 'Size' and spec.value contains ',' -%}
+                  {%- assign amount = spec.value | split: ',' | first -%}
+                  <b>{{ amount | escape }}</b>{{ spec.value | remove_first: amount | escape }}
+                {%- else -%}
+                  {{- spec.value | escape -}}
+                {%- endif -%}
+              </dd>
+            </div>
+          {%- endfor -%}
+        </dl>
+      </div>
+
+      {%- form 'product', product, class: 'buy', data-reveal: '', data-reveal-delay: '0.1' -%}
+        <input type="hidden" name="id" value="{{ variant.id }}">
+        <div class="stepper">
+          <button type="button" aria-label="{{ 'products.decrease' | t }}" data-step="-1">-</button>
+          <span aria-live="polite" data-part="quantity">1</span>
+          <button type="button" aria-label="{{ 'products.increase' | t }}" data-step="1">+</button>
+          <input type="hidden" name="quantity" value="1">
+        </div>
+        <button
+          type="submit"
+          class="shop-btn shop-btn--light mono"
+          data-roll-host
+          {% unless variant.available %}
+            disabled
+          {% endunless %}
+        >
+          {%- render 'roll-text', text: add_label -%}
+        </button>
+        <button
+          type="submit"
+          name="return_to"
+          value="{{ routes.root_url }}checkout"
+          class="shop-btn shop-btn--dark shop-btn--center mono"
+          data-roll-host
+          {% unless variant.available %}
+            disabled
+          {% endunless %}
+        >
+          {%- render 'roll-text', text: buy_label -%}
+        </button>
+      {%- endform -%}
+
+      {%- if kelv.how_to.value != blank -%}
+        <div class="acc pdp__acc">
+          <button type="button" class="acc__head" aria-expanded="false" aria-controls="{{ section.id }}-how">
+            <span>{{ 'products.how_to' | t }}</span>
+            <span class="acc__icon" aria-hidden="true"></span>
+          </button>
+          <div class="acc__body" id="{{ section.id }}-how">
+            <div class="acc__inner">
+              <ol class="pdp__steps">
+                {%- for step in kelv.how_to.value -%}
+                  <li>{{ step | escape }}</li>
+                {%- endfor -%}
+              </ol>
+            </div>
+          </div>
+        </div>
+      {%- endif -%}
+      {%- if kelv.inci.value != blank -%}
+        <div class="acc pdp__acc">
+          <button type="button" class="acc__head" aria-expanded="false" aria-controls="{{ section.id }}-inci">
+            <span>{{ 'products.inci' | t }}</span>
+            <span class="acc__icon" aria-hidden="true"></span>
+          </button>
+          <div class="acc__body" id="{{ section.id }}-inci">
+            <div class="acc__inner">
+              <p class="pdp__inci">{{ kelv.inci.value | escape }}</p>
+            </div>
+          </div>
+        </div>
+      {%- endif -%}
+      {%- if kelv.pairs.value != blank -%}
+        <div class="pairs">
+          <span class="pdp__label mono">{{ 'products.pairs' | t }}</span>
+          <span class="mono">{{ kelv.pairs.value | escape }}</span>
+        </div>
+      {%- endif -%}
+    </div>
+  </section>
+</kelv-product>
+
+{% schema %}
+{
+  "name": "Product",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "The texts come from the product and its kelv.* metafields; the 3D model from kelv.model."
+    },
+    { "type": "image_picker", "id": "scene_image", "label": "Image under the product" }
+  ]
+}
+{% endschema %}

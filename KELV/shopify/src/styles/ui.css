@@ -1,0 +1,94 @@
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-mono);
+  text-transform: uppercase;
+}
+
+.cta {
+  position: absolute;
+  /* `bottom`, not transform, so the text stays sharp while it moves (--cta-shift: Gallery) */
+  bottom: calc(var(--cta-bottom) + (50% - var(--cta-mid) - var(--cta-bottom)) * var(--cta-shift, 0));
+  display: inline-block;
+  overflow: hidden;
+  color: var(--hdr-ink);
+  text-decoration: none;
+  transition: bottom 0.15s linear, opacity 0.5s var(--ease-p2o);
+}
+.cta--l { left: var(--pad-edge); }
+.cta--r { right: var(--pad-edge); }
+
+.site-header { transition: opacity 0.5s var(--ease-p2o); }
+html.cta-off .cta { opacity: 0; pointer-events: none; }
+.cta__line {
+  position: absolute;
+  left: 0;
+  top: var(--cta-line-top);
+  width: 100%;
+  height: 0;
+  border-top: var(--cta-line-w) solid currentColor;
+  pointer-events: none;
+}
+
+.cta__line.is-sweeping { animation: navUnderlineSweep 0.9s ease-in-out; }
+@keyframes navUnderlineSweep {
+  0%   { opacity: 1; transform: translateX(0); }
+  44%  { opacity: 1; transform: translateX(104%); }
+  50%  { opacity: 0; transform: translateX(104%); }
+  51%  { opacity: 0; transform: translateX(-104%); }
+  57%  { opacity: 1; transform: translateX(-104%); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+:root { --roll-stagger: 0.03s; }
+.roll {
+  display: inline-flex;
+  align-items: flex-start;
+  height: 1.16em;
+  line-height: 1.16;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.roll__ch {
+  /* animated on `top`: a transformed text layer is resampled and looks soft mid-animation */
+  position: relative;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  transition: top 0.4s cubic-bezier(0.95, 0, 0.05, 1);
+  transition-delay: calc(var(--i) * var(--roll-stagger));
+}
+
+@media (hover: hover) {
+  [data-roll-host]:not(:disabled):hover .roll__ch { top: -1.16em; transition-delay: calc(var(--ri) * var(--roll-stagger)); }
+}
+[data-roll-host]:not(:disabled):focus-visible .roll__ch { top: -1.16em; transition-delay: calc(var(--ri) * var(--roll-stagger)); }
+
+[data-roll-host] > svg { transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+@media (hover: hover) { [data-roll-host]:not(:disabled):hover > svg { transform: rotate(-45deg); } }
+[data-roll-host]:not(:disabled):focus-visible > svg { transform: rotate(-45deg); }
+
+.js [data-reveal]:not(.rv-ready) { visibility: hidden; }
+.rv-line { display: block; }
+.js .rv {
+  opacity: 0;
+  transform: translateY(var(--rv-y)) scale(var(--rv-scale));
+  filter: blur(var(--rv-blur));
+  transition: opacity 0.8s var(--rv-ease), transform 0.8s var(--rv-ease), filter 0.8s var(--rv-ease);
+  transition-delay: var(--rv-delay, 0s);
+}
+.js .rv.is-in { opacity: 1; transform: none; filter: none; }
+
+.js .rv.rv--blur {
+  opacity: 1;
+  transform: none;
+  filter: blur(var(--mega-blur));
+  transition: filter 0.8s var(--rv-ease);
+  transition-delay: var(--rv-delay, 0s);
+}
+.js .rv.rv--blur.is-in { filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .js .rv, .js .rv.rv--blur { opacity: 1; transform: none; filter: none; transition: none; }
+  .roll__ch, .cta__line.is-sweeping { transition: none; animation: none; }
+}

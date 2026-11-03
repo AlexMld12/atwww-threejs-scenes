@@ -1,0 +1,116 @@
+{%- liquid
+  assign first = section.blocks.first.settings
+  assign count = section.blocks.size | prepend: '0'
+-%}
+<kelv-pillars>
+  <section class="pillars" id="pillars">
+    <div class="pillars__sticky" data-part="sticky">
+      <div class="zoom-card" data-part="zoom">
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign fallback = 'pillar-' | append: forloop.index | append: '.webp'
+            assign style = null
+            unless forloop.first
+              assign style = 'opacity: 0'
+            endunless
+          -%}
+          {%- render 'image',
+            image: block.settings.background,
+            fallback: fallback,
+            width: 1440,
+            height: 850,
+            class: 'pillar-bg',
+            style: style
+          -%}
+        {%- endfor -%}
+      </div>
+
+      <div class="pillar-rings" data-part="rings" aria-hidden="true"></div>
+
+      <div class="pillar-product" data-part="product" aria-hidden="true">
+        <canvas class="pillar-product__canvas"></canvas>
+        <div class="pillar-product__spin" data-part="spin">
+          <img class="pillar-product__face" src="{{ 'product-1.webp' | asset_url }}" alt="" width="1024" height="1024">
+          <img
+            class="pillar-product__face pillar-product__face--back"
+            src="{{ 'product-1.webp' | asset_url }}"
+            alt=""
+            width="1024"
+            height="1024"
+          >
+        </div>
+        <div class="pillar-product__hit" data-part="hit"></div>
+      </div>
+
+      <h2 class="pillar-title pl-el" data-part="title" style="--pl-accent: var(--c-{{ first.accent }})">
+        <span class="pillar-title__a" data-part="title-a">{{ first.title_a | escape }}</span>
+        <span class="pillar-title__b" data-part="title-b">{{ first.title_b | escape }}</span>
+      </h2>
+
+      <div class="pillar-copy pl-el" data-part="copy">
+        <p class="pillar-copy__num mono"><b class="pillar-copy__id" data-part="id">01</b>/{{ count }}</p>
+        <p class="pillar-copy__desc">{% render 'words', text: first.description %}</p>
+      </div>
+
+      <p class="pillar-tag mono pl-el">{% render 'lines', text: first.tagline %}</p>
+    </div>
+  </section>
+
+  <script type="application/json" data-part="data">
+    [
+      {%- for block in section.blocks -%}
+        {%- assign face = 'product-' | append: forloop.index | append: '.webp' -%}
+        {
+          "a": {{ block.settings.title_a | json }},
+          "b": {{ block.settings.title_b | json }},
+          "desc": {{ block.settings.description | json }},
+          "tag": {{ block.settings.tagline | json }},
+          "accent": {{ block.settings.accent | prepend: 'var(--c-' | append: ')' | json }},
+          "face": {{ face | asset_url | json }}
+        }
+        {%- unless forloop.last %},{% endunless -%}
+      {%- endfor -%}
+    ]
+  </script>
+</kelv-pillars>
+
+{% schema %}
+{
+  "name": "Pillars",
+  "enabled_on": { "groups": ["custom.home"] },
+  "max_blocks": 3,
+  "blocks": [
+    {
+      "type": "pillar",
+      "name": "Product",
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "The 3D product of each step is fixed: K1 Foam, K2 Serum, K3 Cream, in this order."
+        },
+        { "type": "text", "id": "title_a", "label": "Title, first word", "default": "Foam" },
+        { "type": "text", "id": "title_b", "label": "Title, second word", "default": "Cleanser" },
+        {
+          "type": "select",
+          "id": "accent",
+          "label": "Title colour",
+          "options": [
+            { "value": "orange", "label": "Orange" },
+            { "value": "ink", "label": "White" }
+          ],
+          "default": "orange"
+        },
+        { "type": "textarea", "id": "description", "label": "Description" },
+        { "type": "textarea", "id": "tagline", "label": "Line under the product", "info": "One line per row." },
+        { "type": "image_picker", "id": "background", "label": "Background", "info": "1440 × 850 or larger." }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Pillars",
+      "blocks": [{ "type": "pillar" }, { "type": "pillar" }, { "type": "pillar" }]
+    }
+  ]
+}
+{% endschema %}

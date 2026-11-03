@@ -1,0 +1,434 @@
+{
+  "products": [
+    {
+      "id": 1000,
+      "handle": "foam-cleanser",
+      "title": "Foam Cleanser",
+      "url": "/products/foam-cleanser",
+      "price": 4554,
+      "available": true,
+      "description": "<p>Lifts sweat, sunscreen and city residue without stripping. A cool finish that resets skin for the next step.</p>",
+      "featured_image": {
+        "src": "shop-product-k1.webp",
+        "width": 1024,
+        "height": 1024,
+        "alt": "Foam Cleanser"
+      },
+      "images": [
+        {
+          "src": "shop-product-k1.webp",
+          "width": 1024,
+          "height": 1024,
+          "alt": "Foam Cleanser"
+        }
+      ],
+      "variants": [
+        {
+          "id": 4000,
+          "title": "Default Title",
+          "price": 4554,
+          "available": true
+        }
+      ],
+      "selected_or_first_available_variant": {
+        "id": 4000,
+        "title": "Default Title",
+        "price": 4554,
+        "available": true
+      },
+      "tags": ["kelv"],
+      "metafields": {
+        "kelv": {
+          "display_title": {
+            "value": "Foam  Cleanser"
+          },
+          "code": {
+            "value": "K1/COOL"
+          },
+          "step": {
+            "value": 1
+          },
+          "summary": {
+            "value": "Lifts sweat, sunscreen and city residue without stripping. A cool finish that resets skin."
+          },
+          "active": {
+            "value": "Centella, Menthyl Lactate"
+          },
+          "when": {
+            "value": "Morning + evening"
+          },
+          "size": {
+            "value": "150 ml"
+          },
+          "details": {
+            "value": "The formula is built around Centella Asiatica and Panthenol, two ingredients known for calming skin that has been through a lot. Menthyl Lactate adds a gentle cooling sensation as you rinse, so the first thing you feel is the temperature dropping. No squeaky finish, no tightness afterwards."
+          },
+          "specs": {
+            "value": [
+              {
+                "label": "Skin type",
+                "value": "All skin types"
+              },
+              {
+                "label": "Scent",
+                "value": "Fragrance-free"
+              },
+              {
+                "label": "When",
+                "value": "Morning and evening, and after training"
+              },
+              {
+                "label": "Texture",
+                "value": "Light, airy foam with a cool finish"
+              },
+              {
+                "label": "Size",
+                "value": "150 ml, about 60 days of daily use"
+              },
+              {
+                "label": "PAO",
+                "value": "6 months after opening"
+              }
+            ]
+          },
+          "how_to": {
+            "value": [
+              "Wet your face with lukewarm water.",
+              "Pump two doses of foam into your palm and massage over your face for 30 seconds.",
+              "Rinse with cool water and pat dry.",
+              "Follow with K2 Active Serum while skin is still slightly damp."
+            ]
+          },
+          "inci": {
+            "value": "Aqua, Sodium Cocoyl Isethionate, Glycerin, Centella Asiatica Extract, Menthyl Lactate, Panthenol, Allantoin, Aloe Barbadensis Leaf Juice, Phenoxyethanol."
+          },
+          "pairs": {
+            "value": "K2 Active Serum, K3 Barrier Cream, Recovery Kit"
+          },
+          "faq": {
+            "value": [
+              {
+                "question": "Does it remove sunscreen and makeup?",
+                "answer": "It removes sunscreen and light makeup. For long-wear makeup, use a cleansing balm first, then K1."
+              },
+              {
+                "question": "Is the cooling feeling strong?",
+                "answer": "No. Menthyl Lactate gives a gentle cool as you rinse, and it fades within a minute."
+              },
+              {
+                "question": "Can I use it after training?",
+                "answer": "Yes. It is made for it: morning, evening and straight after a session, to clear sweat before it settles."
+              }
+            ]
+          },
+          "notes": {
+            "value": [
+              "The formula is built around Centella Asiatica and Panthenol, two ingredients known for calming skin that has been through a lot. Menthyl Lactate adds a gentle cooling sensation as you rinse, so the first thing you feel is the temperature dropping. No squeaky finish, no tightness afterwards.",
+              "The formula is built around Centella Asiatica and Panthenol, two ingredients known for calming skin that has been through a lot."
+            ]
+          },
+          "model": {
+            "value": "K1_COOL_Foam"
+          },
+          "image_centre": {
+            "value": 0.516
+          }
+        }
+      }
+    },
+    {
+      "id": 1001,
+      "handle": "active-serum",
+      "title": "Active Serum",
+      "url": "/products/active-serum",
+      "price": 4554,
+      "available": true,
+      "description": "<p>Takes the edge off redness and visible stress. Lightweight, absorbs fast.</p>",
+      "featured_image": {
+        "src": "shop-product-k2.webp",
+        "width": 1024,
+        "height": 1024,
+        "alt": "Active Serum"
+      },
+      "images": [
+        {
+          "src": "shop-product-k2.webp",
+          "width": 1024,
+          "height": 1024,
+          "alt": "Active Serum"
+        }
+      ],
+      "variants": [
+        {
+          "id": 4001,
+          "title": "Default Title",
+          "price": 4554,
+          "available": true
+        }
+      ],
+      "selected_or_first_available_variant": {
+        "id": 4001,
+        "title": "Default Title",
+        "price": 4554,
+        "available": true
+      },
+      "tags": ["kelv"],
+      "metafields": {
+        "kelv": {
+          "display_title": {
+            "value": "Active Serum"
+          },
+          "code": {
+            "value": "K2/CALM"
+          },
+          "step": {
+            "value": 2
+          },
+          "summary": {
+            "value": "Takes the edge off redness and visible stress. Lightweight, absorbs fast."
+          },
+          "active": {
+            "value": "Niacinamide 5%, Azelaic Acid"
+          },
+          "when": {
+            "value": "Evening, morning optional"
+          },
+          "size": {
+            "value": "30 ml"
+          },
+          "details": {
+            "value": "Niacinamide at 5% and Azelaic Acid work on the redness that heat and stress leave behind, while Madecassoside supports skin that feels reactive. The texture is a light, water-based gel that sinks in within seconds, so it sits comfortably under the Barrier Cream and never feels sticky."
+          },
+          "specs": {
+            "value": [
+              {
+                "label": "Skin type",
+                "value": "All skin types, including reactive"
+              },
+              {
+                "label": "Scent",
+                "value": "Fragrance-free"
+              },
+              {
+                "label": "When",
+                "value": "Evening, morning optional"
+              },
+              {
+                "label": "Texture",
+                "value": "Lightweight gel, absorbs fast"
+              },
+              {
+                "label": "Size",
+                "value": "30 ml, about 60 days of daily use"
+              },
+              {
+                "label": "PAO",
+                "value": "6 months after opening"
+              }
+            ]
+          },
+          "how_to": {
+            "value": [
+              "Cleanse with K1 Foam Cleanser and leave skin slightly damp.",
+              "Press one pump into your fingertips and pat it over the face and neck.",
+              "Give it a minute to absorb.",
+              "Seal with K3 Barrier Cream."
+            ]
+          },
+          "inci": {
+            "value": "Aqua, Niacinamide, Propanediol, Azelaic Acid, Glycerin, Madecassoside, Panthenol, Sodium Hyaluronate, Xanthan Gum, Phenoxyethanol."
+          },
+          "pairs": {
+            "value": "K1 Foam Cleanser, K3 Barrier Cream, Recovery Kit"
+          },
+          "faq": {
+            "value": [
+              {
+                "question": "Can I use it in the morning?",
+                "answer": "Yes. Evening is the base routine; on hot days or after training, add a morning pump and follow with sunscreen."
+              },
+              {
+                "question": "Will it make my skin tingle?",
+                "answer": "Rarely, and only for the first few uses. If it persists, use it every other evening for a week."
+              },
+              {
+                "question": "Can I combine it with retinol or acids?",
+                "answer": "Use them on alternate evenings rather than together, so the barrier is not overloaded."
+              }
+            ]
+          },
+          "notes": {
+            "value": [
+              "Niacinamide at 5% and Azelaic Acid work on the redness that heat and stress leave behind, while Madecassoside supports skin that feels reactive. A light gel that sinks in within seconds.",
+              "Built to sit between K1 and K3: it treats, the cream seals."
+            ]
+          },
+          "model": {
+            "value": "K2_CALM_Serum"
+          },
+          "image_centre": {
+            "value": 0.544
+          }
+        }
+      }
+    },
+    {
+      "id": 1002,
+      "handle": "barrier-cream",
+      "title": "Barrier Cream",
+      "url": "/products/barrier-cream",
+      "price": 4554,
+      "available": true,
+      "description": "<p>Locks hydration in and rebuilds the barrier overnight. Soft, never heavy.</p>",
+      "featured_image": {
+        "src": "shop-product-k3.webp",
+        "width": 1024,
+        "height": 1024,
+        "alt": "Barrier Cream"
+      },
+      "images": [
+        {
+          "src": "shop-product-k3.webp",
+          "width": 1024,
+          "height": 1024,
+          "alt": "Barrier Cream"
+        }
+      ],
+      "variants": [
+        {
+          "id": 4002,
+          "title": "Default Title",
+          "price": 4554,
+          "available": true
+        }
+      ],
+      "selected_or_first_available_variant": {
+        "id": 4002,
+        "title": "Default Title",
+        "price": 4554,
+        "available": true
+      },
+      "tags": ["kelv"],
+      "metafields": {
+        "kelv": {
+          "display_title": {
+            "value": "Barrier Cream"
+          },
+          "code": {
+            "value": "K3/SEAL"
+          },
+          "step": {
+            "value": 3
+          },
+          "summary": {
+            "value": "Locks hydration in and rebuilds the barrier overnight. Soft, never heavy."
+          },
+          "active": {
+            "value": "Ceramide NP, Beta-Glucan"
+          },
+          "when": {
+            "value": "Morning + evening, last step"
+          },
+          "size": {
+            "value": "50 ml"
+          },
+          "details": {
+            "value": "Ceramide NP replaces what heat, sweat and cleansing take out of the skin barrier, Squalane softens without a greasy film and Beta-Glucan holds water in through the night. It is the last step: a soft cream that seals everything underneath and leaves skin calm by morning."
+          },
+          "specs": {
+            "value": [
+              {
+                "label": "Skin type",
+                "value": "All skin types, best for dry and tight skin"
+              },
+              {
+                "label": "Scent",
+                "value": "Fragrance-free"
+              },
+              {
+                "label": "When",
+                "value": "Morning + evening, last step"
+              },
+              {
+                "label": "Texture",
+                "value": "Soft cream, never heavy"
+              },
+              {
+                "label": "Size",
+                "value": "50 ml, about 60 days of daily use"
+              },
+              {
+                "label": "PAO",
+                "value": "12 months after opening"
+              }
+            ]
+          },
+          "how_to": {
+            "value": [
+              "Apply after K2 Active Serum, once it has absorbed.",
+              "Warm a pea-sized amount between your fingertips.",
+              "Press it into the face and neck, from the centre outwards.",
+              "In the morning, follow with sunscreen."
+            ]
+          },
+          "inci": {
+            "value": "Aqua, Caprylic/Capric Triglyceride, Glycerin, Squalane, Cetearyl Alcohol, Ceramide NP, Beta-Glucan, Cholesterol, Sodium Hyaluronate, Tocopherol, Phenoxyethanol."
+          },
+          "pairs": {
+            "value": "K1 Foam Cleanser, K2 Active Serum, Recovery Kit"
+          },
+          "faq": {
+            "value": [
+              {
+                "question": "Is it rich enough for very dry skin?",
+                "answer": "Yes. On very dry areas, add a second thin layer in the evening."
+              },
+              {
+                "question": "Will it clog pores?",
+                "answer": "The formula is built around light emollients and skin-identical lipids, chosen not to sit heavy on the skin."
+              },
+              {
+                "question": "Can I use it under makeup?",
+                "answer": "Yes. Give it a few minutes to settle, then apply sunscreen and makeup as usual."
+              }
+            ]
+          },
+          "notes": {
+            "value": [
+              "Ceramide NP replaces what heat, sweat and cleansing take out of the barrier, Squalane softens without a greasy film and Beta-Glucan holds water in through the night.",
+              "The last step of the routine: it seals K1 and K2 in."
+            ]
+          },
+          "model": {
+            "value": "K3_SEAL_Cream"
+          },
+          "image_centre": {
+            "value": 0.544
+          }
+        }
+      }
+    }
+  ],
+  "coming_soon": [
+    {
+      "group": "serum",
+      "name": "Serum Xbionic",
+      "summary": "A post-training serum that cools flushed skin fast and calms it before it settles red."
+    },
+    {
+      "group": "serum",
+      "name": "Face Serum",
+      "summary": "A daily hydrating serum for skin that tightens in dry air, heating or AC."
+    },
+    {
+      "group": "cleanser",
+      "name": "Gel Cleanser",
+      "summary": "A clear gel cleanser for oily and shine-prone skin, built for hot days and humid cities."
+    },
+    {
+      "group": "cleanser",
+      "name": "Cleansing Balm",
+      "summary": "Melts long-wear makeup and water-resistant sunscreen before K1, without leaving a film."
+    }
+  ]
+}

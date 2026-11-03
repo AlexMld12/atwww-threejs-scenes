@@ -1,0 +1,18 @@
+{%- comment -%} Not in Figma: laid out as the legal pages, the only shop page made of a title and a link. {%- endcomment -%}
+<article class="legal">
+  <header class="legal__head">
+    <h1 class="legal__title" data-reveal="blur">{{ 'templates.404.title' | t }}</h1>
+  </header>
+  <p class="legal__other mono" data-reveal>
+    <a href="{{ routes.all_products_collection_url }}" class="sweep" data-page-link>
+      {{- 'templates.404.back' | t -}}
+    </a>
+  </p>
+</article>
+
+{% schema %}
+{
+  "name": "Page not found",
+  "tag": "section"
+}
+{% endschema %}

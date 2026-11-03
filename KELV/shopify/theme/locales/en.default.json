@@ -1,0 +1,79 @@
+{
+  "general": {
+    "home": "KELV — home",
+    "loading": "Loading"
+  },
+  "templates": {
+    "404": {
+      "title": "Page not found",
+      "back": "Back to the shop"
+    }
+  },
+  "newsletter": {
+    "email": "Email address",
+    "invalid_email": "Invalid email address",
+    "consent": "By submitting, you agree to our",
+    "privacy_policy": "Privacy Policy",
+    "subscribed": "Thanks, you're on the list",
+    "already_subscribed": "This email is already on the list",
+    "accept": "I accept the",
+    "privacy_policy_lower": "privacy policy"
+  },
+  "footer": {
+    "label": "Footer",
+    "privacy": "Privacy policy",
+    "refund": "Refund policy",
+    "shipping": "Shipping policy",
+    "terms": "Terms of use",
+    "products": "Products",
+    "explore": "Explore",
+    "shop": "Shop",
+    "homepage": "Homepage",
+    "cart": "Cart",
+    "socials": "Socials",
+    "terms_heading": "Terms"
+  },
+  "cart": {
+    "link": "Cart [ {{ count }} ]",
+    "title": "Cart",
+    "close": "Close",
+    "free_shipping_missing_html": "You’re only <strong>{{ amount }} away</strong> to get free shipping",
+    "free_shipping": "Your order ships free",
+    "remove": "Remove",
+    "decrease": "Decrease quantity of {{ title }}",
+    "increase": "Increase quantity of {{ title }}",
+    "empty": "Your cart is empty",
+    "empty_sub": "Start adding products",
+    "subtotal": "Subtotal",
+    "checkout": "Proceed to checkout",
+    "shop": "Buy it now",
+    "note_before": "Taxes and",
+    "note_link": "shipping",
+    "note_after": "calculated at checkout"
+  },
+  "policies": {
+    "read_terms": "Read the terms of use",
+    "read_privacy": "Read the privacy policy",
+    "last_updated": "Last updated"
+  },
+  "products": {
+    "step": "Step {{ step }}/3",
+    "add_to_cart": "Add to cart",
+    "buy_now": "Buy it now",
+    "active": "Active",
+    "when": "When",
+    "size": "Size",
+    "details": "Details",
+    "how_to": "How to use",
+    "inci": "Ingredients (INCI)",
+    "pairs": "Pairs with",
+    "breadcrumb": "Products",
+    "view_all": "[View all]",
+    "decrease": "Decrease quantity",
+    "increase": "Increase quantity",
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out",
+    "coming_soon": "Coming soon",
+    "next": "Next"
+  }
+}

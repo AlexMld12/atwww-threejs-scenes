@@ -1,0 +1,42 @@
+{%- doc -%}
+  The hero's layers: glow, title, the products' frame and the copy.
+
+  @param {object} hero - The hero section's settings
+  @param {boolean} [copy] - The copy after the footer, already revealed, for the seamless loop back to the top
+{%- enddoc -%}
+<img
+  class="hero__glow"
+  src="{{ 'hero-glow.webp' | asset_url }}"
+  alt=""
+  width="2602"
+  height="2210"
+  {% unless copy %}
+    fetchpriority="high"
+  {% endunless %}
+  aria-hidden="true"
+>
+{%- if copy -%}
+  {%- render 'mega', tag: 'p', class: 'hero__mega', static: true -%}
+{%- else -%}
+  {%- render 'mega', tag: 'h1', class: 'hero__mega' -%}
+{%- endif -%}
+{%- comment -%} The Figma render's box: the 3D canvas is laid over it, and it is the no-WebGL fallback. {%- endcomment -%}
+<img
+  class="hero__placeholder"
+  src="{{ 'products-placeholder.webp' | asset_url }}"
+  alt=""
+  width="1322"
+  height="1377"
+  loading="lazy"
+  data-hero-target
+  aria-hidden="true"
+>
+{%- unless copy -%}
+  <p class="hero__info hero__info--l mono" data-reveal="lines" data-reveal-delay="0.1">{{ hero.info | escape }}</p>
+  <p class="hero__info hero__info--r mono" data-reveal="lines">{{ hero.info | escape }}</p>
+  <p class="hero__para" data-reveal="lines">{{ hero.paragraph | escape }}</p>
+{%- else -%}
+  <p class="hero__info hero__info--l mono">{{ hero.info | escape }}</p>
+  <p class="hero__info hero__info--r mono">{{ hero.info | escape }}</p>
+  <p class="hero__para">{{ hero.paragraph | escape }}</p>
+{%- endunless -%}

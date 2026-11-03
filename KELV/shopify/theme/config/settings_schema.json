@@ -1,0 +1,53 @@
+[
+  {
+    "name": "theme_info",
+    "theme_name": "KELV",
+    "theme_version": "0.1.0",
+    "theme_author": "ATWWW",
+    "theme_documentation_url": "https://github.com/AlexMld12/atwww-threejs-scenes",
+    "theme_support_url": "https://github.com/AlexMld12/atwww-threejs-scenes"
+  },
+  {
+    "name": "Cart",
+    "settings": [
+      {
+        "type": "number",
+        "id": "free_shipping_threshold",
+        "label": "Free shipping from",
+        "info": "Order total, in the store's currency, from which the cart shows free shipping.",
+        "default": 100
+      }
+    ]
+  },
+  {
+    "name": "Policies",
+    "settings": [
+      {
+        "type": "paragraph",
+        "content": "\"Last updated\" above each policy (Settings → Policies). Shopify does not give the date: change it here when the text changes. Empty: not shown."
+      },
+      {
+        "type": "text",
+        "id": "privacy_updated",
+        "label": "Privacy policy, last updated",
+        "default": "8 October 2026"
+      },
+      {
+        "type": "text",
+        "id": "terms_updated",
+        "label": "Terms of service, last updated",
+        "default": "8 October 2026"
+      },
+      {
+        "type": "text",
+        "id": "refund_updated",
+        "label": "Refund policy, last updated"
+      },
+      {
+        "type": "text",
+        "id": "shipping_updated",
+        "label": "Shipping policy, last updated"
+      }
+    ]
+  }
+]

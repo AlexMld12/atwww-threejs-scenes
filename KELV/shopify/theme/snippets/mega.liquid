@@ -1,0 +1,50 @@
+{%- doc -%}
+  BEYOND / ALWAYS / STATE OF MIND, placed letter by letter as in Figma (margins in em, from tools/mega_spacing.py).
+
+  @param {string} tag - `h1` in the hero, `p` in its copies
+  @param {string} class - Class of the block
+  @param {boolean} [static] - Already revealed (the hero copy at the end of the page)
+{%- enddoc -%}
+{%- liquid
+  assign rows = 'BEYOND|ALWAYS|STATEOFMIND' | split: '|'
+  assign classes = 'mega-cond mega-cond--1|mega-exp|mega-cond mega-cond--3' | split: '|'
+  assign delays = '0|0.07|0.14' | split: '|'
+  assign margins_1 = '1.1625,-0.0208,-0.0009,-0.0764,-0.0506,-0.0515' | split: ','
+  assign margins_2 = '0,-0.0552,-0.1122,-0.1516,-0.2216,-0.1034' | split: ','
+  assign margins_3 = '0.1678,-0.0313,-0.094,-0.0949,-0.031,0.0169,-0.0514,-0.0076,-0.0512,-0.0508,-0.0515' | split: ','
+-%}
+<{{ tag }} class="{{ class }}" aria-label="Beyond always state of mind">
+  {%- for row in rows -%}
+    {%- liquid
+      assign r = forloop.index0
+      case forloop.index
+        when 1
+          assign margins = margins_1
+        when 2
+          assign margins = margins_2
+        else
+          assign margins = margins_3
+      endcase
+      assign letters = row | split: ''
+    -%}
+    <span
+      class="{{ classes[r] }}"
+      {% unless static %}
+        data-reveal="blur" data-reveal-delay="{{ delays[r] }}"
+      {% endunless %}
+      aria-hidden="true"
+    >
+      {%- for letter in letters -%}
+        {%- liquid
+          assign blur = false
+          if r == 1 and forloop.first or r == 1 and forloop.last
+            assign blur = true
+          endif
+        -%}
+        {%- if blur %}<span class="blur">{% endif -%}
+        <i style="--m: {{ margins[forloop.index0] }}em">{{ letter }}</i>
+        {%- if blur %}</span>{% endif -%}
+      {%- endfor -%}
+    </span>
+  {%- endfor -%}
+</{{ tag }}>
