@@ -6,6 +6,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { ASSETS as PRODUCTS } from '../configurator/configurator-scene';
 import { dress, loadFinishes, VIEW_TRANSFORM, viewLut } from '../configurator/finishes';
 import { loadBitmap, uploadTextures } from '../upload';
+import { createAssembly } from './assembly';
 import { createSunCookie, fromBlender, LIGHT, SUN_COOKIE } from './sun';
 
 // The product page's hero: the product in 3D on the plaza (tools/blender_plaza.py). The plaza is two plates from
@@ -13,6 +14,20 @@ import { createSunCookie, fromBlender, LIGHT, SUN_COOKIE } from './sun';
 // leaves' moving shadow (foliage.ts) and by the product's, from its silhouette seen from the sun. The product has the
 // configurator's materials, lit by the same sun (with the leaves on it) and by the plaza seen from its seat.
 const ASSETS = '/plaza/';
+// A picture of the page in place of the hero's frame: the plaza from that picture's camera, without the product, and
+// the product in its pieces putting itself together (assembly.ts; tools/blender_gallery.py, view 'assembly').
+const ASSEMBLY = '/assembly/';
+
+/** A gallery camera (Blender's matrix, z-up) and its plates of the empty plaza. */
+export interface PlazaView {
+  matrix: number[][];
+  vFov: number;
+  size: [number, number];
+  scales: { sky: number; sun: number };
+}
+
+// Blender's camera (z-up) in three's axes
+const Z_UP = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
 
 // Motion: the camera eases back from nearer to Blender's pose as the page comes in, then leans a little with the
 // pointer. The arrow turns the product by a sixth of a turn.
@@ -68,6 +83,7 @@ uniform sampler2D contact;
 uniform mat4 plateMatrix;
 uniform mat4 silhouetteMatrix;
 uniform mat4 contactMatrix;
+uniform float contactShare;
 uniform vec2 scales;
 varying vec3 vWorld;
 
@@ -90,7 +106,7 @@ void main() {
   }
   float shade = 1.0 - covered / 17.0 * inside( s );
   vec2 c = ( contactMatrix * vec4( vWorld, 1.0 ) ).xy;
-  float occlusion = 1.0 - texture2D( contact, c ).g * inside( c ) * ${CONTACT.toFixed(2)};
+  float occlusion = 1.0 - texture2D( contact, c ).g * inside( c ) * ${CONTACT.toFixed(2)} * contactShare;
   vec3 colour = sky * occlusion + sun * sunCookie( vWorld ) * shade;
   gl_FragColor = vec4( viewTransform( colour ), 1.0 );
 }
@@ -201,11 +217,18 @@ export async function createPlazaScene(
     dimensions: number[];
     colour: string;
     onProgress: (fraction: number) => void;
+    /** A picture of the page instead of the hero: its camera, the product assembling in it. */
+    view?: PlazaView;
+    /** What is watched for the drawing to start before it shows (the canvas, under its mask, is unseen until the
+     *  mask opens). */
+    watch?: Element;
   },
 ) {
+  const { view } = options;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  // photographic plates: 1.5 device px a px is as sharp as they are, and a third of 2's pixels to draw
-  renderer.setPixelRatio(pixelRatio(1.5, 1.25));
+  // photographic plates: 1.5 device px a px is as sharp as they are, and a third of 2's pixels to draw; a picture
+  // lower down draws all the time (its pieces move): 1.25
+  renderer.setPixelRatio(view ? pixelRatio(1.25, 1) : pixelRatio(1.5, 1.25));
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // the view LUT already gives display values
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.shadowMap.enabled = true;
@@ -225,7 +248,7 @@ export async function createPlazaScene(
   };
   // the plates (3600 px) decoded off the main thread; uploaded before the first frame (below)
   const plate = (name: string, i: number) =>
-    loadBitmap(`${ASSETS}${name}.webp`).then((texture) => {
+    loadBitmap(view ? `${ASSEMBLY}${options.product}-${name}.webp` : `${ASSETS}${name}.webp`).then((texture) => {
       texture.generateMipmaps = false;
       texture.minFilter = THREE.LinearFilter;
       shares[i] = 1;
@@ -237,10 +260,10 @@ export async function createPlazaScene(
   const model = products.then((all) =>
     all[options.product]
       ? Promise.all([
-          gltfLoader.loadAsync(`${PRODUCTS}${options.product}.glb`, report(0)),
-          textureLoader.loadAsync(`${PRODUCTS}${options.product}-ao.webp`),
-          textureLoader.loadAsync(`${PRODUCTS}${options.product}-shadow.webp`),
-          loadFinishes(PRODUCTS, textureLoader),
+          gltfLoader.loadAsync(`${view ? ASSEMBLY : PRODUCTS}${options.product}.glb`, report(0)),
+          loadBitmap(`${view ? ASSEMBLY : PRODUCTS}${options.product}-ao.webp`, THREE.NoColorSpace, false),
+          loadBitmap(`${PRODUCTS}${options.product}-shadow.webp`, THREE.NoColorSpace),
+          loadFinishes(PRODUCTS),
         ]).then(([gltf, ao, contact, details]) => ({ meta: all[options.product], gltf, ao, contact, details }))
       : null,
   );
@@ -273,6 +296,18 @@ export async function createPlazaScene(
   );
   plateCamera.position.copy(rest.position);
   plateCamera.lookAt(rest.target);
+  if (view) {
+    // the picture's camera, still; its plates are its own frame exactly
+    new THREE.Matrix4()
+      .set(...(view.matrix.flat() as Parameters<THREE.Matrix4['set']>))
+      .premultiply(Z_UP)
+      .decompose(camera.position, camera.quaternion, camera.scale);
+    camera.fov = plateCamera.fov = view.vFov;
+    plateCamera.aspect = view.size[0] / view.size[1];
+    plateCamera.updateProjectionMatrix();
+    plateCamera.position.copy(camera.position);
+    plateCamera.quaternion.copy(camera.quaternion);
+  }
   plateCamera.updateMatrixWorld();
   const plateMatrix = BIAS.clone().multiply(plateCamera.projectionMatrix).multiply(plateCamera.matrixWorldInverse);
 
@@ -282,7 +317,8 @@ export async function createPlazaScene(
   const sun = new THREE.DirectionalLight(sunColour, meta.sun.strength * LIGHT.sun);
   sun.position.copy(towards).multiplyScalar(10);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  // a picture's product is a third of the hero's on screen
+  sun.shadow.mapSize.setScalar(view ? 1024 : 2048);
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.01;
   sun.shadow.radius = 2;
@@ -314,10 +350,13 @@ export async function createPlazaScene(
       sunPlate: { value: sunPlate },
       silhouette: { value: silhouette.texture },
       contact: { value: null },
+      contactShare: { value: 1 },
       plateMatrix: { value: plateMatrix },
       silhouetteMatrix: { value: silhouetteMatrix },
       contactMatrix: { value: contactMatrix },
-      scales: { value: new THREE.Vector2(meta.scales.sky * LIGHT.sky, meta.scales.sun * LIGHT.sun) },
+      scales: {
+        value: new THREE.Vector2((view ?? meta).scales.sky * LIGHT.sky, (view ?? meta).scales.sun * LIGHT.sun),
+      },
     },
   });
   for (const proxy of meta.proxies) {
@@ -340,14 +379,21 @@ export async function createPlazaScene(
 
   if (loaded) {
     const { gltf, ao, contact, details } = loaded;
-    ao.flipY = false; // glTF uvs
-    ao.colorSpace = THREE.NoColorSpace;
     plateMaterial.uniforms.contact.value = contact;
+    // an assembly's pieces each their own material (one program still): each takes its AO as it comes home
+    if (view)
+      gltf.scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) child.material = (child.material as THREE.Material).clone();
+      });
     painted = dress(gltf.scene, ao, details);
+    // once a material: the pieces of an assembly share theirs
+    const cookied = new Set<THREE.Material>();
     gltf.scene.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
       child.castShadow = child.receiveShadow = true;
       child.layers.enable(1);
+      if (cookied.has(child.material)) return;
+      cookied.add(child.material);
       withCookie(child.material as THREE.MeshStandardMaterial, cookie);
     });
     turntable.add(gltf.scene);
@@ -368,6 +414,7 @@ export async function createPlazaScene(
     textures.push(render);
   }
   painted.forEach((material) => material.color.copy(colour));
+  const assembly = view && loaded ? createAssembly(loaded.gltf.scene, options.product) : null;
 
   let silhouetteDirty = true;
   function drawSilhouette() {
@@ -375,11 +422,13 @@ export async function createPlazaScene(
     contactMatrix.copy(toContact).multiply(turntable.matrixWorld.clone().invert());
     silhouetteMatrix.copy(BIAS).multiply(silhouetteView.projectionMatrix).multiply(silhouetteView.matrixWorldInverse);
     const background = scene.background;
-    scene.overrideMaterial = white;
+    // an assembly's pieces each as present as they are (they fade in): their own flat white
+    scene.overrideMaterial = assembly ? null : white;
     renderer.setRenderTarget(silhouette);
     renderer.setClearColor(0x000000, 1);
     renderer.clear();
-    renderer.render(scene, silhouetteView);
+    if (assembly) assembly.silhouette(() => renderer.render(scene, silhouetteView));
+    else renderer.render(scene, silhouetteView);
     renderer.setRenderTarget(null);
     scene.overrideMaterial = null;
     scene.background = background;
@@ -388,6 +437,15 @@ export async function createPlazaScene(
 
   await uploadTextures(renderer, scene);
   await renderer.compileAsync(scene, camera);
+  // what compileAsync leaves for the first frame (the shadow's and the silhouette's programs): drawn now, while
+  // loading, not as the picture comes on screen
+  if (assembly)
+    for (const time of [assembly.whole, 0]) {
+      assembly.update(time);
+      drawSilhouette();
+      renderer.shadowMap.needsUpdate = true;
+      renderer.render(scene, camera);
+    }
 
   // ── size: the vertical view is Figma's frame at any width (the hero's height follows the clamp rule) ───────────
   const resize = () => {
@@ -395,6 +453,11 @@ export async function createPlazaScene(
     if (!width || !height) return;
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
+    if (view) {
+      // the picture keeps its frame's shape (Figma's): its view as rendered
+      camera.updateProjectionMatrix();
+      return;
+    }
     // a screen narrower than the frame (a phone upright): wide enough to hold the product, as the frame's middle
     // PORTRAIT_SHARE does, at the cost of height (the vertical view grows)
     const frameTan = Math.tan(THREE.MathUtils.degToRad(meta.vFov / 2));
@@ -407,8 +470,15 @@ export async function createPlazaScene(
   resizer.observe(canvas);
 
   let onScreen = true;
-  const visibility = new IntersectionObserver((entries) => (onScreen = entries.at(-1)!.isIntersecting));
-  visibility.observe(canvas);
+  const visibility = new IntersectionObserver((entries) => (onScreen = entries.at(-1)!.isIntersecting), {
+    // a picture draws from half a screen before it comes: its first frames' work done before the mask opens
+    rootMargin: options.watch ? '50% 0px' : '0px',
+  });
+  visibility.observe(options.watch ?? canvas);
+  // the assembly's clock runs only while the canvas itself is seen: it starts empty as it shows
+  let seen = !options.watch;
+  const sight = new IntersectionObserver((entries) => (seen = entries.at(-1)!.isIntersecting));
+  sight.observe(canvas);
 
   const pointer = { x: 0, y: 0 };
   const lean = { x: 0, y: 0 };
@@ -423,6 +493,7 @@ export async function createPlazaScene(
   const up = new THREE.Vector3().crossVectors(right, forward);
   let introStart = -1;
   let foliageAt = -Infinity;
+  let assemblyTime = 0;
   const turn = { from: 0, to: 0, start: -1 };
 
   const timer = new THREE.Timer();
@@ -432,18 +503,32 @@ export async function createPlazaScene(
     const time = timer.getElapsed();
     if (!onScreen) return;
 
-    // the camera: the intro's way back, then the pointer's lean
+    // the leaves sway slowly: their shadow at 30 frames a second is enough (the pieces' follow them every frame: at 30
+    // they stepped behind)
+    const shadowFrame = time - foliageAt >= 1 / 30;
+    if (assembly) {
+      if (seen) assemblyTime += dt;
+      // the studio's contact shadow is the assembled product's: it comes with the pieces
+      plateMaterial.uniforms.contactShare.value = assembly.update(assemblyTime);
+      if (assembly.moving(assemblyTime)) {
+        silhouetteDirty = true;
+        renderer.shadowMap.needsUpdate = true;
+      }
+    }
+
+    // the camera: the intro's way back, then the pointer's lean (a picture's camera stays as rendered)
     const intro = introStart < 0 ? 0 : expoOut(Math.min(1, (time - introStart) / INTRO.seconds));
     const k = 1 - Math.exp(-LEAN.rate * dt);
     lean.x += (pointer.x - lean.x) * k;
     lean.y += (pointer.y - lean.y) * k;
-    camera.position
-      .copy(rest.position)
-      .addScaledVector(forward, INTRO.push * (1 - intro))
-      .addScaledVector(up, INTRO.lift * (1 - intro))
-      .addScaledVector(right, lean.x * LEAN.x * intro)
-      .addScaledVector(up, -lean.y * LEAN.y * intro);
-    camera.lookAt(rest.target);
+    if (!view)
+      camera.position
+        .copy(rest.position)
+        .addScaledVector(forward, INTRO.push * (1 - intro))
+        .addScaledVector(up, INTRO.lift * (1 - intro))
+        .addScaledVector(right, lean.x * LEAN.x * intro)
+        .addScaledVector(up, -lean.y * LEAN.y * intro);
+    if (!view) camera.lookAt(rest.target);
 
     if (turn.start >= 0) {
       const t = Math.min(1, (time - turn.start) / TURN.seconds);
@@ -465,8 +550,7 @@ export async function createPlazaScene(
     }
 
     if (silhouetteDirty) drawSilhouette();
-    // the leaves sway slowly: their shadow at 30 frames a second is enough
-    if (time - foliageAt >= 1 / 30) {
+    if (shadowFrame) {
       foliageAt = time;
       foliage.update(renderer, time);
     }
@@ -495,6 +579,7 @@ export async function createPlazaScene(
       window.removeEventListener('pointermove', onPointer);
       resizer.disconnect();
       visibility.disconnect();
+      sight.disconnect();
       scene.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.geometry.dispose();
@@ -502,6 +587,7 @@ export async function createPlazaScene(
         }
       });
       foliage.dispose();
+      assembly?.dispose();
       silhouette.dispose();
       white.dispose();
       textures.forEach((texture) => texture.dispose());

@@ -532,7 +532,7 @@
     height: auto !important;
     margin-bottom: 36px;
     padding-top: 24px;
-    border-top: 2px solid rgb(47 74 58 / 0.15);
+    border-top: var(--qd-rule) solid rgb(47 74 58 / 0.15);
   }
 
   .pf__row:last-of-type {

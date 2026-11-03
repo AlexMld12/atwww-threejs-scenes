@@ -525,3 +525,10 @@ Deschise:
     proiect (Figma nu-l arată).
   - Panoul: al doilea „DIMENSIONS” din Figma e „MATERIALS”, iar „FINISH” de lângă desen e „PRODUCT” (linkul spre
     pagina produsului). SEND QUOTE REQUEST pune produsul, cu finisajul și numărul de bucăți, în lista de ofertă.
+
+## PAGINA DE PRODUS — animația de asamblare (2026-11-02), aprobată
+
+- Doar K4_1900 și K8_module (scenele EXPLODED din `SCENE_URBANE.blend`). Înlocuiește poza `wide` și rulează în buclă: piațeta goală → piesele două câte două, în ordinea de montaj (`SEQUENCE` în `scene/plaza/assembly.ts`), cu fade cât se fixează → 0.8 s montat → fade out 0.4 s.
+- Pipeline: `blender_exploded.py` → `blender_configurator.py --assembly` → `blender_gallery.py --views assembly` → `prepare_assembly.py` → `capture_assembly_posters.py`.
+- Performanța paginii: părțile grele pornesc pe rând (`inTurn`, `product/settle.ts`); configuratorul homepage-ului așteaptă să fie arătat; texturile mici se încarcă ca ImageBitmap.
+

@@ -127,7 +127,7 @@
   overflow: hidden;
   border-radius: var(--qd-radius);
   background: #f3f0ea;
-  box-shadow: 0 0 0 1px rgb(47 74 58 / 0.06);
+  box-shadow: 0 0 0 var(--qd-rule) rgb(47 74 58 / 0.06);
 }
 
 .qd__thumb img {
@@ -172,7 +172,7 @@
   padding: 0 var(--qd-stepper-pad);
   border-radius: var(--qd-radius);
   background: #fff;
-  box-shadow: 0 0 0 1px rgb(47 74 58 / 0.1);
+  box-shadow: 0 0 0 var(--qd-rule) rgb(47 74 58 / 0.1);
   font: 400 var(--qd-qty) / 1 var(--font-sans);
 }
 
@@ -252,7 +252,7 @@
   border: 0;
   border-radius: var(--qd-radius);
   background: #f3f0ea;
-  box-shadow: 0 0 0 1px rgb(23 17 15 / 0.1);
+  box-shadow: 0 0 0 var(--qd-rule) rgb(23 17 15 / 0.1);
   color: #17110f;
   font: 400 var(--qd-input) / 1.2 var(--font-sans);
   outline: none;
@@ -266,7 +266,7 @@
 
 .qd__input:focus,
 .qd__select select:focus {
-  box-shadow: 0 0 0 1px rgb(23 17 15 / 0.45);
+  box-shadow: 0 0 0 var(--qd-rule) rgb(23 17 15 / 0.45);
 }
 
 .qd__select {
@@ -312,7 +312,7 @@
   width: var(--qd-check);
   height: var(--qd-check);
   margin: 0;
-  border: 1px solid #17110f;
+  border: var(--qd-rule) solid #17110f;
   border-radius: 0;
   background: none;
   appearance: none;

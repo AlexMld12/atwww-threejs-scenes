@@ -8,6 +8,9 @@ one render: 'front' is that render, 'row' and 'square' its crops (the same camer
 
 blender -b --factory-startup -y --python tools/blender_gallery.py -- <out dir> [ids…] [--views front,row,square]
 → <id>-<view>-sky.hdr, -sun.hdr, -distance.png (16 bit), <id>-gallery.json (the cameras)
+
+The 'assembly' view (--views assembly --exploded <exploded.json>, tools/blender_exploded.py) is the plaza without the
+product, framed on the product flown apart: three.js puts the pieces back together in it (scene/plaza, assembly).
 """
 import json
 import math
@@ -24,6 +27,11 @@ only = None
 if '--views' in args:
     at = args.index('--views')
     only = args[at + 1].split(',')
+    del args[at : at + 2]
+EXPLODED = {}
+if '--exploded' in args:
+    at = args.index('--exploded')
+    EXPLODED = json.loads(Path(args[at + 1]).read_text(encoding='utf-8'))
     del args[at : at + 2]
 out = Path(args[0])
 out.mkdir(parents=True, exist_ok=True)
@@ -45,6 +53,8 @@ VIEWS = {
     'end': {'size': (708, 885), 'fov': 32, 'towards': (-0.25, -1, 0.42), 'fill': 0.92},
     'detail': {'size': (708, 885), 'fov': 34, 'towards': (0.22, -1, 0.1), 'fill': 1.0},
     # the fill across and up: Figma's bench takes 82 % of the width; a tall product stops at 74 % of the height
+    # the wide picture's place and direction, the product flown apart in it
+    'assembly': {'size': (1424, 801), 'fov': 28, 'towards': (0.5, -1, 0.3), 'fill': 0.86},
     'front': {'size': (1424, 801), 'fov': 46, 'towards': (0.4, -1, 0.2), 'fill': (0.82, 0.74), 'aim': 0.12},
     # crops of 'front' (u left → right, v top → bottom), measured: Figma lays the same image under all three
     'row': {'size': (708, 885), 'of': 'front', 'crop': ((8 + 608) / 3130, (716 + 608) / 3130, (7558 - 6890) / 2113, (8443 - 6890) / 2113)},
@@ -203,7 +213,7 @@ for pid in PRODUCTS:
     length = high.x - low.x
     views = {}
     for name, view in VIEWS.items():
-        if only and name not in only:
+        if (only and name not in only) or (name == 'assembly' and pid not in EXPLODED):
             continue
         size = (view['size'][0] * SCALE, view['size'][1] * SCALE)
         centre = None
@@ -211,6 +221,12 @@ for pid in PRODUCTS:
             front = views[view['of']]
             vfov, centre = crop({**view, 'name': name}, front)
             matrix = front['matrix']
+        elif name == 'assembly':
+            # the box of every piece at its furthest (and home): the product at rest sits in its middle
+            spread = [Vector(p['offset']) for p in EXPLODED[pid]]
+            far_low = Vector([min(low[i], *(low[i] + o[i] for o in spread)) for i in range(3)])
+            far_high = Vector([max(high[i], *(high[i] + o[i] for o in spread)) for i in range(3)])
+            target, region = (far_low + far_high) / 2, box_corners(far_low, far_high)
         elif name in ('wide', 'front'):
             # aimed above the middle by a share of the height: Figma's front picture has the product low in it
             target, region = middle + Vector((0, 0, view.get('aim', 0) * (high.z - low.z))), box_corners(low, high)
@@ -233,8 +249,17 @@ for pid in PRODUCTS:
         scene.cycles.use_denoising = True
         scene.cycles.filter_width = 1.5
         scene.render.dither_intensity = 1
+        empty = name == 'assembly'
+        for obj in objects:
+            obj.hide_render = empty
         render(out / f'{pid}-{name}-sky.hdr', False, True)
         render(out / f'{pid}-{name}-sun.hdr', True, False)
+        for obj in objects:
+            obj.hide_render = False
+        views[name] = {'matrix': matrix, 'vFov': vfov, 'size': view['size'], 'box': box}
+        if empty:
+            print('RENDERED', pid, name)
+            continue
         # the distance: one sample, no filter (a pixel is one place), 16-bit (sRGB-encoded: tools undo it)
         camera_at.inputs[0].default_value, camera_at.inputs[1].default_value, camera_at.inputs[2].default_value = (
             camera.matrix_world.translation

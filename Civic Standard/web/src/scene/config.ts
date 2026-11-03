@@ -114,11 +114,11 @@ export const HERO = {
 // `resumeS`. Full screen it covers the screen, then fits beside the panel as that comes in (`fitS`). The panel's
 // arrows change the picture with a wipe (`wipeS`). All of it eased in and out.
 export const PROJECTS = {
-  seekS: [1.4, 2.6],
-  seekPerRow: 0.35,
-  seekPerTurn: 0.5,
-  growFrom: 0.85,
-  growS: 1.6,
+  seekS: [0.8, 1.5],
+  seekPerRow: 0.2,
+  seekPerTurn: 0.3,
+  growFrom: 0.7,
+  growS: 1.0,
   shrinkS: 1.4,
   resumeS: 1.6,
   wipeS: 1.8,

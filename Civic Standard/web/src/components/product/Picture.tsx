@@ -3,13 +3,49 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { isHandheld, screenHeight } from '@/lib/device';
 import type { GalleryView } from '@/scene/plaza/gallery';
-import type { View } from './content';
-import { heroSettled } from './settle';
+import type { PlazaView } from '@/scene/plaza/plaza-scene';
+import { ASSEMBLED, ASSEMBLY_VIEW, FINISHES, firstFinish, productBySlug, slugById, type View } from './content';
+import { inTurn } from './settle';
 
 type Gallery = Record<string, { distanceMax: number; views: Record<string, GalleryView> }>;
 let gallery: Promise<Gallery> | null = null;
 const loadGallery = () =>
   (gallery ??= fetch('/gallery/gallery.json').then((r) => (r.ok ? (r.json() as Promise<Gallery>) : ({} as Gallery))));
+let assemblies: Promise<Record<string, PlazaView>> | null = null;
+const loadAssemblies = () =>
+  (assemblies ??= fetch('/assembly/assembly.json').then((r) => r.json() as Promise<Record<string, PlazaView>>));
+
+/** The product putting itself together, live, in the plaza from this picture's camera (scene/plaza/assembly.ts). */
+function createAssembly(canvas: HTMLCanvasElement, watch: Element, product: string, onReady: () => void) {
+  const page = productBySlug(slugById(product))!;
+  let cancelled = false;
+  let dispose: (() => void) | undefined;
+  inTurn(() =>
+    Promise.all([loadAssemblies(), import('@/scene/plaza/plaza-scene')]).then(([views, { createPlazaScene }]) =>
+      cancelled
+        ? null
+        : createPlazaScene(canvas, {
+            product,
+            dimensions: page.dimensions,
+            colour: FINISHES.find((f) => f.id === firstFinish(page))!.hex,
+            onProgress: () => undefined,
+            view: views[product],
+            watch,
+          }),
+    ),
+  )
+    .then((created) => {
+      if (!created) return;
+      if (cancelled) return created.dispose();
+      dispose = () => created.dispose();
+      onReady();
+    })
+    .catch((error) => console.error(error));
+  return () => {
+    cancelled = true;
+    dispose?.();
+  };
+}
 
 /**
  * A picture: the product in the plaza, the leaves' shadow moving over it (scene/plaza/gallery.ts). Under it a still of
@@ -30,6 +66,8 @@ export function Picture({
   const mask = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
+  // its still is the plaza empty, as its loop starts
+  const assembled = ASSEMBLED.has(product) && view === ASSEMBLY_VIEW;
 
   // Uncovered from the bottom up, as the site's images, but from the screen's foot, not the picture's: a picture
   // taller than what shows of it would otherwise uncover its unseen part first (a blank space) or, the other way,
@@ -59,25 +97,44 @@ export function Picture({
   useEffect(() => {
     let dispose: (() => void) | undefined;
     let cancelled = false;
+    // its turn ends as it is ready, or gone
+    let built = () => {};
+    if (assembled) {
+      const stop = createAssembly(canvas.current!, figure.current!, product, () => setReady(true));
+      return () => {
+        stop();
+        setReady(false);
+      };
+    }
     // a phone or a tablet keeps the still: the live leaves cost a whole WebGL context and a copy every frame
     if (isHandheld()) return;
-    heroSettled()
-      .then(() => Promise.all([loadGallery(), import('@/scene/plaza/gallery')]))
-      .then(([all, { createGalleryImage }]) => {
+    inTurn(() =>
+      Promise.all([loadGallery(), import('@/scene/plaza/gallery')]).then(([all, { createGalleryImage }]) => {
         const entry = all[product];
         // a view not rendered yet for this product: the still alone
         if (!entry?.views[view] || cancelled) return;
-        dispose = createGalleryImage(canvas.current!, `${product}-${view}`, entry.views[view], entry.distanceMax, () =>
-          setReady(true),
-        );
-      })
-      .catch((error) => console.error(error));
+        return new Promise<void>((resolve) => {
+          built = resolve;
+          dispose = createGalleryImage(
+            canvas.current!,
+            `${product}-${view}`,
+            entry.views[view],
+            entry.distanceMax,
+            () => {
+              setReady(true);
+              resolve();
+            },
+          );
+        });
+      }),
+    ).catch((error) => console.error(error));
     return () => {
       cancelled = true;
+      built();
       dispose?.();
       setReady(false);
     };
-  }, [product, view]);
+  }, [product, view, assembled]);
 
   return (
     // the figure is watched, its mask is clipped: a clipped element is unseen by an observer. React leaves the
@@ -85,7 +142,12 @@ export function Picture({
     <figure ref={figure} className={`picture ${className}`} data-view={view}>
       <div ref={mask} className={`picture__mask${ready ? ' is-ready' : ''}`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- a still under the canvas, Figma's size */}
-        <img className="picture__poster" src={`/gallery/${product}-${view}-poster.webp`} alt="" decoding="async" />
+        <img
+          className="picture__poster"
+          src={assembled ? `/assembly/${product}-poster.webp` : `/gallery/${product}-${view}-poster.webp`}
+          alt=""
+          decoding="async"
+        />
         <canvas ref={canvas} className="picture__canvas" />
         {children}
       </div>

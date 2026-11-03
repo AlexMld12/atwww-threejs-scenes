@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadBitmap } from '../upload';
 
 // The product studio's view transform, AgX with the High Contrast look (tools/blender_view_lut.py): a 48³ LUT over
 // log2(scene-linear), from 0.18 · 2^-10 to 0.18 · 2^6.5, giving display sRGB. AgX mixes the channels, so the hero's
@@ -15,30 +16,49 @@ const TILE_M = 0.5;
 /** The LUT as a uniform, shared by every material that ends with the view transform. */
 export const viewLut: THREE.IUniform<THREE.Data3DTexture | null> = { value: null };
 
-/** The LUT png: N tiles of N × N, red across a tile, green up (bottom row first in Blender), blue tile by tile. */
-export async function loadViewLut(url: string) {
+// The LUT png: N tiles of N × N, red across a tile, green up (bottom row first in Blender), blue tile by tile. Read
+// into the cube in a worker: decoded, read back and reordered on the main thread, it took a frame of the page's entrance.
+const READ_LUT = `onmessage = async ({ data: { url, n } }) => {
   const bitmap = await createImageBitmap(await (await fetch(url)).blob(), {
     colorSpaceConversion: 'none',
     premultiplyAlpha: 'none',
   });
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const context = canvas.getContext('2d')!;
+  const context = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d');
   context.drawImage(bitmap, 0, 0);
   const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
-  const n = LUT_SIZE;
-  const data = new Uint8Array(n * n * n * 4);
-  for (let b = 0; b < n; b++) {
-    for (let g = 0; g < n; g++) {
+  const cube = new Uint8Array(n * n * n * 4);
+  for (let b = 0; b < n; b++)
+    for (let g = 0; g < n; g++)
       for (let r = 0; r < n; r++) {
         const from = ((n - 1 - g) * bitmap.width + b * n + r) * 4;
         const to = (r + g * n + b * n * n) * 4;
-        data[to] = pixels[from];
-        data[to + 1] = pixels[from + 1];
-        data[to + 2] = pixels[from + 2];
-        data[to + 3] = 255;
+        cube[to] = pixels[from];
+        cube[to + 1] = pixels[from + 1];
+        cube[to + 2] = pixels[from + 2];
+        cube[to + 3] = 255;
       }
-    }
-  }
+  postMessage(cube, [cube.buffer]);
+};`;
+
+// read once: the hero, the pictures and the configurator each ask for it
+const luts = new Map<string, Promise<THREE.Data3DTexture>>();
+export const loadViewLut = (url: string) => {
+  if (!luts.has(url)) luts.set(url, readViewLut(url));
+  return luts.get(url)!;
+};
+
+async function readViewLut(url: string) {
+  const source = URL.createObjectURL(new Blob([READ_LUT], { type: 'text/javascript' }));
+  const worker = new Worker(source);
+  const n = LUT_SIZE;
+  const data = await new Promise<Uint8Array>((resolve, reject) => {
+    worker.onmessage = ({ data }) => resolve(data);
+    worker.onerror = reject;
+    worker.postMessage({ url: new URL(url, location.href).href, n });
+  }).finally(() => {
+    worker.terminate();
+    URL.revokeObjectURL(source);
+  });
   const texture = new THREE.Data3DTexture(data, n, n, n);
   texture.minFilter = texture.magFilter = THREE.LinearFilter;
   texture.wrapR = texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -112,12 +132,12 @@ export function detailTexture(texture: THREE.Texture, colour: boolean) {
 }
 
 /** The view LUT and both finishes' detail, from the configurator's assets. */
-export function loadFinishes(assets: string, loader: THREE.TextureLoader): Promise<Detail[]> {
+export function loadFinishes(assets: string): Promise<Detail[]> {
   return Promise.all([
     loadViewLut(assets + 'view-lut.png'),
     ...['plastic', 'zinc'].flatMap((name) =>
       ['colour', 'roughness'].map((kind) =>
-        loader.loadAsync(`${assets}finish-${name}-${kind}.webp`).then((t) => detailTexture(t, kind === 'colour')),
+        loadBitmap(`${assets}finish-${name}-${kind}.webp`).then((t) => detailTexture(t, kind === 'colour')),
       ),
     ),
   ]).then(([, plasticColour, plasticRoughness, zincColour, zincRoughness]) => [

@@ -57,6 +57,8 @@ export function createTakeover(bench: THREE.Texture, panels: Panel[][]) {
   // the tube's own angle while the seek eases in, and the front angle it eases to
   let free = 0;
   let seekTo: number | null = null;
+  // the way the tube was turning as the seek began
+  let heading = 1;
   let shownGrowth = 0;
 
   return {
@@ -92,8 +94,8 @@ export function createTakeover(bench: THREE.Texture, panels: Panel[][]) {
     /**
      * Turns the tube on from `angle`. Away from the landing it is the usual motion. Over the last seekScreens the
      * scroll itself brings the bench panel to the front: the tube's own motion fades out as the angle eases (in and
-     * out, with the rows' braking) to the nearest front angle, reached exactly at the landing. So the page never
-     * waits for it, and the turn is never more than half a turn of the bench's row.
+     * out, with the rows' braking) to the next front angle the way it was already turning, reached exactly at the
+     * landing. So the page never waits for it, and the tube never turns back: a far panel just comes round faster.
      */
     turn(angle: number, motion: number, scroll: number, dt: number) {
       const p = clamp01((scroll - seekStart) / (landingScroll - seekStart));
@@ -105,10 +107,13 @@ export function createTakeover(bench: THREE.Texture, panels: Panel[][]) {
       }
       if (seekTo === null) {
         free = angle;
-        seekTo = angleFront(angle, 0);
+        heading = Math.sign(motion) || 1;
+        seekTo = angleFront(angle, heading);
       }
       const e = smooth(p);
-      free += motion * dt * (1 - e);
+      // its own motion stops at the front, so a pause mid-seek never carries it past and back
+      const next = free + motion * dt * (1 - e);
+      free = heading > 0 ? Math.min(next, seekTo) : Math.max(next, seekTo);
       locked = p >= 1;
       return free + (seekTo - free) * e;
     },

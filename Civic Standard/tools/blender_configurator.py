@@ -9,6 +9,8 @@
 
 blender -b -y PRODUSE_STUDIO_FARA_BG.blend --python tools/blender_configurator.py -- <out dir> [ids…]
 then tools/prepare_configurator.py. The .blend is never saved.
+With --assembly <exploded.json> (tools/blender_exploded.py) those products also give <id>-assembly.glb: the same
+product in the exploded view's pieces (tools/prepare_assembly.py → the product page's picture that assembles).
 """
 import json
 import math
@@ -19,6 +21,12 @@ import bpy
 from mathutils import Matrix, Vector
 
 args = sys.argv[sys.argv.index('--') + 1 :]
+# --assembly <exploded.json>: these products also as their pieces (export_assembly)
+ASSEMBLY = {}
+if '--assembly' in args:
+    at = args.index('--assembly')
+    ASSEMBLY = json.loads(Path(args[at + 1]).read_text(encoding='utf-8'))
+    del args[at : at + 2]
 out = Path(args[0])
 out.mkdir(parents=True, exist_ok=True)
 
@@ -228,6 +236,8 @@ def export_product(pid):
     visiting = home is not scene
     if visiting:
         home.collection.objects.link(joined)
+    if pid in ASSEMBLY:
+        export_assembly(pid, joined)
     for obj in bpy.context.view_layer.objects:
         obj.select_set(obj == joined)
     bpy.ops.export_scene.gltf(
@@ -275,6 +285,59 @@ def export_product(pid):
     }
     (out / f'{pid}.json').write_text(json.dumps(meta, indent=1))
     print('DONE', pid, round(size, 2), pixels)
+
+
+def export_assembly(pid, joined):
+    """<id>-assembly.glb: the joined product (its AO atlas, its finishes) split back into the exploded view's pieces
+    (tools/blender_exploded.py), one node each, its fly-out in extras.offset (Blender's z-up metres)."""
+    pieces = ASSEMBLY[pid]
+    copy = joined.copy()
+    copy.data = joined.data.copy()
+    bpy.context.scene.collection.objects.link(copy)
+    bpy.context.view_layer.objects.active = copy
+    for obj in bpy.context.view_layer.objects:
+        obj.select_set(obj == copy)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.separate(type='LOOSE')
+    bpy.ops.object.mode_set(mode='OBJECT')
+    parts = list(bpy.context.selected_objects)
+    taken = set()
+    for part in parts:
+        world = [part.matrix_world @ v.co for v in part.data.vertices]
+        box = [[min(c[i] for c in world) for i in range(3)], [max(c[i] for c in world) for i in range(3)]]
+        # the exploded piece whose own box is nearest: the same geometry, so a match is ~0
+        error, index = min(
+            (sum(abs(box[k][i] - b[k][i]) for k in range(2) for i in range(3)), n)
+            for n, piece in enumerate(pieces)
+            for b in piece['parts']
+        )
+        if error > 0.01 or index in taken:
+            print('ASSEMBLY MISMATCH', pid, part.name, round(error, 4), pieces[index]['name'])
+        taken.add(index)
+        part.name = f"{pid}_{pieces[index]['name']}"
+        part['offset'] = pieces[index]['offset']
+        part['role'] = pieces[index]['role']
+    print('ASSEMBLY', pid, len(parts), 'parts for', len(pieces), 'pieces')
+    for obj in bpy.context.view_layer.objects:
+        obj.select_set(obj in parts)
+    bpy.ops.export_scene.gltf(
+        filepath=str(out / f'{pid}-assembly.glb'),
+        export_format='GLB',
+        use_selection=True,
+        export_apply=True,
+        export_yup=True,
+        export_texcoords=True,
+        export_normals=True,
+        export_attributes=True,
+        export_extras=True,
+        export_materials='EXPORT',
+        export_image_format='NONE',
+        export_cameras=False,
+        export_lights=False,
+    )
+    for part in parts:
+        bpy.data.objects.remove(part)
 
 
 def bake_finish(scene, material_name, key):

@@ -17,7 +17,7 @@
 .pp__rule {
   left: var(--dv-edge);
   right: var(--dv-edge);
-  height: var(--dv-rule);
+  height: var(--pp-rule);
   background: rgb(0 0 0 / 0.1);
   transform: scaleX(0);
   transform-origin: left;

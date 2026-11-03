@@ -32,7 +32,14 @@ export function Configurator() {
   useEffect(() => {
     let cancelled = false;
     let scene: Scene | null = null;
-    import('@/scene/configurator/configurator-scene')
+    let wait = 0;
+    // made once its page shows: under another page (entered on a product's) its loads took that page's first frames
+    const shown = new Promise<void>((resolve) => {
+      const check = () => (root.current?.closest('[hidden]') ? (wait = window.setTimeout(check, 500)) : resolve());
+      check();
+    });
+    shown
+      .then(() => import('@/scene/configurator/configurator-scene'))
       .then(({ createConfiguratorScene }) =>
         createConfiguratorScene(canvas.current!, canvas.current!, {
           first: FIRST,
@@ -61,6 +68,7 @@ export function Configurator() {
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(wait);
       scene?.dispose();
       sceneRef.current = null;
     };

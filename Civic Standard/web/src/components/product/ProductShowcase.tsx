@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { FINISHES, firstFinish, paletteStatement, type Page } from './content';
-import { heroSettled } from './settle';
+import { inTurn } from './settle';
 import { Statement } from './Statement';
 
 type Scene = Awaited<ReturnType<typeof import('@/scene/showcase').createShowcaseScene>>;
@@ -31,12 +31,12 @@ export function ProductShowcase({ page }: { page: Page }) {
       const progress = (-block.top - start) / (block.height - start - stage.offsetHeight);
       scene.current?.setTurn(Math.min(1, Math.max(0, progress)));
     };
-    heroSettled()
-      .then(() => import('@/scene/showcase'))
-      // gone while it waited (a remount): nothing built
-      .then(({ createShowcaseScene }) =>
+    inTurn(() =>
+      import('@/scene/showcase').then(({ createShowcaseScene }) =>
+        // gone while it waited (a remount): nothing built
         cancelled ? null : createShowcaseScene(canvas.current!, { product: page.id, colour }),
-      )
+      ),
+    )
       .then((created) => {
         if (!created) return;
         // dropped before use (a remount): the canvas and its context stay for the next scene

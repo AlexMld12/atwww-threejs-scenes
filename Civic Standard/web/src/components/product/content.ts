@@ -76,6 +76,9 @@ export const STORY = {
 };
 
 export const PICTURES = ['wide', 'end', 'detail'] as const;
+// the products with the colleague's exploded view (tools/blender_exploded.py): their wide picture puts them together
+export const ASSEMBLED = new Set(['K4_1900', 'K8_module']);
+export const ASSEMBLY_VIEW = 'wide';
 // the SPEC SHEET's picture and the two cards' crops of it (tools/blender_gallery.py)
 export type View = (typeof PICTURES)[number] | 'front' | 'row' | 'square';
 

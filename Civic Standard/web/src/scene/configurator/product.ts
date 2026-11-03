@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { loadBitmap } from '../upload';
 import { dress, loadFinishes, type Detail } from './finishes';
 
 // A product from the colleague's studio (tools/blender_configurator.py): its model in the studio's materials, its
@@ -43,8 +44,7 @@ export function createProductLoader(renderer: THREE.WebGLRenderer, scene: THREE.
   scene.add(...lights);
 
   // shared assets: the view LUT and the two finishes' detail
-  const textureLoader = new THREE.TextureLoader();
-  const shared = loadFinishes(ASSETS, textureLoader);
+  const shared = loadFinishes(ASSETS);
   const metas: Promise<Record<string, Meta>> = fetch(ASSETS + 'products.json').then((r) => r.json());
   // eslint-disable-next-line react-hooks/rules-of-hooks -- not a hook: the decoder's worker pool
   MeshoptDecoder.useWorkers(2); // decoding off the main thread
@@ -86,21 +86,27 @@ export function createProductLoader(renderer: THREE.WebGLRenderer, scene: THREE.
         if (event.total) shares[i] = event.loaded / event.total;
         onProgress?.((shares[0] * 6 + shares[1] + shares[2]) / 8);
       };
+      // decoded off the main thread: no progress, it is there or not
+      const done =
+        (i: number) =>
+        <T>(value: T) => {
+          shares[i] = 1;
+          onProgress?.((shares[0] * 6 + shares[1] + shares[2]) / 8);
+          return value;
+        };
       cache.set(
         id,
         Promise.all([
           gltfLoader.loadAsync(`${ASSETS}${id}.glb`, report(0)),
           metas,
-          textureLoader.loadAsync(`${ASSETS}${id}-ao.webp`, report(1)),
-          textureLoader.loadAsync(`${ASSETS}${id}-shadow.webp`, report(2)),
+          loadBitmap(`${ASSETS}${id}-ao.webp`, THREE.NoColorSpace, false).then(done(1)),
+          loadBitmap(`${ASSETS}${id}-shadow.webp`, THREE.NoColorSpace).then(done(2)),
           hdrLoader.loadAsync(`${ASSETS}${id}-env.hdr`),
           shared,
         ]).then(async ([gltf, all, ao, shadow, studio, details]) => {
           studio.mapping = THREE.EquirectangularReflectionMapping;
           const environment = pmrem.fromEquirectangular(studio).texture;
           studio.dispose();
-          ao.flipY = false; // glTF uvs
-          ao.colorSpace = THREE.NoColorSpace;
           const loaded = build(gltf, all[id], ao, shadow, environment, details);
           // compiled and uploaded now (outside the scene, with its lights), so showing it later costs no frame
           // every texture of its materials too (the finishes' maps), one a frame: an upload can take tens of ms
