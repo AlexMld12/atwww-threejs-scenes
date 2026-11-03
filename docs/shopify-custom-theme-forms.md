@@ -11,7 +11,7 @@ Simptomele pe care le rezolvă:
 
 ## Cum funcționează formularul la Shopify
 
-`{% form 'customer' %}` face POST pe `/contact` (`form_type=customer`, `contact[email]`, `contact[tags]`…).
+Tag-ul Liquid `form 'customer'` face POST pe `/contact` (`form_type=customer`, `contact[email]`, `contact[tags]`…).
 Shopify injectează în `content_for_header` un script inline (`<script id="captcha-bootstrap">`) care face trei lucruri:
 
 1. **Pune un `form_key`.** Ascultă `submit` pe `document` (bubble). Dacă un formular contact/customer nu are
